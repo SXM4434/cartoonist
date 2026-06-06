@@ -144,7 +144,7 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
       const res = await fetch("/api/cartoonist-draw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript: fullContext, latest, existing: summarizeCanvas() }),
+        body: JSON.stringify({ transcript: fullContext, latest, existing: summarizeCanvas(), sessionContext: sessionCtx }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
