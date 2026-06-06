@@ -330,6 +330,38 @@ function RoomShell({ roomId }: { roomId: string }) {
     }
   }, [committed]);
 
+  const runDemo = useCallback(async () => {
+    if (demoRunning) return;
+    setDemoRunning(true);
+    setDemoCards([]);
+    const script: Array<{ say: string; speaker: string; card?: Omit<DemoCard, "x" | "y"> }> = [
+      { speaker: "Sam (PM)", say: "Okay team, let's map out the onboarding flow. What's the first friction point users hit?" },
+      { speaker: "Alex (Design)", say: "The signup form. Too many fields up front.", card: { id: "d1", type: "sticky", text: "Signup form too long", author: "Alex" } },
+      { speaker: "Jordan (Eng)", say: "Agreed. We could defer profile fields until after first action.", card: { id: "d2", type: "sticky", text: "Defer profile to post-activation", author: "Jordan" } },
+      { speaker: "Sam (PM)", say: "Love it. So step one is just email + password.", card: { id: "d3", type: "flowStep", text: "1. Email + password" } },
+      { speaker: "Alex (Design)", say: "Then drop them straight into a sample workspace.", card: { id: "d4", type: "flowStep", text: "2. Sample workspace" } },
+      { speaker: "Jordan (Eng)", say: "And a tooltip tour on the first key action.", card: { id: "d5", type: "flowStep", text: "3. Guided first action" } },
+      { speaker: "Sam (PM)", say: "Decision: ship the slim signup behind a flag next sprint.", card: { id: "d6", type: "decision", text: "Ship slim signup behind flag — next sprint" } },
+      { speaker: "Alex (Design)", say: "I'll mock the new form by Thursday.", card: { id: "d7", type: "actionItem", text: "Mock new signup form", author: "Alex — Thu" } },
+      { speaker: "Jordan (Eng)", say: "I'll wire the feature flag and migration.", card: { id: "d8", type: "actionItem", text: "Feature flag + DB migration", author: "Jordan" } },
+    ];
+    for (let i = 0; i < script.length; i++) {
+      const step = script[i];
+      setDemoLine(`${step.speaker}: ${step.say}`);
+      await new Promise((r) => setTimeout(r, 1600));
+      if (step.card) {
+        const col = i % 4;
+        const row = Math.floor(i / 4);
+        setDemoCards((prev) => [
+          ...prev,
+          { ...step.card!, x: 40 + col * 240, y: 40 + row * 160 },
+        ]);
+      }
+    }
+    setDemoLine("Demo complete — this is what a live session feels like.");
+    setDemoRunning(false);
+  }, [demoRunning]);
+
   return (
     <div className="flex h-screen flex-col bg-background">
       {/* Masthead — editorial bar, hairline rule, no blur/shadow */}
