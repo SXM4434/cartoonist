@@ -229,7 +229,7 @@ function RoomShell({ roomId }: { roomId: string }) {
           }),
         });
         const data = await res.json();
-        if (data.ops && Array.isArray(data.ops)) {
+        if (data.ops && Array.isArray(data.ops) && cards != null) {
           applyOps(data.ops as Op[]);
           // persist canvas events
           for (const op of data.ops) {
@@ -248,6 +248,10 @@ function RoomShell({ roomId }: { roomId: string }) {
   }, [isLive, committed, cards, others, self, applyOps, roomId]);
 
   const addAnonNote = useCallback(() => {
+    if (cards == null) {
+      toast.error("Canvas is still connecting…");
+      return;
+    }
     const text = window.prompt("Anonymous note:");
     if (!text) return;
     applyOps([
@@ -259,7 +263,7 @@ function RoomShell({ roomId }: { roomId: string }) {
         category: "idea",
       },
     ]);
-  }, [applyOps]);
+  }, [applyOps, cards]);
 
   const copyLink = () => {
     navigator.clipboard.writeText(window.location.href);
