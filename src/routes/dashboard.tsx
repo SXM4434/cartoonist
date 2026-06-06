@@ -95,8 +95,11 @@ function Dashboard() {
                   <ArrowRight className="h-4 w-4 opacity-0 transition group-hover:opacity-100" />
                 </div>
                 <h3 className="mt-3 font-serif" style={{ fontSize: "var(--step-3)" }}>{s.name}</h3>
-                <p className="mt-1 text-muted-foreground" style={{ fontSize: "var(--step-1)" }}>
-                  {s.type} · {s.mode} · {new Date(s.createdAt).toLocaleDateString()}
+                {s.goal && (
+                  <p className="mt-1 text-foreground/70 line-clamp-2" style={{ fontSize: "var(--step-1)" }}>{s.goal}</p>
+                )}
+                <p className="mt-2 text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
+                  {(s.outputs ?? []).slice(0, 3).join(" · ") || "no outputs set"} · {new Date(s.createdAt).toLocaleDateString()}
                 </p>
               </button>
             ))}
