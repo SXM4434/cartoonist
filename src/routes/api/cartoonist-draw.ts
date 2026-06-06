@@ -57,7 +57,7 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
           });
         }
 
-        let body: { transcript?: string; latest?: string; existing?: string };
+        let body: { transcript?: string; latest?: string; existing?: string; sessionContext?: { name?: string; goal?: string; outputs?: string[]; facilitation?: string; hostRole?: string } | null };
         try {
           body = await request.json();
         } catch {
@@ -76,7 +76,24 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
           });
         }
 
-        const userMsg = `# Already on canvas (do NOT repeat any of these)\n${body.existing || "(empty)"}\n\n# Full recent conversation\n${transcript}\n\n# Latest chunk to react to\n${latest || transcript}`;
+        const ctx = body.sessionContext;
+        const ctxBlock = ctx && (ctx.goal || ctx.name) ? `# Session setup (use this as the through-line for everything you draw)
+Title: ${ctx.name || "(untitled)"}
+Goal: ${ctx.goal || "(not set)"}
+Desired outputs: ${(ctx.outputs ?? []).join(", ") || "(none)"}
+Host role: ${ctx.hostRole || "(unspecified)"}
+Your mode: ${ctx.facilitation || "scribe"} — ${ctx.facilitation === "facilitator" ? "actively prompt, summarize, push toward decisions visually." : ctx.facilitation === "devils-advocate" ? "surface risks, gaps, and counterpoints as pink stickies and warning icons." : "stay quiet, draw what you hear, don't editorialize."}
+
+` : "";
+
+        const userMsg = `${ctxBlock}# Already on canvas (do NOT repeat any of these)
+${body.existing || "(empty)"}
+
+# Full recent conversation
+${transcript}
+
+# Latest chunk to react to
+${latest || transcript}`;
 
         const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
