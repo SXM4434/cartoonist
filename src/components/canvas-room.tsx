@@ -50,10 +50,14 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
     const cached = window.localStorage.getItem(`cartoonist_joined_${roomId}`);
     const name = window.localStorage.getItem("cartoonist_user_name");
     const color = window.localStorage.getItem("cartoonist_user_color") ?? "#E07A3E";
+    const storedMode = window.localStorage.getItem(`cartoonist_input_mode_${roomId}`) as "voice" | "chat" | null;
+    const storedPid = window.localStorage.getItem(`cartoonist_participant_${roomId}`);
+    if (storedMode) setInputMode(storedMode);
+    if (storedPid) setSelfPid(storedPid);
     if (cached && name) {
       setJoined(true);
       setIntroOpen(false);
-      setParticipants([{ id: "local", name, color }]);
+      setParticipants([{ id: storedPid ?? "local", name, color }]);
     }
     (async () => {
       const { data: room } = await supabase
