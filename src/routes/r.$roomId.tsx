@@ -1,8 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { ClientOnly } from "@tanstack/react-router";
-import { CanvasRoom } from "@/components/canvas-room";
+import { createFileRoute, lazyRouteComponent } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/r/$roomId")({
+  ssr: false,
   head: ({ params }) => ({
     meta: [
       { title: `Cartoonist room — ${params.roomId.slice(0, 8)}` },
@@ -13,14 +12,5 @@ export const Route = createFileRoute("/r/$roomId")({
       },
     ],
   }),
-  component: RoomPage,
+  component: lazyRouteComponent(() => import("@/components/room-page")),
 });
-
-function RoomPage() {
-  const { roomId } = Route.useParams();
-  return (
-    <ClientOnly fallback={<div className="p-8 text-muted-foreground">Loading room…</div>}>
-      <CanvasRoom roomId={roomId} />
-    </ClientOnly>
-  );
-}
