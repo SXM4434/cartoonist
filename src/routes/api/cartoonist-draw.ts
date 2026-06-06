@@ -57,7 +57,7 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
           });
         }
 
-        let body: { transcript?: string; existing?: string };
+        let body: { transcript?: string; latest?: string; existing?: string };
         try {
           body = await request.json();
         } catch {
@@ -68,14 +68,15 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
         }
 
         const transcript = (body.transcript ?? "").trim();
-        if (transcript.length < 12) {
+        const latest = (body.latest ?? "").trim();
+        if ((latest || transcript).length < 12) {
           return new Response(JSON.stringify({ shapes: [], rationale: "not enough transcript" }), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });
         }
 
-        const userMsg = `# Already on canvas\n${body.existing || "(empty)"}\n\n# Recent transcript\n${transcript}`;
+        const userMsg = `# Already on canvas (do NOT repeat any of these)\n${body.existing || "(empty)"}\n\n# Full recent conversation\n${transcript}\n\n# Latest chunk to react to\n${latest || transcript}`;
 
         const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
