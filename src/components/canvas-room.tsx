@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useScribe, CommitStrategy } from "@elevenlabs/react";
-import { Mic, MicOff, Sparkles, StickyNote, Copy, Check, FileDown, Loader2 } from "lucide-react";
+import { Mic, MicOff, Sparkles, StickyNote, Copy, Check, FileDown, Loader2, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { LiveList } from "@liveblocks/client";
