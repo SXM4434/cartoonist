@@ -248,6 +248,10 @@ function RoomShell({ roomId }: { roomId: string }) {
   }, [isLive, committed, cards, others, self, applyOps, roomId]);
 
   const addAnonNote = useCallback(() => {
+    if (cards == null) {
+      toast.error("Canvas is still connecting…");
+      return;
+    }
     const text = window.prompt("Anonymous note:");
     if (!text) return;
     applyOps([
