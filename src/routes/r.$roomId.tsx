@@ -12,5 +12,5 @@ export const Route = createFileRoute("/r/$roomId")({
       },
     ],
   }),
-  component: lazyRouteComponent(() => import("@/components/room-page"), "RoomPage"),
+  component: lazyRouteComponent(() => import("@/components/room-page")),
 });
