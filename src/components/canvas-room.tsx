@@ -47,11 +47,24 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
     return shapes
       .slice(-30)
       .map((s) => {
-        if (s.type === "arrow") return `arrow[${s.id}] ${s.x1},${s.y1}→${s.x2},${s.y2}${s.label ? ` "${s.label}"` : ""}`;
-        if (s.type === "line") return `line[${s.id}]`;
-        if (s.type === "text") return `text[${s.id}] "${s.text}"`;
-        if (s.type === "stroke") return `stroke[${s.id}]`;
-        return `${s.type}[${s.id}] @${s.x},${s.y} ${s.w}x${s.h}${"label" in s && s.label ? ` "${s.label}"` : ""}`;
+        switch (s.type) {
+          case "arrow":
+            return `arrow[${s.id}] ${s.x1},${s.y1}→${s.x2},${s.y2}${s.label ? ` "${s.label}"` : ""}`;
+          case "line":
+            return `line[${s.id}] ${s.x1},${s.y1}→${s.x2},${s.y2}`;
+          case "text":
+            return `text[${s.id}] @${s.x},${s.y} "${s.text}"`;
+          case "note":
+            return `note[${s.id}] @${s.x},${s.y} "${s.text}"`;
+          case "icon":
+            return `icon[${s.id}] ${s.kind} @${s.x},${s.y}${s.label ? ` "${s.label}"` : ""}`;
+          case "path":
+            return `path[${s.id}] ${s.points.length}pts`;
+          case "stroke":
+            return `stroke[${s.id}]`;
+          default:
+            return `${s.type}[${s.id}] @${s.x},${s.y} ${s.w}x${s.h}${s.label ? ` "${s.label}"` : ""}`;
+        }
       })
       .join("\n");
   }, [shapes]);
