@@ -404,6 +404,10 @@ function RoomShell({ roomId }: { roomId: string }) {
             <StickyNote className="h-3.5 w-3.5" />
             <span className="eyebrow">Anon</span>
           </Button>
+          <Button size="sm" variant="outline" onClick={runDemo} disabled={demoRunning} className="h-8 gap-1.5 rounded-none border-border">
+            <Play className="h-3.5 w-3.5" />
+            <span className="eyebrow">{demoRunning ? "Playing…" : "Demo"}</span>
+          </Button>
           {isLive ? (
             <Button size="sm" onClick={stopMic} className="h-8 gap-1.5 rounded-none bg-foreground text-background hover:bg-foreground/90">
               <MicOff className="h-3.5 w-3.5" />
