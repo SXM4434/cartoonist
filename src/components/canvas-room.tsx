@@ -67,15 +67,14 @@ function RoomShell({ roomId }: { roomId: string }) {
     for (const op of ops) {
       if (op.type === "connect") {
         const id = `conn_${op.from}_${op.to}`;
-        if (!connList.toArray().some((c) => c.id === id)) {
+        if (!connList.find((c: Connection) => c.id === id)) {
           connList.push({ id, from: op.from, to: op.to, label: op.label });
         }
         continue;
       }
 
-      const existing = cardsList.toArray();
-      if (existing.some((c) => c.id === op.id)) continue;
-      const pos = randomXY(existing.length);
+      if (cardsList.find((c: Card) => c.id === op.id)) continue;
+      const pos = randomXY(cardsList.length);
       let card: Card;
       switch (op.type) {
         case "sticky":
