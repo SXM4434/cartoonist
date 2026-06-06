@@ -386,43 +386,58 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
         </div>
       )}
 
-      <div className="relative flex-1 overflow-hidden">
-        <SketchCanvas
-          shapes={shapes}
-          freehand={freehand}
-          drawingEnabled={drawing}
-          onFreehandComplete={(stroke) => setFreehand((current) => [...current, stroke])}
-        />
+      <div className="flex flex-1 overflow-hidden">
+        <div className="relative flex-1 overflow-hidden">
+          <SketchCanvas
+            shapes={shapes}
+            freehand={freehand}
+            drawingEnabled={drawing}
+            onFreehandComplete={(stroke) => setFreehand((current) => [...current, stroke])}
+          />
 
-        {shapes.length === 0 && freehand.length === 0 && (
-          <div className="pointer-events-none absolute left-8 top-8 max-w-md border border-border bg-background p-5">
-            <p className="eyebrow text-primary">Whiteboard ready</p>
-            <p className="mt-2 font-serif" style={{ fontSize: "var(--step-3)" }}>
-              Hit Listen and start talking, or ask Cartoonist to draw something below.
-            </p>
-            <p className="mt-2 text-foreground/70" style={{ fontSize: "var(--step-0)" }}>
-              Try: "draw the signup flow with email, Google, and a verify-email step."
-            </p>
+          {shapes.length === 0 && freehand.length === 0 && (
+            <div className="pointer-events-none absolute left-8 top-8 max-w-md border border-border bg-background p-5">
+              <p className="eyebrow text-primary">Whiteboard ready</p>
+              <p className="mt-2 font-serif" style={{ fontSize: "var(--step-3)" }}>
+                {inputMode === "chat"
+                  ? "Type in the Stream on the right, or ask Cartoonist to draw below."
+                  : "Hit Listen and start talking, or ask Cartoonist to draw something below."}
+              </p>
+              <p className="mt-2 text-foreground/70" style={{ fontSize: "var(--step-0)" }}>
+                Try: "draw the signup flow with email, Google, and a verify-email step."
+              </p>
+            </div>
+          )}
+
+          <form
+            onSubmit={(e) => { e.preventDefault(); void askDraw(); }}
+            className="absolute bottom-5 left-1/2 z-10 flex w-[min(640px,calc(100%-2.5rem))] -translate-x-1/2 items-center gap-2 border border-border bg-background px-3 py-2"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            <input
+              value={askText}
+              onChange={(e) => setAskText(e.target.value)}
+              placeholder="Ask Cartoonist to draw something…"
+              className="flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
+              style={{ fontSize: "var(--step-1)" }}
+            />
+            <Button type="submit" size="sm" variant="outline" disabled={!askText.trim() || thinking} className="h-7 rounded-none border-border">
+              <Send className="h-3.5 w-3.5" />
+            </Button>
+          </form>
+        </div>
+
+        {chatOpen && (
+          <div className="w-[320px] shrink-0">
+            <ChatPanel
+              roomId={roomId}
+              selfParticipantId={selfPid}
+              selfName={participants[0]?.name ?? "You"}
+              selfColor={participants[0]?.color ?? "#E07A3E"}
+              onChatMessage={handleChatMessage}
+            />
           </div>
         )}
-
-        {/* Prompt bar — works without mic */}
-        <form
-          onSubmit={(e) => { e.preventDefault(); void askDraw(); }}
-          className="absolute bottom-5 left-1/2 z-10 flex w-[min(640px,calc(100%-2.5rem))] -translate-x-1/2 items-center gap-2 border border-border bg-background px-3 py-2"
-        >
-          <Sparkles className="h-3.5 w-3.5 text-primary" />
-          <input
-            value={askText}
-            onChange={(e) => setAskText(e.target.value)}
-            placeholder="Ask Cartoonist to draw something…"
-            className="flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
-            style={{ fontSize: "var(--step-1)" }}
-          />
-          <Button type="submit" size="sm" variant="outline" disabled={!askText.trim() || thinking} className="h-7 rounded-none border-border">
-            <Send className="h-3.5 w-3.5" />
-          </Button>
-        </form>
       </div>
 
       {!joined && <IntroModal open={introOpen} onClose={() => setIntroOpen(false)} onSubmit={handleIntroSubmit} />}
