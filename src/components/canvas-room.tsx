@@ -1,30 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useScribe, CommitStrategy } from "@elevenlabs/react";
-import { Mic, MicOff, Sparkles, StickyNote, Copy, Check, FileDown, Loader2, Play } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Check, Copy, FileDown, Mic, MicOff, Play, Sparkles, StickyNote } from "lucide-react";
 import { toast } from "sonner";
-import { LiveList } from "@liveblocks/client";
-import {
-  RoomProvider,
-  useRoom,
-  useMutation,
-  useStorage,
-  useOthers,
-  useSelf,
-  type Card,
-  type Connection,
-} from "@/lib/liveblocks";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import type { Card, Connection, Participant } from "@/lib/canvas-types";
+import { ArtifactTabs, type Artifacts } from "./artifact-tabs";
 import { CanvasBoard } from "./canvas-board";
 import { IntroModal } from "./intro-modal";
-import { supabase } from "@/integrations/supabase/client";
-import { ArtifactTabs, type Artifacts } from "./artifact-tabs";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 type Op =
   | { type: "sticky"; id: string; text: string; author?: string; category?: string }
@@ -35,22 +19,40 @@ type Op =
   | { type: "connect"; from: string; to: string; label?: string }
   | { type: "section"; id: string; title: string; kind?: string };
 
+const DEMO_TRANSCRIPT = [
+  "Sam (PM): Okay team, let's map out the onboarding flow. What's the first friction point users hit?",
+  "Alex (Design): The signup form. Too many fields up front.",
+  "Jordan (Eng): Agreed. We could defer profile fields until after first action.",
+  "Sam (PM): Love it. So step one is just email and password.",
+  "Alex (Design): Then drop them straight into a sample workspace.",
+  "Jordan (Eng): And a tooltip tour on the first key action.",
+  "Sam (PM): Decision: ship the slim signup behind a flag next sprint.",
+  "Alex (Design): I'll mock the new form by Thursday.",
+  "Jordan (Eng): I'll wire the feature flag and migration.",
+];
+
 function randomXY(idx: number) {
-  // simple flow layout: rows of 4
   const col = idx % 4;
   const row = Math.floor(idx / 4);
-  return {
-    x: 120 + col * 260,
-    y: 120 + row * 200,
-  };
+  return { x: 120 + col * 260, y: 120 + row * 200 };
 }
 
-function RoomShell({ roomId }: { roomId: string }) {
-  const room = useRoom();
-  const cards = useStorage((root) => root.cards) as readonly Card[] | null;
-  const others = useOthers();
-  const self = useSelf();
+function cardFromOp(op: Exclude<Op, { type: "connect" }>, idx: number, createdAtMs: number): Card {
+  const pos = randomXY(idx);
+  if (op.type === "sticky") return { id: op.id, type: "sticky", text: op.text, author: op.author, category: op.category, x: pos.x, y: pos.y, createdAtMs };
+  if (op.type === "flowStep") return { id: op.id, type: "flowStep", text: op.label, x: pos.x, y: pos.y, createdAtMs };
+  if (op.type === "journeyStep") return { id: op.id, type: "journeyStep", text: op.label, author: op.persona, x: pos.x, y: pos.y, createdAtMs };
+  if (op.type === "decision") return { id: op.id, type: "decision", text: op.label, x: pos.x, y: pos.y, createdAtMs };
+  if (op.type === "actionItem") return { id: op.id, type: "actionItem", text: op.task, owner: op.owner, x: pos.x, y: pos.y, createdAtMs };
+  return { id: op.id, type: "section", text: op.title, kind: op.kind, x: pos.x, y: pos.y, createdAtMs };
+}
 
+export function CanvasRoom({ roomId }: { roomId: string }) {
+  const [introOpen, setIntroOpen] = useState(true);
+  const [joined, setJoined] = useState(false);
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [cards, setCards] = useState<Card[]>([]);
+  const [connections, setConnections] = useState<Connection[]>([]);
   const [committed, setCommitted] = useState<string[]>([]);
   const [partial, setPartial] = useState("");
   const [isLive, setIsLive] = useState(false);
@@ -58,147 +60,61 @@ function RoomShell({ roomId }: { roomId: string }) {
   const [artifacts, setArtifacts] = useState<Artifacts>({});
   const [generating, setGenerating] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
-  const [storageError, setStorageError] = useState(false);
-
-  type DemoCard = { id: string; type: string; text: string; author?: string; x: number; y: number };
-  const [demoCards, setDemoCards] = useState<DemoCard[]>([]);
-  const [demoLine, setDemoLine] = useState<string>("");
+  const [demoLine, setDemoLine] = useState("");
   const [demoRunning, setDemoRunning] = useState(false);
 
+  const startedAtRef = useRef(Date.now());
   const lastProcessedIdx = useRef(0);
-  const startedAtRef = useRef<number>(Date.now());
-  const [storageReady, setStorageReady] = useState(() => room.isStorageReady());
+
+  const participantNames = useMemo(() => participants.map((p) => p.name), [participants]);
 
   useEffect(() => {
-    let cancelled = false;
-    setStorageError(false);
-    setStorageReady(room.isStorageReady());
-    void room
-      .waitUntilStorageReady()
-      .then(() => {
-        if (!cancelled) setStorageReady(true);
-      })
-      .catch((error) => {
-        console.error("Live canvas connection failed", error);
-        if (!cancelled) setStorageError(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [room]);
-
-  const applyOps = useMutation((context, ops: Op[]) => {
-    if (!room.isStorageReady()) return false;
-    const cardsList = context.storage.get("cards") as LiveList<Card>;
-    const connList = context.storage.get("connections") as LiveList<Connection>;
-
-    for (const op of ops) {
-      if (op.type === "connect") {
-        const id = `conn_${op.from}_${op.to}`;
-        if (!connList.find((c: Connection) => c.id === id)) {
-          connList.push({ id, from: op.from, to: op.to, label: op.label });
-        }
-        continue;
-      }
-
-      if (cardsList.find((c: Card) => c.id === op.id)) continue;
-      const pos = randomXY(cardsList.length);
-      let card: Card;
-      switch (op.type) {
-        case "sticky":
-          card = {
-            id: op.id,
-            type: "sticky",
-            text: op.text,
-            author: op.author,
-            category: op.category,
-            x: pos.x,
-            y: pos.y,
-            createdAtMs: Date.now() - startedAtRef.current,
-          };
-          break;
-        case "flowStep":
-          card = {
-            id: op.id,
-            type: "flowStep",
-            text: op.label,
-            x: pos.x,
-            y: pos.y,
-            createdAtMs: Date.now() - startedAtRef.current,
-          };
-          if (op.connectsFrom) {
-            const id = `conn_${op.connectsFrom}_${op.id}`;
-            if (!connList.find((c: Connection) => c.id === id)) {
-              connList.push({ id, from: op.connectsFrom, to: op.id });
-            }
-          }
-          break;
-        case "journeyStep":
-          card = {
-            id: op.id,
-            type: "journeyStep",
-            text: op.label,
-            author: op.persona,
-            x: pos.x,
-            y: pos.y,
-            createdAtMs: Date.now() - startedAtRef.current,
-          };
-          break;
-        case "decision":
-          card = {
-            id: op.id,
-            type: "decision",
-            text: op.label,
-            x: pos.x,
-            y: pos.y,
-            createdAtMs: Date.now() - startedAtRef.current,
-          };
-          break;
-        case "actionItem":
-          card = {
-            id: op.id,
-            type: "actionItem",
-            text: op.task,
-            owner: op.owner,
-            x: pos.x,
-            y: pos.y,
-            createdAtMs: Date.now() - startedAtRef.current,
-          };
-          break;
-        case "section":
-          card = {
-            id: op.id,
-            type: "section",
-            text: op.title,
-            kind: op.kind,
-            x: pos.x,
-            y: pos.y,
-            createdAtMs: Date.now() - startedAtRef.current,
-          };
-          break;
-        default:
-          continue;
-      }
-      cardsList.push(card);
+    if (typeof window === "undefined") return;
+    const cached = window.localStorage.getItem(`cartoonist_joined_${roomId}`);
+    const name = window.localStorage.getItem("cartoonist_user_name");
+    const color = window.localStorage.getItem("cartoonist_user_color") ?? "#E07A3E";
+    if (cached && name) {
+      setJoined(true);
+      setIntroOpen(false);
+      setParticipants([{ id: "local", name, color }]);
     }
-    return true;
-  }, [room]);
+  }, [roomId]);
+
+  const applyOps = useCallback((ops: Op[]) => {
+    const createdAtMs = Date.now() - startedAtRef.current;
+    setCards((current) => {
+      const next = [...current];
+      for (const op of ops) {
+        if (op.type === "connect" || next.some((card) => card.id === op.id)) continue;
+        next.push(cardFromOp(op, next.length, createdAtMs));
+      }
+      return next;
+    });
+    setConnections((current) => {
+      const next = [...current];
+      for (const op of ops) {
+        if (op.type === "connect") {
+          const id = `conn_${op.from}_${op.to}`;
+          if (!next.some((conn) => conn.id === id)) next.push({ id, from: op.from, to: op.to, label: op.label });
+        } else if (op.type === "flowStep" && op.connectsFrom) {
+          const id = `conn_${op.connectsFrom}_${op.id}`;
+          if (!next.some((conn) => conn.id === id)) next.push({ id, from: op.connectsFrom, to: op.id });
+        }
+      }
+      return next;
+    });
+  }, []);
 
   const scribe = useScribe({
     modelId: "scribe_v2_realtime",
     commitStrategy: CommitStrategy.VAD,
     onPartialTranscript: (d: { text: string }) => setPartial(d.text ?? ""),
     onCommittedTranscript: (d: { text: string }) => {
-      const t = (d.text ?? "").trim();
-      if (!t) return;
-      setCommitted((p) => [...p, t]);
+      const text = (d.text ?? "").trim();
+      if (!text) return;
+      setCommitted((current) => [...current, text]);
       setPartial("");
-      // persist
-      void supabase.from("transcript_chunks").insert({
-        room_id: roomId,
-        text: t,
-        t_offset_ms: Date.now() - startedAtRef.current,
-      });
+      void supabase.from("transcript_chunks").insert({ room_id: roomId, text, t_offset_ms: Date.now() - startedAtRef.current });
     },
   });
 
@@ -206,16 +122,14 @@ function RoomShell({ roomId }: { roomId: string }) {
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
       const res = await fetch("/api/elevenlabs/scribe-token", { method: "POST" });
-      const { token } = await res.json();
-      await scribe.connect({
-        token,
-        microphone: { echoCancellation: true, noiseSuppression: true },
-      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.token) throw new Error(data.error ?? "Mic token unavailable");
+      await scribe.connect({ token: data.token, microphone: { echoCancellation: true, noiseSuppression: true } });
       setIsLive(true);
       toast.success("Cartoonist is listening");
-    } catch (e) {
-      console.error(e);
-      toast.error("Mic failed");
+    } catch (error) {
+      console.error(error);
+      toast.error("Mic is unavailable — use Demo instead");
     }
   }, [scribe]);
 
@@ -226,105 +140,67 @@ function RoomShell({ roomId }: { roomId: string }) {
     setIsLive(false);
   }, [scribe]);
 
-  // AI mediator loop: every 10s when live, process new transcript chunks
   useEffect(() => {
-    if (!isLive || !storageReady) return;
+    if (!isLive) return;
     const interval = setInterval(async () => {
       const newChunks = committed.slice(lastProcessedIdx.current);
       if (newChunks.length === 0) return;
       const transcript = newChunks.join(" ");
       lastProcessedIdx.current = committed.length;
-
-      const canvasSummary = (cards ?? [])
-        .slice(-20)
-        .map((c) => `[${c.type}:${c.id}] ${c.text}`)
-        .join("\n");
-
-      const participantNames = [
-        self?.info?.name,
-        ...others.map((o) => o.info?.name),
-      ]
-        .filter(Boolean)
-        .join(", ");
-
+      const canvasSummary = cards.slice(-20).map((card) => `[${card.type}:${card.id}] ${card.text}`).join("\n");
       try {
         const res = await fetch("/api/canvas-ops", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            transcript,
-            canvasSummary,
-            participants: participantNames.split(", ").filter(Boolean),
-          }),
+          body: JSON.stringify({ transcript, canvasSummary, participants: participantNames }),
         });
-        const data = await res.json();
-        if (data.ops && Array.isArray(data.ops) && storageReady) {
-          const applied = applyOps(data.ops as Op[]);
-          if (!applied) return;
-          // persist canvas events
+        const data = await res.json().catch(() => ({}));
+        if (Array.isArray(data.ops)) {
+          applyOps(data.ops as Op[]);
           for (const op of data.ops) {
-            void supabase.from("canvas_events").insert({
-              room_id: roomId,
-              op,
-              t_offset_ms: Date.now() - startedAtRef.current,
-            });
+            void supabase.from("canvas_events").insert({ room_id: roomId, op, t_offset_ms: Date.now() - startedAtRef.current });
           }
         }
-      } catch (e) {
-        console.error("canvas-ops error", e);
+      } catch (error) {
+        console.error("canvas-ops error", error);
       }
     }, 10000);
     return () => clearInterval(interval);
-  }, [isLive, storageReady, committed, cards, others, self, applyOps, roomId]);
+  }, [applyOps, cards, committed, isLive, participantNames, roomId]);
+
+  const moveCard = useCallback((id: string, x: number, y: number) => {
+    setCards((current) => current.map((card) => (card.id === id ? { ...card, x, y } : card)));
+  }, []);
 
   const addAnonNote = useCallback(() => {
-    if (storageError) {
-      toast.error("Canvas collaboration is not connected");
-      return;
-    }
-    if (!storageReady) {
-      toast.error("Canvas is still connecting…");
-      return;
-    }
     const text = window.prompt("Anonymous note:");
-    if (!text) return;
-    applyOps([
-      {
-        type: "sticky",
-        id: `anon_${Date.now()}`,
-        text,
-        author: "anonymous",
-        category: "idea",
-      },
-    ]);
-  }, [applyOps, storageError, storageReady]);
+    if (!text?.trim()) return;
+    applyOps([{ type: "sticky", id: `anon_${Date.now()}`, text: text.trim(), author: "anonymous", category: "idea" }]);
+  }, [applyOps]);
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(window.location.href);
+  const copyLink = useCallback(async () => {
+    await navigator.clipboard.writeText(window.location.href);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
     toast.success("Room link copied");
-  };
+  }, []);
 
   const generateArtifacts = useCallback(async () => {
     setExportOpen(true);
-    if (committed.length < 2) {
-      toast.error("Talk more first");
-      return;
-    }
+    const transcript = committed.length ? committed.join("\n") : DEMO_TRANSCRIPT.join("\n");
     setGenerating(true);
     setArtifacts({});
     try {
       const res = await fetch("/api/generate-artifacts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript: committed.join("\n") }),
+        body: JSON.stringify({ transcript }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Failed");
       setArtifacts(data as Artifacts);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed");
     } finally {
       setGenerating(false);
     }
@@ -333,169 +209,87 @@ function RoomShell({ roomId }: { roomId: string }) {
   const runDemo = useCallback(async () => {
     if (demoRunning) return;
     setDemoRunning(true);
-    setDemoCards([]);
-    const script: Array<{ say: string; speaker: string; card?: Omit<DemoCard, "x" | "y"> }> = [
-      { speaker: "Sam (PM)", say: "Okay team, let's map out the onboarding flow. What's the first friction point users hit?" },
-      { speaker: "Alex (Design)", say: "The signup form. Too many fields up front.", card: { id: "d1", type: "sticky", text: "Signup form too long", author: "Alex" } },
-      { speaker: "Jordan (Eng)", say: "Agreed. We could defer profile fields until after first action.", card: { id: "d2", type: "sticky", text: "Defer profile to post-activation", author: "Jordan" } },
-      { speaker: "Sam (PM)", say: "Love it. So step one is just email + password.", card: { id: "d3", type: "flowStep", text: "1. Email + password" } },
-      { speaker: "Alex (Design)", say: "Then drop them straight into a sample workspace.", card: { id: "d4", type: "flowStep", text: "2. Sample workspace" } },
-      { speaker: "Jordan (Eng)", say: "And a tooltip tour on the first key action.", card: { id: "d5", type: "flowStep", text: "3. Guided first action" } },
-      { speaker: "Sam (PM)", say: "Decision: ship the slim signup behind a flag next sprint.", card: { id: "d6", type: "decision", text: "Ship slim signup behind flag — next sprint" } },
-      { speaker: "Alex (Design)", say: "I'll mock the new form by Thursday.", card: { id: "d7", type: "actionItem", text: "Mock new signup form", author: "Alex — Thu" } },
-      { speaker: "Jordan (Eng)", say: "I'll wire the feature flag and migration.", card: { id: "d8", type: "actionItem", text: "Feature flag + DB migration", author: "Jordan" } },
+    setCards([]);
+    setConnections([]);
+    setCommitted([]);
+    const script: Array<{ line: string; ops?: Op[] }> = [
+      { line: DEMO_TRANSCRIPT[0] },
+      { line: DEMO_TRANSCRIPT[1], ops: [{ type: "sticky", id: "d1", text: "Signup form too long", author: "Alex", category: "friction" }] },
+      { line: DEMO_TRANSCRIPT[2], ops: [{ type: "sticky", id: "d2", text: "Defer profile fields until after activation", author: "Jordan", category: "idea" }] },
+      { line: DEMO_TRANSCRIPT[3], ops: [{ type: "flowStep", id: "d3", label: "1. Email + password" }] },
+      { line: DEMO_TRANSCRIPT[4], ops: [{ type: "flowStep", id: "d4", label: "2. Sample workspace", connectsFrom: "d3" }] },
+      { line: DEMO_TRANSCRIPT[5], ops: [{ type: "flowStep", id: "d5", label: "3. Guided first action", connectsFrom: "d4" }] },
+      { line: DEMO_TRANSCRIPT[6], ops: [{ type: "decision", id: "d6", label: "Ship slim signup behind a flag next sprint" }] },
+      { line: DEMO_TRANSCRIPT[7], ops: [{ type: "actionItem", id: "d7", task: "Mock new signup form", owner: "Alex — Thu" }] },
+      { line: DEMO_TRANSCRIPT[8], ops: [{ type: "actionItem", id: "d8", task: "Wire feature flag and migration", owner: "Jordan" }] },
     ];
-    for (let i = 0; i < script.length; i++) {
-      const step = script[i];
-      setDemoLine(`${step.speaker}: ${step.say}`);
-      await new Promise((r) => setTimeout(r, 1600));
-      if (step.card) {
-        const col = i % 4;
-        const row = Math.floor(i / 4);
-        setDemoCards((prev) => [
-          ...prev,
-          { ...step.card!, x: 40 + col * 240, y: 40 + row * 160 },
-        ]);
-      }
+    for (const step of script) {
+      setDemoLine(step.line);
+      setCommitted((current) => [...current, step.line]);
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      if (step.ops) applyOps(step.ops);
     }
-    setDemoLine("Demo complete — this is what a live session feels like.");
+    setDemoLine("Demo complete — the canvas is local-first and safe even when live services fail.");
     setDemoRunning(false);
-  }, [demoRunning]);
+  }, [applyOps, demoRunning]);
+
+  const handleIntroSubmit = useCallback(async (data: { name: string; role: string; personality: string; color: string }) => {
+    window.localStorage.setItem("cartoonist_user_name", data.name);
+    window.localStorage.setItem("cartoonist_user_color", data.color);
+    window.localStorage.setItem(`cartoonist_joined_${roomId}`, "1");
+    setParticipants([{ id: "local", name: data.name, role: data.role, color: data.color }]);
+    setIntroOpen(false);
+    setJoined(true);
+    toast.success(`Welcome, ${data.name}`);
+    void supabase.from("participants").insert({ room_id: roomId, display_name: data.name, role: data.role, personality: data.personality, color: data.color });
+  }, [roomId]);
 
   return (
     <div className="flex h-screen flex-col bg-background">
-      {/* Masthead — editorial bar, hairline rule, no blur/shadow */}
-      <header className="z-10 flex items-center justify-between border-b border-border bg-background px-5 py-2.5">
+      <header className="z-10 grid grid-cols-[1fr_auto_1fr] items-center border-b border-border bg-background px-5 py-2.5">
         <div className="flex items-baseline gap-3">
           <span className="eyebrow text-foreground">Cartoonist</span>
-          <span className="eyebrow text-muted-foreground" data-numeric>
-            № {roomId.slice(0, 6).toUpperCase()}
-          </span>
-          {isLive && (
-            <span className="eyebrow flex items-center gap-1.5 text-primary">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-              On air
-            </span>
-          )}
-          {storageError && (
-            <span className="eyebrow text-destructive">Offline canvas</span>
-          )}
+          <span className="eyebrow text-muted-foreground" data-numeric>№ {roomId.slice(0, 6).toUpperCase()}</span>
+          <span className="eyebrow text-primary">Local canvas</span>
+          {isLive && <span className="eyebrow flex items-center gap-1.5 text-primary"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />On air</span>}
         </div>
 
         <div className="flex items-center gap-1.5">
-          {[self, ...others].filter(Boolean).map((u: any, i) => (
-            <div
-              key={i}
-              className="flex h-6 w-6 items-center justify-center border border-border text-[10px] font-medium uppercase text-background"
-              style={{ backgroundColor: u?.info?.color ?? "#1a1a1a" }}
-              title={u?.info?.name}
-            >
-              {(u?.info?.name ?? "G").slice(0, 1)}
+          {participants.map((participant) => (
+            <div key={participant.id} className="flex h-6 w-6 items-center justify-center border border-border font-medium uppercase text-background" style={{ backgroundColor: participant.color, fontSize: "var(--step-0)" }} title={participant.name}>
+              {participant.name.slice(0, 1)}
             </div>
           ))}
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <Button size="sm" variant="outline" onClick={copyLink} className="h-8 gap-1.5 rounded-none border-border">
-            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-            <span className="eyebrow">Share</span>
-          </Button>
-          <Button size="sm" variant="outline" onClick={addAnonNote} className="h-8 gap-1.5 rounded-none border-border">
-            <StickyNote className="h-3.5 w-3.5" />
-            <span className="eyebrow">Anon</span>
-          </Button>
-          <Button size="sm" variant="outline" onClick={runDemo} disabled={demoRunning} className="h-8 gap-1.5 rounded-none border-border">
-            <Play className="h-3.5 w-3.5" />
-            <span className="eyebrow">{demoRunning ? "Playing…" : "Demo"}</span>
-          </Button>
-          {isLive ? (
-            <Button size="sm" onClick={stopMic} className="h-8 gap-1.5 rounded-none bg-foreground text-background hover:bg-foreground/90">
-              <MicOff className="h-3.5 w-3.5" />
-              <span className="eyebrow">Stop</span>
-            </Button>
-          ) : (
-            <Button size="sm" onClick={startMic} className="h-8 gap-1.5 rounded-none bg-primary text-primary-foreground hover:bg-primary/90">
-              <Mic className="h-3.5 w-3.5" />
-              <span className="eyebrow">Listen</span>
-            </Button>
-          )}
+        <div className="flex items-center justify-end gap-1.5">
+          <Button size="sm" variant="outline" onClick={copyLink} className="h-8 gap-1.5 rounded-none border-border">{copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}<span className="eyebrow">Share</span></Button>
+          <Button size="sm" variant="outline" onClick={addAnonNote} className="h-8 gap-1.5 rounded-none border-border"><StickyNote className="h-3.5 w-3.5" /><span className="eyebrow">Anon</span></Button>
+          <Button size="sm" variant="outline" onClick={runDemo} disabled={demoRunning} className="h-8 gap-1.5 rounded-none border-border"><Play className="h-3.5 w-3.5" /><span className="eyebrow">{demoRunning ? "Playing…" : "Demo"}</span></Button>
+          {isLive ? <Button size="sm" onClick={stopMic} className="h-8 gap-1.5 rounded-none bg-foreground text-background hover:bg-foreground/90"><MicOff className="h-3.5 w-3.5" /><span className="eyebrow">Stop</span></Button> : <Button size="sm" onClick={startMic} className="h-8 gap-1.5 rounded-none bg-primary text-primary-foreground hover:bg-primary/90"><Mic className="h-3.5 w-3.5" /><span className="eyebrow">Listen</span></Button>}
           <Sheet open={exportOpen} onOpenChange={setExportOpen}>
-            <SheetTrigger asChild>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={generateArtifacts}
-                className="h-8 gap-1.5 rounded-none border-border"
-              >
-                <FileDown className="h-3.5 w-3.5" />
-                <span className="eyebrow">Export</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent className="w-[90vw] sm:max-w-2xl overflow-y-auto">
-              <SheetHeader>
-                <SheetTitle className="font-serif text-2xl">Meeting artifacts</SheetTitle>
-              </SheetHeader>
-              <div className="mt-4">
-                <ArtifactTabs artifacts={artifacts} loading={generating} />
-              </div>
+            <SheetTrigger asChild><Button size="sm" variant="outline" onClick={generateArtifacts} className="h-8 gap-1.5 rounded-none border-border"><FileDown className="h-3.5 w-3.5" /><span className="eyebrow">Export</span></Button></SheetTrigger>
+            <SheetContent className="w-[90vw] overflow-y-auto sm:max-w-2xl">
+              <SheetHeader><SheetTitle className="font-serif" style={{ fontSize: "var(--step-3)" }}>Meeting artifacts</SheetTitle></SheetHeader>
+              <div className="mt-4"><ArtifactTabs artifacts={artifacts} loading={generating} /></div>
             </SheetContent>
           </Sheet>
         </div>
       </header>
 
-      {/* Live transcript ticker */}
       {(isLive || committed.length > 0 || demoLine) && (
         <div className="flex items-center gap-3 border-b border-border bg-background px-5 py-1.5">
-          <span className="eyebrow text-primary">{demoRunning ? "Demo" : "Live"}</span>
-          <span className="truncate text-foreground/70" style={{ fontSize: "var(--step-1)" }}>
-            {demoLine || partial || committed[committed.length - 1] || "Listening…"}
-          </span>
+          <span className="eyebrow text-primary">{demoRunning ? "Demo" : isLive ? "Live" : "Replay"}</span>
+          <span className="truncate text-foreground/70" style={{ fontSize: "var(--step-1)" }}>{demoLine || partial || committed[committed.length - 1] || "Listening…"}</span>
         </div>
       )}
 
-      {/* Canvas */}
       <div className="relative flex-1 overflow-hidden">
-        <CanvasBoard />
-        {demoCards.length > 0 && (
-          <div className="pointer-events-none absolute inset-0 overflow-auto bg-background/95 p-6">
-            <div className="mb-4 flex items-baseline gap-3">
-              <span className="eyebrow text-primary">Demo session</span>
-              <span className="text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
-                A simulated conversation building a canvas in real time.
-              </span>
-            </div>
-            <div className="relative" style={{ minHeight: 600 }}>
-              {demoCards.map((c) => {
-                const tone =
-                  c.type === "decision"
-                    ? "border-primary bg-primary/5"
-                    : c.type === "actionItem"
-                    ? "border-foreground bg-background"
-                    : c.type === "flowStep"
-                    ? "border-border bg-muted"
-                    : "border-border bg-background";
-                return (
-                  <div
-                    key={c.id}
-                    className={`absolute w-52 border ${tone} p-3 transition-all`}
-                    style={{ left: c.x, top: c.y }}
-                  >
-                    <div className="eyebrow mb-1 text-muted-foreground">{c.type}</div>
-                    <div className="text-foreground" style={{ fontSize: "var(--step-1)", lineHeight: 1.35 }}>
-                      {c.text}
-                    </div>
-                    {c.author && (
-                      <div className="eyebrow mt-2 text-muted-foreground">— {c.author}</div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        <CanvasBoard cards={cards} connections={connections} participants={participants} onMoveCard={moveCard} />
       </div>
 
-      {/* Bottom-right mediator marker — bordered, not shadowed */}
+      {!joined && <IntroModal open={introOpen} onClose={() => setIntroOpen(false)} onSubmit={handleIntroSubmit} />}
+
       {isLive && (
         <div className="pointer-events-none absolute bottom-5 right-5 flex items-center gap-2 border border-border bg-background px-3 py-1.5">
           <Sparkles className="h-3.5 w-3.5 animate-pulse text-primary" />
@@ -503,71 +297,5 @@ function RoomShell({ roomId }: { roomId: string }) {
         </div>
       )}
     </div>
-  );
-}
-
-export function CanvasRoom({ roomId }: { roomId: string }) {
-  const [introOpen, setIntroOpen] = useState(true);
-  const [joined, setJoined] = useState(false);
-
-  // Check localStorage
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const cached = window.localStorage.getItem(`cartoonist_joined_${roomId}`);
-    if (cached) {
-      setIntroOpen(false);
-      setJoined(true);
-    }
-  }, [roomId]);
-
-  const handleIntroSubmit = async (data: {
-    name: string;
-    role: string;
-    personality: string;
-    color: string;
-  }) => {
-    window.localStorage.setItem("cartoonist_user_name", data.name);
-    window.localStorage.setItem("cartoonist_user_color", data.color);
-    window.localStorage.setItem(`cartoonist_joined_${roomId}`, "1");
-
-    // create participant row
-    const { data: row } = await supabase
-      .from("participants")
-      .insert({
-        room_id: roomId,
-        display_name: data.name,
-        role: data.role,
-        personality: data.personality,
-        color: data.color,
-      })
-      .select()
-      .single();
-
-    setIntroOpen(false);
-    setJoined(true);
-    toast.success(`Welcome, ${data.name}`);
-  };
-
-  if (!joined) {
-    return (
-      <IntroModal
-        open={introOpen}
-        onClose={() => setIntroOpen(false)}
-        onSubmit={handleIntroSubmit}
-      />
-    );
-  }
-
-  return (
-    <RoomProvider
-      id={`cartoonist-${roomId}`}
-      initialPresence={{ cursor: null, name: "Guest", color: "#E07A3E" }}
-      initialStorage={{
-        cards: new LiveList<Card>([]),
-        connections: new LiveList<Connection>([]),
-      }}
-    >
-      <RoomShell roomId={roomId} />
-    </RoomProvider>
   );
 }

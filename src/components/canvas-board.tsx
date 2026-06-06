@@ -1,65 +1,31 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import {
-  useMyPresence,
-  useOthers,
-  useStorage,
-  useMutation,
-  useRoom,
-  type Card,
-  type Connection,
-} from "@/lib/liveblocks";
-import { LiveList } from "@liveblocks/client";
+import { useMemo, useRef } from "react";
+import type { Card, Connection, Participant } from "@/lib/canvas-types";
 import { CanvasCard } from "./canvas-card";
 
 export function CanvasBoard({
+  cards,
+  connections,
+  participants = [],
+  onMoveCard,
   highlightedIds,
 }: {
+  cards: readonly Card[];
+  connections: readonly Connection[];
+  participants?: readonly Participant[];
+  onMoveCard: (id: string, x: number, y: number) => void;
   highlightedIds?: Set<string>;
 }) {
-  const cards = useStorage((root) => root.cards) as readonly Card[] | null;
-  const connections = useStorage((root) => root.connections) as
-    | readonly Connection[]
-    | null;
-  const others = useOthers();
-  const [, setPresence] = useMyPresence();
-  const room = useRoom();
   const boardRef = useRef<HTMLDivElement | null>(null);
-
-  const moveCard = useMutation((context, id: string, x: number, y: number) => {
-    if (!room.isStorageReady()) return;
-    const list = context.storage.get("cards") as LiveList<Card>;
-    const idx = list.findIndex((c) => c.id === id);
-    if (idx >= 0) {
-      const existing = list.get(idx)!;
-      list.set(idx, { ...existing, x, y });
-    }
-  }, [room]);
-
-  const onPointerMove = useCallback(
-    (e: React.PointerEvent) => {
-      const rect = boardRef.current!.getBoundingClientRect();
-      setPresence({
-        cursor: { x: e.clientX - rect.left, y: e.clientY - rect.top },
-      });
-    },
-    [setPresence],
-  );
-
-  const onPointerLeave = useCallback(() => {
-    setPresence({ cursor: null });
-  }, [setPresence]);
 
   const cardMap = useMemo(() => {
     const m = new Map<string, Card>();
-    (cards ?? []).forEach((c) => m.set(c.id, c));
+    cards.forEach((c) => m.set(c.id, c));
     return m;
   }, [cards]);
 
   return (
     <div
       ref={boardRef}
-      onPointerMove={onPointerMove}
-      onPointerLeave={onPointerLeave}
       className="relative h-full w-full overflow-auto bg-[radial-gradient(circle,_rgba(0,0,0,0.06)_1px,_transparent_1px)] bg-[length:24px_24px]"
     >
       <div className="relative" style={{ width: 4000, height: 3000 }}>
@@ -82,7 +48,7 @@ export function CanvasBoard({
               <path d="M0,0 L10,5 L0,10 z" fill="currentColor" />
             </marker>
           </defs>
-          {(connections ?? []).map((conn) => {
+          {connections.map((conn) => {
             const a = cardMap.get(conn.from);
             const b = cardMap.get(conn.to);
             if (!a || !b) return null;
@@ -119,40 +85,23 @@ export function CanvasBoard({
         </svg>
 
         {/* Cards */}
-        {(cards ?? []).map((c) => (
+        {cards.map((c) => (
           <CanvasCard
             key={c.id}
             card={c}
-            onMove={moveCard}
+            onMove={onMoveCard}
             highlight={highlightedIds?.has(c.id)}
           />
         ))}
 
-        {/* Other users' cursors */}
-        {others.map((other) => {
-          if (!other.presence.cursor) return null;
-          return (
-            <div
-              key={other.connectionId}
-              className="pointer-events-none absolute z-50 transition-transform"
-              style={{
-                left: other.presence.cursor.x,
-                top: other.presence.cursor.y,
-                color: other.info?.color ?? "#E07A3E",
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M2 2 L18 9 L10 11 L8 18 Z" />
-              </svg>
-              <span
-                className="ml-3 inline-block rounded px-1.5 py-0.5 text-xs font-medium text-white shadow"
-                style={{ backgroundColor: other.info?.color ?? "#E07A3E" }}
-              >
-                {other.info?.name ?? "Guest"}
-              </span>
-            </div>
-          );
-        })}
+        {participants.length === 0 && cards.length === 0 && (
+          <div className="absolute left-10 top-10 max-w-md border border-border bg-background p-5">
+            <p className="eyebrow text-primary">Ready</p>
+            <p className="mt-2 font-serif" style={{ fontSize: "var(--step-3)" }}>
+              Start the demo or add an anonymous note.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

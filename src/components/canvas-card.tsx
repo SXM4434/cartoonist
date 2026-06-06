@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Card } from "@/lib/liveblocks";
+import type { Card } from "@/lib/canvas-types";
 import { cn } from "@/lib/utils";
 
 const CARD_STYLES: Record<string, string> = {
@@ -74,18 +74,18 @@ export function CanvasCard({
         transform: "translate(0,0)",
       }}
       className={cn(
-        "w-56 cursor-grab select-none rounded-lg border-2 p-3 shadow-md transition-all active:cursor-grabbing",
+        "w-56 cursor-grab select-none rounded border-2 p-3 transition-all active:cursor-grabbing",
         CARD_STYLES[card.type] ?? CARD_STYLES.sticky,
         (glow || highlight) && "ring-4 ring-primary/60 ring-offset-2 ring-offset-background",
       )}
     >
-      <div className="mb-1 flex items-center justify-between text-[10px] font-medium uppercase tracking-wider opacity-70">
+      <div className="eyebrow mb-1 flex items-center justify-between opacity-70">
         <span>{TYPE_LABELS[card.type] ?? card.type}</span>
         {card.author && <span className="truncate max-w-[60%]">{card.author}</span>}
       </div>
-      <div className="font-sans text-sm leading-snug">{card.text}</div>
+      <div className="font-sans leading-snug" style={{ fontSize: "var(--step-1)" }}>{card.text}</div>
       {card.owner && (
-        <div className="mt-2 text-xs opacity-70">→ {card.owner}</div>
+        <div className="mt-2 opacity-70" style={{ fontSize: "var(--step-1)" }}>→ {card.owner}</div>
       )}
     </div>
   );
