@@ -58,6 +58,7 @@ function RoomShell({ roomId }: { roomId: string }) {
   const [artifacts, setArtifacts] = useState<Artifacts>({});
   const [generating, setGenerating] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [storageError, setStorageError] = useState(false);
 
   const lastProcessedIdx = useRef(0);
   const startedAtRef = useRef<number>(Date.now());
@@ -65,10 +66,17 @@ function RoomShell({ roomId }: { roomId: string }) {
 
   useEffect(() => {
     let cancelled = false;
+    setStorageError(false);
     setStorageReady(room.isStorageReady());
-    void room.waitUntilStorageReady().then(() => {
-      if (!cancelled) setStorageReady(true);
-    });
+    void room
+      .waitUntilStorageReady()
+      .then(() => {
+        if (!cancelled) setStorageReady(true);
+      })
+      .catch((error) => {
+        console.error("Live canvas connection failed", error);
+        if (!cancelled) setStorageError(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -265,6 +273,10 @@ function RoomShell({ roomId }: { roomId: string }) {
   }, [isLive, storageReady, committed, cards, others, self, applyOps, roomId]);
 
   const addAnonNote = useCallback(() => {
+    if (storageError) {
+      toast.error("Canvas collaboration is not connected");
+      return;
+    }
     if (!storageReady) {
       toast.error("Canvas is still connecting…");
       return;
@@ -280,7 +292,7 @@ function RoomShell({ roomId }: { roomId: string }) {
         category: "idea",
       },
     ]);
-  }, [applyOps, storageReady]);
+  }, [applyOps, storageError, storageReady]);
 
   const copyLink = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -327,6 +339,9 @@ function RoomShell({ roomId }: { roomId: string }) {
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
               On air
             </span>
+          )}
+          {storageError && (
+            <span className="eyebrow text-destructive">Offline canvas</span>
           )}
         </div>
 
