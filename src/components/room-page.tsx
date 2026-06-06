@@ -1,10 +1,9 @@
 import { CanvasRoom } from "@/components/canvas-room";
+import { Route } from "@/routes/r.$roomId";
 
-export function RoomPage({ roomId }: { roomId: string }) {
+export function component() {
+  const { roomId } = Route.useParams();
   return <CanvasRoom roomId={roomId} />;
 }
 
-export default function RoomPageRoute() {
-  // Read params via window since route component is lazy; simpler: wrapper below
-  return null;
-}
+export default component;
