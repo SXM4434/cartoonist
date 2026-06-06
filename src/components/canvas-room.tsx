@@ -60,6 +60,11 @@ function RoomShell({ roomId }: { roomId: string }) {
   const [exportOpen, setExportOpen] = useState(false);
   const [storageError, setStorageError] = useState(false);
 
+  type DemoCard = { id: string; type: string; text: string; author?: string; x: number; y: number };
+  const [demoCards, setDemoCards] = useState<DemoCard[]>([]);
+  const [demoLine, setDemoLine] = useState<string>("");
+  const [demoRunning, setDemoRunning] = useState(false);
+
   const lastProcessedIdx = useRef(0);
   const startedAtRef = useRef<number>(Date.now());
   const [storageReady, setStorageReady] = useState(() => room.isStorageReady());
