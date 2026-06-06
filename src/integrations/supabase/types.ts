@@ -14,7 +14,180 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      audio_clips: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          id: string
+          room_id: string
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          room_id: string
+          storage_path: string
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          room_id?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audio_clips_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      canvas_events: {
+        Row: {
+          created_at: string
+          id: string
+          op: Json
+          room_id: string
+          t_offset_ms: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          op: Json
+          room_id: string
+          t_offset_ms?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          op?: Json
+          room_id?: string
+          t_offset_ms?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "canvas_events_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      participants: {
+        Row: {
+          color: string | null
+          display_name: string
+          id: string
+          joined_at: string
+          personality: string | null
+          role: string | null
+          room_id: string
+          user_id: string | null
+        }
+        Insert: {
+          color?: string | null
+          display_name: string
+          id?: string
+          joined_at?: string
+          personality?: string | null
+          role?: string | null
+          room_id: string
+          user_id?: string | null
+        }
+        Update: {
+          color?: string | null
+          display_name?: string
+          id?: string
+          joined_at?: string
+          personality?: string | null
+          role?: string | null
+          room_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "participants_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rooms: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          host_id: string | null
+          id: string
+          name: string
+          started_at: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          host_id?: string | null
+          id?: string
+          name?: string
+          started_at?: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          host_id?: string | null
+          id?: string
+          name?: string
+          started_at?: string
+        }
+        Relationships: []
+      }
+      transcript_chunks: {
+        Row: {
+          created_at: string
+          id: string
+          participant_id: string | null
+          room_id: string
+          t_offset_ms: number
+          text: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          participant_id?: string | null
+          room_id: string
+          t_offset_ms?: number
+          text: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          participant_id?: string | null
+          room_id?: string
+          t_offset_ms?: number
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transcript_chunks_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transcript_chunks_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

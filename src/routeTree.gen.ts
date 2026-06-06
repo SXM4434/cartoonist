@@ -10,7 +10,10 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as RRoomIdRouteImport } from './routes/r.$roomId'
+import { Route as ApiLiveblocksAuthRouteImport } from './routes/api/liveblocks-auth'
 import { Route as ApiGenerateArtifactsRouteImport } from './routes/api/generate-artifacts'
+import { Route as ApiCanvasOpsRouteImport } from './routes/api/canvas-ops'
 import { Route as ApiElevenlabsScribeTokenRouteImport } from './routes/api/elevenlabs/scribe-token'
 
 const IndexRoute = IndexRouteImport.update({
@@ -18,9 +21,24 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RRoomIdRoute = RRoomIdRouteImport.update({
+  id: '/r/$roomId',
+  path: '/r/$roomId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLiveblocksAuthRoute = ApiLiveblocksAuthRouteImport.update({
+  id: '/api/liveblocks-auth',
+  path: '/api/liveblocks-auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiGenerateArtifactsRoute = ApiGenerateArtifactsRouteImport.update({
   id: '/api/generate-artifacts',
   path: '/api/generate-artifacts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCanvasOpsRoute = ApiCanvasOpsRouteImport.update({
+  id: '/api/canvas-ops',
+  path: '/api/canvas-ops',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiElevenlabsScribeTokenRoute =
@@ -32,35 +50,62 @@ const ApiElevenlabsScribeTokenRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/canvas-ops': typeof ApiCanvasOpsRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
+  '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
+  '/r/$roomId': typeof RRoomIdRoute
   '/api/elevenlabs/scribe-token': typeof ApiElevenlabsScribeTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/canvas-ops': typeof ApiCanvasOpsRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
+  '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
+  '/r/$roomId': typeof RRoomIdRoute
   '/api/elevenlabs/scribe-token': typeof ApiElevenlabsScribeTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/canvas-ops': typeof ApiCanvasOpsRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
+  '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
+  '/r/$roomId': typeof RRoomIdRoute
   '/api/elevenlabs/scribe-token': typeof ApiElevenlabsScribeTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/generate-artifacts' | '/api/elevenlabs/scribe-token'
+  fullPaths:
+    | '/'
+    | '/api/canvas-ops'
+    | '/api/generate-artifacts'
+    | '/api/liveblocks-auth'
+    | '/r/$roomId'
+    | '/api/elevenlabs/scribe-token'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/generate-artifacts' | '/api/elevenlabs/scribe-token'
+  to:
+    | '/'
+    | '/api/canvas-ops'
+    | '/api/generate-artifacts'
+    | '/api/liveblocks-auth'
+    | '/r/$roomId'
+    | '/api/elevenlabs/scribe-token'
   id:
     | '__root__'
     | '/'
+    | '/api/canvas-ops'
     | '/api/generate-artifacts'
+    | '/api/liveblocks-auth'
+    | '/r/$roomId'
     | '/api/elevenlabs/scribe-token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiCanvasOpsRoute: typeof ApiCanvasOpsRoute
   ApiGenerateArtifactsRoute: typeof ApiGenerateArtifactsRoute
+  ApiLiveblocksAuthRoute: typeof ApiLiveblocksAuthRoute
+  RRoomIdRoute: typeof RRoomIdRoute
   ApiElevenlabsScribeTokenRoute: typeof ApiElevenlabsScribeTokenRoute
 }
 
@@ -73,11 +118,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/r/$roomId': {
+      id: '/r/$roomId'
+      path: '/r/$roomId'
+      fullPath: '/r/$roomId'
+      preLoaderRoute: typeof RRoomIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/liveblocks-auth': {
+      id: '/api/liveblocks-auth'
+      path: '/api/liveblocks-auth'
+      fullPath: '/api/liveblocks-auth'
+      preLoaderRoute: typeof ApiLiveblocksAuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/generate-artifacts': {
       id: '/api/generate-artifacts'
       path: '/api/generate-artifacts'
       fullPath: '/api/generate-artifacts'
       preLoaderRoute: typeof ApiGenerateArtifactsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/canvas-ops': {
+      id: '/api/canvas-ops'
+      path: '/api/canvas-ops'
+      fullPath: '/api/canvas-ops'
+      preLoaderRoute: typeof ApiCanvasOpsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/elevenlabs/scribe-token': {
@@ -92,19 +158,12 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiCanvasOpsRoute: ApiCanvasOpsRoute,
   ApiGenerateArtifactsRoute: ApiGenerateArtifactsRoute,
+  ApiLiveblocksAuthRoute: ApiLiveblocksAuthRoute,
+  RRoomIdRoute: RRoomIdRoute,
   ApiElevenlabsScribeTokenRoute: ApiElevenlabsScribeTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
