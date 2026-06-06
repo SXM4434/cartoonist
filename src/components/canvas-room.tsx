@@ -294,43 +294,52 @@ function RoomShell({ roomId }: { roomId: string }) {
 
   return (
     <div className="flex h-screen flex-col bg-background">
-      {/* Top bar */}
-      <header className="z-10 flex items-center justify-between border-b border-border bg-card/80 px-4 py-2 backdrop-blur">
-        <div className="flex items-center gap-3">
-          <h1 className="font-serif text-xl font-semibold tracking-tight">
-            Cartoonist
-          </h1>
-          <span className="text-xs text-muted-foreground">/ {roomId.slice(0, 8)}</span>
+      {/* Masthead — editorial bar, hairline rule, no blur/shadow */}
+      <header className="z-10 flex items-center justify-between border-b border-border bg-background px-5 py-2.5">
+        <div className="flex items-baseline gap-3">
+          <span className="eyebrow text-foreground">Cartoonist</span>
+          <span className="eyebrow text-muted-foreground" data-numeric>
+            № {roomId.slice(0, 6).toUpperCase()}
+          </span>
+          {isLive && (
+            <span className="eyebrow flex items-center gap-1.5 text-primary">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+              On air
+            </span>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {[self, ...others].filter(Boolean).map((u: any, i) => (
             <div
               key={i}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium text-white"
-              style={{ backgroundColor: u?.info?.color ?? "#E07A3E" }}
+              className="flex h-6 w-6 items-center justify-center border border-border text-[10px] font-medium uppercase text-background"
+              style={{ backgroundColor: u?.info?.color ?? "#1a1a1a" }}
               title={u?.info?.name}
             >
-              {(u?.info?.name ?? "G").slice(0, 1).toUpperCase()}
+              {(u?.info?.name ?? "G").slice(0, 1)}
             </div>
           ))}
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={copyLink} className="gap-1.5">
+        <div className="flex items-center gap-1.5">
+          <Button size="sm" variant="outline" onClick={copyLink} className="h-8 gap-1.5 rounded-none border-border">
             {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-            Share
+            <span className="eyebrow">Share</span>
           </Button>
-          <Button size="sm" variant="outline" onClick={addAnonNote} className="gap-1.5">
-            <StickyNote className="h-3.5 w-3.5" /> Anon note
+          <Button size="sm" variant="outline" onClick={addAnonNote} className="h-8 gap-1.5 rounded-none border-border">
+            <StickyNote className="h-3.5 w-3.5" />
+            <span className="eyebrow">Anon</span>
           </Button>
           {isLive ? (
-            <Button size="sm" variant="destructive" onClick={stopMic} className="gap-1.5">
-              <MicOff className="h-3.5 w-3.5" /> Stop
+            <Button size="sm" onClick={stopMic} className="h-8 gap-1.5 rounded-none bg-foreground text-background hover:bg-foreground/90">
+              <MicOff className="h-3.5 w-3.5" />
+              <span className="eyebrow">Stop</span>
             </Button>
           ) : (
-            <Button size="sm" onClick={startMic} className="gap-1.5">
-              <Mic className="h-3.5 w-3.5" /> Listen
+            <Button size="sm" onClick={startMic} className="h-8 gap-1.5 rounded-none bg-primary text-primary-foreground hover:bg-primary/90">
+              <Mic className="h-3.5 w-3.5" />
+              <span className="eyebrow">Listen</span>
             </Button>
           )}
           <Sheet open={exportOpen} onOpenChange={setExportOpen}>
@@ -339,9 +348,10 @@ function RoomShell({ roomId }: { roomId: string }) {
                 size="sm"
                 variant="outline"
                 onClick={generateArtifacts}
-                className="gap-1.5"
+                className="h-8 gap-1.5 rounded-none border-border"
               >
-                <FileDown className="h-3.5 w-3.5" /> Export
+                <FileDown className="h-3.5 w-3.5" />
+                <span className="eyebrow">Export</span>
               </Button>
             </SheetTrigger>
             <SheetContent className="w-[90vw] sm:max-w-2xl overflow-y-auto">
@@ -358,9 +368,9 @@ function RoomShell({ roomId }: { roomId: string }) {
 
       {/* Live transcript ticker */}
       {(isLive || committed.length > 0) && (
-        <div className="border-b border-border bg-card/40 px-4 py-1.5 text-xs">
-          <span className="font-medium text-muted-foreground">Live:</span>{" "}
-          <span className="italic text-muted-foreground">
+        <div className="flex items-center gap-3 border-b border-border bg-background px-5 py-1.5">
+          <span className="eyebrow text-primary">Live</span>
+          <span className="truncate text-foreground/70" style={{ fontSize: "var(--step-1)" }}>
             {partial || committed[committed.length - 1] || "Listening…"}
           </span>
         </div>
@@ -371,10 +381,11 @@ function RoomShell({ roomId }: { roomId: string }) {
         <CanvasBoard />
       </div>
 
-      {/* Floating AI badge */}
+      {/* Bottom-right mediator marker — bordered, not shadowed */}
       {isLive && (
-        <div className="pointer-events-none absolute bottom-6 right-6 flex items-center gap-2 rounded-full bg-foreground/90 px-4 py-2 text-xs text-background shadow-lg">
-          <Sparkles className="h-3.5 w-3.5 animate-pulse" /> Cartoonist mediating…
+        <div className="pointer-events-none absolute bottom-5 right-5 flex items-center gap-2 border border-border bg-background px-3 py-1.5">
+          <Sparkles className="h-3.5 w-3.5 animate-pulse text-primary" />
+          <span className="eyebrow text-foreground">Mediating</span>
         </div>
       )}
     </div>
