@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, Eraser, FileDown, Mic, MicOff, Pencil, Send, Sparkles } from "lucide-react";
+import { Check, Copy, Eraser, FileDown, Mic, MicOff, MessageSquare, Pencil, Send, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +9,7 @@ import { useSpeech } from "@/lib/use-speech";
 import { ArtifactTabs, type Artifacts } from "./artifact-tabs";
 import { IntroModal } from "./intro-modal";
 import { SketchCanvas } from "./sketch-canvas";
+import { ChatPanel } from "./chat-panel";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 type SessionContext = {
@@ -34,6 +35,9 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
   const [thinking, setThinking] = useState(false);
   const [drawError, setDrawError] = useState<string | null>(null);
   const [sessionCtx, setSessionCtx] = useState<SessionContext | null>(null);
+  const [inputMode, setInputMode] = useState<"voice" | "chat">("voice");
+  const [selfPid, setSelfPid] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState(true);
 
   const speech = useSpeech();
   const startedAtRef = useRef(Date.now());
@@ -46,10 +50,14 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
     const cached = window.localStorage.getItem(`cartoonist_joined_${roomId}`);
     const name = window.localStorage.getItem("cartoonist_user_name");
     const color = window.localStorage.getItem("cartoonist_user_color") ?? "#E07A3E";
+    const storedMode = window.localStorage.getItem(`cartoonist_input_mode_${roomId}`) as "voice" | "chat" | null;
+    const storedPid = window.localStorage.getItem(`cartoonist_participant_${roomId}`);
+    if (storedMode) setInputMode(storedMode);
+    if (storedPid) setSelfPid(storedPid);
     if (cached && name) {
       setJoined(true);
       setIntroOpen(false);
-      setParticipants([{ id: "local", name, color }]);
+      setParticipants([{ id: storedPid ?? "local", name, color }]);
     }
     (async () => {
       const { data: room } = await supabase
@@ -173,8 +181,9 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
     }
   }, [roomId, speech.finals, summarizeCanvas, sessionCtx]);
 
-  // Auto-draw from speech: every ~6s if there's new committed text
+  // Auto-draw from speech: every ~6s if there's new committed text (voice mode only)
   useEffect(() => {
+    if (inputMode === "chat") return;
     if (!speech.listening) return;
     const interval = setInterval(() => {
       const text = speech.finals.join(" ");
@@ -186,11 +195,18 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
       void supabase.from("transcript_chunks").insert({
         room_id: roomId,
         text: newText,
+        source: "voice",
+        participant_id: selfPid,
         t_offset_ms: Date.now() - startedAtRef.current,
-      });
+      } as never);
     }, 6000);
     return () => clearInterval(interval);
-  }, [requestDraw, roomId, speech.finals, speech.listening]);
+  }, [requestDraw, roomId, speech.finals, speech.listening, inputMode, selfPid]);
+
+  // Chat → AI handler (transcript persistence happens inside ChatPanel)
+  const handleChatMessage = useCallback((text: string) => {
+    void requestDraw(text);
+  }, [requestDraw]);
 
   const askDraw = useCallback(async () => {
     const text = askText.trim();
@@ -237,12 +253,19 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
     window.localStorage.setItem("cartoonist_user_name", data.name);
     window.localStorage.setItem("cartoonist_user_color", data.color);
     window.localStorage.setItem(`cartoonist_joined_${roomId}`, "1");
-    setParticipants([{ id: "local", name: data.name, role: data.role, color: data.color }]);
+    window.localStorage.setItem(`cartoonist_input_mode_${roomId}`, inputMode);
     setIntroOpen(false);
     setJoined(true);
     toast.success(`Welcome, ${data.name}`);
-    void supabase.from("participants").insert({ room_id: roomId, display_name: data.name, role: data.role, personality: data.personality, color: data.color });
-  }, [roomId]);
+    const { data: ins } = await supabase.from("participants").insert({
+      room_id: roomId, display_name: data.name, role: data.role,
+      personality: data.personality, color: data.color, input_mode: inputMode,
+    } as never).select("id").maybeSingle();
+    const pid = ins?.id ?? "local";
+    if (ins?.id) window.localStorage.setItem(`cartoonist_participant_${roomId}`, ins.id);
+    setSelfPid(pid);
+    setParticipants([{ id: pid, name: data.name, role: data.role, color: data.color }]);
+  }, [roomId, inputMode]);
 
   const recentTranscript = useMemo(() => {
     const last = speech.finals.slice(-3).join(" ");
@@ -285,13 +308,27 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
           <Button size="sm" variant="outline" onClick={copyLink} className="h-8 gap-1.5 rounded-none border-border">
             {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}<span className="eyebrow">Share</span>
           </Button>
-          {speech.listening ? (
-            <Button size="sm" onClick={speech.stop} className="h-8 gap-1.5 rounded-none bg-foreground text-background hover:bg-foreground/90">
-              <MicOff className="h-3.5 w-3.5" /><span className="eyebrow">Stop</span>
-            </Button>
+          <Button size="sm" variant="outline" onClick={() => setChatOpen((v) => !v)} className={`h-8 gap-1.5 rounded-none border-border ${chatOpen ? "bg-foreground text-background" : ""}`}>
+            <MessageSquare className="h-3.5 w-3.5" /><span className="eyebrow">Chat</span>
+          </Button>
+          {inputMode === "voice" ? (
+            speech.listening ? (
+              <Button size="sm" onClick={speech.stop} className="h-8 gap-1.5 rounded-none bg-foreground text-background hover:bg-foreground/90">
+                <MicOff className="h-3.5 w-3.5" /><span className="eyebrow">Stop</span>
+              </Button>
+            ) : (
+              <Button size="sm" onClick={() => void speech.start()} className="h-8 gap-1.5 rounded-none bg-primary text-primary-foreground hover:bg-primary/90">
+                <Mic className="h-3.5 w-3.5" /><span className="eyebrow">Listen</span>
+              </Button>
+            )
           ) : (
-            <Button size="sm" onClick={() => void speech.start()} className="h-8 gap-1.5 rounded-none bg-primary text-primary-foreground hover:bg-primary/90">
-              <Mic className="h-3.5 w-3.5" /><span className="eyebrow">Listen</span>
+            <Button size="sm" onClick={() => {
+              setInputMode("voice");
+              window.localStorage.setItem(`cartoonist_input_mode_${roomId}`, "voice");
+              if (selfPid) void supabase.from("participants").update({ input_mode: "both" } as never).eq("id", selfPid);
+              void speech.start();
+            }} className="h-8 gap-1.5 rounded-none bg-primary text-primary-foreground hover:bg-primary/90">
+              <Mic className="h-3.5 w-3.5" /><span className="eyebrow">Add voice</span>
             </Button>
           )}
           <Sheet open={exportOpen} onOpenChange={setExportOpen}>
@@ -349,43 +386,58 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
         </div>
       )}
 
-      <div className="relative flex-1 overflow-hidden">
-        <SketchCanvas
-          shapes={shapes}
-          freehand={freehand}
-          drawingEnabled={drawing}
-          onFreehandComplete={(stroke) => setFreehand((current) => [...current, stroke])}
-        />
+      <div className="flex flex-1 overflow-hidden">
+        <div className="relative flex-1 overflow-hidden">
+          <SketchCanvas
+            shapes={shapes}
+            freehand={freehand}
+            drawingEnabled={drawing}
+            onFreehandComplete={(stroke) => setFreehand((current) => [...current, stroke])}
+          />
 
-        {shapes.length === 0 && freehand.length === 0 && (
-          <div className="pointer-events-none absolute left-8 top-8 max-w-md border border-border bg-background p-5">
-            <p className="eyebrow text-primary">Whiteboard ready</p>
-            <p className="mt-2 font-serif" style={{ fontSize: "var(--step-3)" }}>
-              Hit Listen and start talking, or ask Cartoonist to draw something below.
-            </p>
-            <p className="mt-2 text-foreground/70" style={{ fontSize: "var(--step-0)" }}>
-              Try: "draw the signup flow with email, Google, and a verify-email step."
-            </p>
+          {shapes.length === 0 && freehand.length === 0 && (
+            <div className="pointer-events-none absolute left-8 top-8 max-w-md border border-border bg-background p-5">
+              <p className="eyebrow text-primary">Whiteboard ready</p>
+              <p className="mt-2 font-serif" style={{ fontSize: "var(--step-3)" }}>
+                {inputMode === "chat"
+                  ? "Type in the Stream on the right, or ask Cartoonist to draw below."
+                  : "Hit Listen and start talking, or ask Cartoonist to draw something below."}
+              </p>
+              <p className="mt-2 text-foreground/70" style={{ fontSize: "var(--step-0)" }}>
+                Try: "draw the signup flow with email, Google, and a verify-email step."
+              </p>
+            </div>
+          )}
+
+          <form
+            onSubmit={(e) => { e.preventDefault(); void askDraw(); }}
+            className="absolute bottom-5 left-1/2 z-10 flex w-[min(640px,calc(100%-2.5rem))] -translate-x-1/2 items-center gap-2 border border-border bg-background px-3 py-2"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            <input
+              value={askText}
+              onChange={(e) => setAskText(e.target.value)}
+              placeholder="Ask Cartoonist to draw something…"
+              className="flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
+              style={{ fontSize: "var(--step-1)" }}
+            />
+            <Button type="submit" size="sm" variant="outline" disabled={!askText.trim() || thinking} className="h-7 rounded-none border-border">
+              <Send className="h-3.5 w-3.5" />
+            </Button>
+          </form>
+        </div>
+
+        {chatOpen && (
+          <div className="w-[320px] shrink-0">
+            <ChatPanel
+              roomId={roomId}
+              selfParticipantId={selfPid}
+              selfName={participants[0]?.name ?? "You"}
+              selfColor={participants[0]?.color ?? "#E07A3E"}
+              onChatMessage={handleChatMessage}
+            />
           </div>
         )}
-
-        {/* Prompt bar — works without mic */}
-        <form
-          onSubmit={(e) => { e.preventDefault(); void askDraw(); }}
-          className="absolute bottom-5 left-1/2 z-10 flex w-[min(640px,calc(100%-2.5rem))] -translate-x-1/2 items-center gap-2 border border-border bg-background px-3 py-2"
-        >
-          <Sparkles className="h-3.5 w-3.5 text-primary" />
-          <input
-            value={askText}
-            onChange={(e) => setAskText(e.target.value)}
-            placeholder="Ask Cartoonist to draw something…"
-            className="flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
-            style={{ fontSize: "var(--step-1)" }}
-          />
-          <Button type="submit" size="sm" variant="outline" disabled={!askText.trim() || thinking} className="h-7 rounded-none border-border">
-            <Send className="h-3.5 w-3.5" />
-          </Button>
-        </form>
       </div>
 
       {!joined && <IntroModal open={introOpen} onClose={() => setIntroOpen(false)} onSubmit={handleIntroSubmit} />}
