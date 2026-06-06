@@ -1,186 +1,134 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useMemo, useState } from "react";
-import { useScribe, CommitStrategy } from "@elevenlabs/react";
-import { Mic, Square, Sparkles, FileText, Loader2 } from "lucide-react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Sparkles, Users, MessageSquare, ArrowRight, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { TranscriptPanel } from "@/components/transcript-panel";
-import { ArtifactTabs, type Artifacts } from "@/components/artifact-tabs";
-import { SAMPLE_TRANSCRIPT } from "@/lib/sample-transcripts";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Cartoonist — AI mediator for teams" },
+      { title: "Cartoonist — Live AI storyboard for meetings" },
       {
         name: "description",
         content:
-          "Cartoonist listens to your team and turns the conversation into a summary, decisions, action items, PRD, user journey, and flow diagram.",
+          "An AI mediator that listens to your meeting and draws a live visual storyboard — sticky notes, user flows, journey maps, decisions — on a shared canvas.",
+      },
+      { property: "og:title", content: "Cartoonist — Live AI storyboard for meetings" },
+      {
+        property: "og:description",
+        content: "AI mediator that turns meetings into a live visual canvas.",
       },
     ],
   }),
-  component: Index,
+  component: Landing,
 });
 
-function Index() {
-  const [committed, setCommitted] = useState<string[]>([]);
-  const [partial, setPartial] = useState("");
-  const [connecting, setConnecting] = useState(false);
-  const [artifacts, setArtifacts] = useState<Artifacts>({});
-  const [generating, setGenerating] = useState(false);
+function Landing() {
+  const navigate = useNavigate();
+  const [name, setName] = useState("");
+  const [creating, setCreating] = useState(false);
 
-  const scribe = useScribe({
-    modelId: "scribe_v2_realtime",
-    commitStrategy: CommitStrategy.VAD,
-    onPartialTranscript: (d: { text: string }) => setPartial(d.text ?? ""),
-    onCommittedTranscript: (d: { text: string }) => {
-      const t = (d.text ?? "").trim();
-      if (!t) return;
-      setCommitted((prev) => [...prev, t]);
-      setPartial("");
-    },
-  });
-
-  const transcriptText = useMemo(
-    () => [...committed, partial].filter(Boolean).join(" ").trim(),
-    [committed, partial],
-  );
-
-  const start = useCallback(async () => {
-    setConnecting(true);
+  const create = async () => {
+    setCreating(true);
     try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-      const res = await fetch("/api/elevenlabs/scribe-token", { method: "POST" });
-      if (!res.ok) throw new Error(`Token request failed (${res.status})`);
-      const { token } = (await res.json()) as { token: string };
-      if (!token) throw new Error("No Scribe token returned");
-      await scribe.connect({
-        token,
-        microphone: { echoCancellation: true, noiseSuppression: true },
-      });
-      toast.success("Listening — start talking");
+      const { data, error } = await supabase
+        .from("rooms")
+        .insert({ name: name.trim() || "Untitled meeting" })
+        .select()
+        .single();
+      if (error) throw error;
+      navigate({ to: "/r/$roomId", params: { roomId: data.id } });
     } catch (e) {
       console.error(e);
-      toast.error(e instanceof Error ? e.message : "Failed to start session");
+      toast.error("Could not create room");
     } finally {
-      setConnecting(false);
+      setCreating(false);
     }
-  }, [scribe]);
-
-  const stop = useCallback(async () => {
-    try {
-      await scribe.disconnect();
-    } catch (e) {
-      console.error(e);
-    }
-  }, [scribe]);
-
-  const generate = useCallback(async () => {
-    if (transcriptText.length < 20) {
-      toast.error("Transcript is too short — record more or load the sample.");
-      return;
-    }
-    setGenerating(true);
-    setArtifacts({});
-    try {
-      const res = await fetch("/api/generate-artifacts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript: transcriptText }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Generation failed");
-      setArtifacts(data as Artifacts);
-      toast.success("Artifacts ready");
-    } catch (e) {
-      console.error(e);
-      toast.error(e instanceof Error ? e.message : "Generation failed");
-    } finally {
-      setGenerating(false);
-    }
-  }, [transcriptText]);
-
-  const loadSample = useCallback(() => {
-    const lines = SAMPLE_TRANSCRIPT.split("\n").filter(Boolean);
-    setCommitted(lines);
-    setPartial("");
-    toast.success("Sample transcript loaded");
-  }, []);
-
-  const reset = useCallback(() => {
-    setCommitted([]);
-    setPartial("");
-    setArtifacts({});
-  }, []);
-
-  const isLive = scribe.isConnected;
+  };
 
   return (
     <main className="min-h-screen bg-background">
-      <div className="mx-auto max-w-4xl px-6 py-12 sm:py-16">
+      <div className="mx-auto max-w-3xl px-6 py-16 sm:py-24">
         <header className="mb-12 text-center">
           <p className="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-primary">
-            AI Team Mediator
+            AI mediator · live canvas
           </p>
-          <h1 className="font-serif text-5xl font-semibold tracking-tight text-foreground sm:text-6xl">
+          <h1 className="font-serif text-5xl font-semibold tracking-tight text-foreground sm:text-7xl">
             Cartoonist
           </h1>
-          <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-muted-foreground">
-            Talk through your idea. Cartoonist listens, then turns the conversation into a
-            summary, decisions, action items, PRD, user journey, and a flow diagram.
+          <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+            Start a room, share the link, and talk. Cartoonist draws your meeting on a shared
+            canvas — sticky notes, user flows, journey maps, decisions — as it happens.
           </p>
         </header>
 
-        <div className="mb-6 flex flex-wrap items-center justify-center gap-3">
-          {!isLive ? (
-            <Button size="lg" onClick={start} disabled={connecting} className="gap-2">
-              {connecting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Mic className="h-4 w-4" />
-              )}
-              {connecting ? "Connecting…" : "Start session"}
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
+          <label className="mb-2 block text-sm font-medium">Meeting name</label>
+          <div className="flex gap-2">
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Hackathon kickoff…"
+              onKeyDown={(e) => e.key === "Enter" && create()}
+            />
+            <Button
+              onClick={create}
+              disabled={creating}
+              className="gap-2 bg-foreground text-background hover:bg-foreground/90"
+            >
+              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+              Start
             </Button>
-          ) : (
-            <Button size="lg" variant="destructive" onClick={stop} className="gap-2">
-              <Square className="h-4 w-4" /> Stop
-            </Button>
-          )}
-
-          <Button size="lg" variant="outline" onClick={loadSample} className="gap-2">
-            <FileText className="h-4 w-4" /> Load sample
-          </Button>
-
-          <Button
-            size="lg"
-            onClick={generate}
-            disabled={generating || transcriptText.length < 20}
-            className="gap-2 bg-foreground text-background hover:bg-foreground/90"
-          >
-            {generating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="h-4 w-4" />
-            )}
-            {generating ? "Generating…" : "Generate artifacts"}
-          </Button>
-
-          {(committed.length > 0 || Object.keys(artifacts).length > 0) && !isLive && (
-            <Button size="lg" variant="ghost" onClick={reset}>
-              Reset
-            </Button>
-          )}
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            A shareable room link is generated. Invite teammates — everyone sees the canvas live.
+          </p>
         </div>
 
-        <div className="space-y-6">
-          <TranscriptPanel partial={partial} committed={committed} isLive={isLive} />
-          <ArtifactTabs artifacts={artifacts} loading={generating} />
+        <div className="mt-12 grid gap-6 sm:grid-cols-3">
+          <Feature
+            icon={<Users className="h-5 w-5" />}
+            title="Everyone joins"
+            body="Each person introduces themselves. Cartoonist learns the room."
+          />
+          <Feature
+            icon={<MessageSquare className="h-5 w-5" />}
+            title="Talk freely"
+            body="Live transcription with speaker awareness. No notetaker required."
+          />
+          <Feature
+            icon={<Sparkles className="h-5 w-5" />}
+            title="Watch it draw"
+            body="The AI picks the right shape — flow, journey, decision — and pins it on the canvas."
+          />
         </div>
 
-        <footer className="mt-16 text-center text-xs text-muted-foreground">
-          Built with ElevenLabs Scribe + Lovable AI.
+        <footer className="mt-20 text-center text-xs text-muted-foreground">
+          Built with ElevenLabs Scribe · Lovable AI · Liveblocks.
         </footer>
       </div>
     </main>
+  );
+}
+
+function Feature({
+  icon,
+  title,
+  body,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-5">
+      <div className="mb-2 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        {icon}
+      </div>
+      <h3 className="font-serif text-base font-semibold">{title}</h3>
+      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{body}</p>
+    </div>
   );
 }

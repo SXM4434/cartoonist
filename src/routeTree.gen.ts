@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as RRoomIdRouteImport } from './routes/r.$roomId'
 import { Route as ApiLiveblocksAuthRouteImport } from './routes/api/liveblocks-auth'
 import { Route as ApiGenerateArtifactsRouteImport } from './routes/api/generate-artifacts'
 import { Route as ApiCanvasOpsRouteImport } from './routes/api/canvas-ops'
@@ -18,6 +19,11 @@ import { Route as ApiElevenlabsScribeTokenRouteImport } from './routes/api/eleve
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RRoomIdRoute = RRoomIdRouteImport.update({
+  id: '/r/$roomId',
+  path: '/r/$roomId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiLiveblocksAuthRoute = ApiLiveblocksAuthRouteImport.update({
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/api/canvas-ops': typeof ApiCanvasOpsRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
+  '/r/$roomId': typeof RRoomIdRoute
   '/api/elevenlabs/scribe-token': typeof ApiElevenlabsScribeTokenRoute
 }
 export interface FileRoutesByTo {
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/api/canvas-ops': typeof ApiCanvasOpsRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
+  '/r/$roomId': typeof RRoomIdRoute
   '/api/elevenlabs/scribe-token': typeof ApiElevenlabsScribeTokenRoute
 }
 export interface FileRoutesById {
@@ -62,6 +70,7 @@ export interface FileRoutesById {
   '/api/canvas-ops': typeof ApiCanvasOpsRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
+  '/r/$roomId': typeof RRoomIdRoute
   '/api/elevenlabs/scribe-token': typeof ApiElevenlabsScribeTokenRoute
 }
 export interface FileRouteTypes {
@@ -71,6 +80,7 @@ export interface FileRouteTypes {
     | '/api/canvas-ops'
     | '/api/generate-artifacts'
     | '/api/liveblocks-auth'
+    | '/r/$roomId'
     | '/api/elevenlabs/scribe-token'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -78,6 +88,7 @@ export interface FileRouteTypes {
     | '/api/canvas-ops'
     | '/api/generate-artifacts'
     | '/api/liveblocks-auth'
+    | '/r/$roomId'
     | '/api/elevenlabs/scribe-token'
   id:
     | '__root__'
@@ -85,6 +96,7 @@ export interface FileRouteTypes {
     | '/api/canvas-ops'
     | '/api/generate-artifacts'
     | '/api/liveblocks-auth'
+    | '/r/$roomId'
     | '/api/elevenlabs/scribe-token'
   fileRoutesById: FileRoutesById
 }
@@ -93,6 +105,7 @@ export interface RootRouteChildren {
   ApiCanvasOpsRoute: typeof ApiCanvasOpsRoute
   ApiGenerateArtifactsRoute: typeof ApiGenerateArtifactsRoute
   ApiLiveblocksAuthRoute: typeof ApiLiveblocksAuthRoute
+  RRoomIdRoute: typeof RRoomIdRoute
   ApiElevenlabsScribeTokenRoute: typeof ApiElevenlabsScribeTokenRoute
 }
 
@@ -103,6 +116,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/r/$roomId': {
+      id: '/r/$roomId'
+      path: '/r/$roomId'
+      fullPath: '/r/$roomId'
+      preLoaderRoute: typeof RRoomIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/liveblocks-auth': {
@@ -141,8 +161,19 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCanvasOpsRoute: ApiCanvasOpsRoute,
   ApiGenerateArtifactsRoute: ApiGenerateArtifactsRoute,
   ApiLiveblocksAuthRoute: ApiLiveblocksAuthRoute,
+  RRoomIdRoute: RRoomIdRoute,
   ApiElevenlabsScribeTokenRoute: ApiElevenlabsScribeTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
