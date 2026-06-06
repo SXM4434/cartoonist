@@ -101,7 +101,13 @@ function Onboarding() {
     const p: Profile = { displayName: displayName.trim(), vibe, strengths, bio: bio.trim(), color: color || pickColor(displayName) };
     saveProfile(p);
     toast.success("Profile saved!");
-    navigate({ to: "/dashboard" });
+    const pending = typeof window !== "undefined" ? sessionStorage.getItem("cartoonist_pending_join") : null;
+    if (pending) {
+      sessionStorage.removeItem("cartoonist_pending_join");
+      navigate({ to: "/sessions/$sessionId", params: { sessionId: pending } });
+    } else {
+      navigate({ to: "/dashboard" });
+    }
   };
 
   return (
