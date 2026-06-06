@@ -69,15 +69,20 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
       .join("\n");
   }, [shapes]);
 
-  const requestDraw = useCallback(async (transcript: string) => {
-    if (!transcript.trim()) return;
+  const requestDraw = useCallback(async (latest: string) => {
+    if (!latest.trim()) return;
     setThinking(true);
     setDrawError(null);
     try {
+      // Send rolling context: last 12 final utterances + the latest delta.
+      // This is what lets Cartoonist "follow" the conversation instead of
+      // reacting to a single fragment.
+      const recent = speech.finals.slice(-12).join(" ");
+      const fullContext = recent ? `${recent}\n---LATEST---\n${latest}` : latest;
       const res = await fetch("/api/cartoonist-draw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript, existing: summarizeCanvas() }),
+        body: JSON.stringify({ transcript: fullContext, latest, existing: summarizeCanvas() }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -90,7 +95,6 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
         const known = new Set(current.map((s) => s.id));
         const fresh = incoming.filter((s) => s && s.id && !known.has(s.id));
         if (fresh.length === 0) return current;
-        // Persist to canvas_events (fire and forget)
         for (const shape of fresh) {
           void supabase.from("canvas_events").insert({
             room_id: roomId,
@@ -105,7 +109,7 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
     } finally {
       setThinking(false);
     }
-  }, [roomId, summarizeCanvas]);
+  }, [roomId, speech.finals, summarizeCanvas]);
 
   // Auto-draw from speech: every ~6s if there's new committed text
   useEffect(() => {
