@@ -43,35 +43,50 @@
 }
 
 :root {
-  --radius: 0.75rem;
-  /* Neutral elegance: cream, light grey, warm orange */
-  --background: oklch(0.97 0.012 80);
-  --foreground: oklch(0.22 0.015 60);
-  --card: oklch(0.985 0.008 80);
-  --card-foreground: oklch(0.22 0.015 60);
-  --popover: oklch(0.985 0.008 80);
-  --popover-foreground: oklch(0.22 0.015 60);
-  --primary: oklch(0.68 0.16 47);
-  --primary-foreground: oklch(0.99 0.005 80);
-  --secondary: oklch(0.93 0.01 70);
-  --secondary-foreground: oklch(0.28 0.015 60);
-  --muted: oklch(0.94 0.008 70);
-  --muted-foreground: oklch(0.5 0.02 60);
-  --accent: oklch(0.92 0.04 60);
-  --accent-foreground: oklch(0.28 0.015 60);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.88 0.012 70);
-  --input: oklch(0.9 0.012 70);
-  --ring: oklch(0.68 0.16 47);
-  --sidebar: oklch(0.97 0.012 80);
-  --sidebar-foreground: oklch(0.22 0.015 60);
-  --sidebar-primary: oklch(0.68 0.16 47);
-  --sidebar-primary-foreground: oklch(0.99 0.005 80);
-  --sidebar-accent: oklch(0.92 0.04 60);
-  --sidebar-accent-foreground: oklch(0.28 0.015 60);
-  --sidebar-border: oklch(0.88 0.012 70);
-  --sidebar-ring: oklch(0.68 0.16 47);
+  /* Borders, not shadows. Small radius — editorial, not soft-SaaS. */
+  --radius: 0.25rem;
+
+  /* Paper / ink / one warm accent. Off-black, not pure black. */
+  --background: oklch(0.965 0.008 85);   /* warm paper */
+  --foreground: oklch(0.22 0.012 60);    /* off-black ink */
+  --card: oklch(0.98 0.006 85);          /* raised paper, lightness step */
+  --card-foreground: oklch(0.22 0.012 60);
+  --popover: oklch(0.98 0.006 85);
+  --popover-foreground: oklch(0.22 0.012 60);
+
+  /* Single accent — warm orange. Desaturated supporting cast. */
+  --primary: oklch(0.62 0.18 42);
+  --primary-foreground: oklch(0.985 0.005 85);
+  --secondary: oklch(0.93 0.006 80);
+  --secondary-foreground: oklch(0.28 0.012 60);
+  --muted: oklch(0.93 0.005 80);
+  --muted-foreground: oklch(0.48 0.012 60);
+  --accent: oklch(0.93 0.006 80);
+  --accent-foreground: oklch(0.28 0.012 60);
+  --destructive: oklch(0.52 0.22 27);
+  --destructive-foreground: oklch(0.985 0.003 85);
+
+  --border: oklch(0.82 0.01 70);         /* visible structural stroke */
+  --input: oklch(0.86 0.01 70);
+  --ring: oklch(0.62 0.18 42);
+
+  --sidebar: oklch(0.965 0.008 85);
+  --sidebar-foreground: oklch(0.22 0.012 60);
+  --sidebar-primary: oklch(0.62 0.18 42);
+  --sidebar-primary-foreground: oklch(0.985 0.005 85);
+  --sidebar-accent: oklch(0.93 0.006 80);
+  --sidebar-accent-foreground: oklch(0.28 0.012 60);
+  --sidebar-border: oklch(0.82 0.01 70);
+  --sidebar-ring: oklch(0.62 0.18 42);
+
+  /* Locked type ladder — never use off-ladder sizes */
+  --step-0: 0.6875rem;   /* 11 — micro/eyebrow */
+  --step-1: 0.8125rem;   /* 13 — meta */
+  --step-2: 0.9375rem;   /* 15 — body */
+  --step-3: 1.375rem;    /* 22 — subhead */
+  --step-4: 2rem;        /* 32 — section title */
+  --step-5: 3.25rem;     /* 52 — display */
+  --step-6: 5.25rem;     /* 84 — hero */
 }
 
 @layer base {
@@ -83,11 +98,34 @@
     font-family: var(--font-sans);
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-size: var(--step-2);
+    line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    font-feature-settings: "ss01", "cv11";
   }
 
-  h1, h2, h3, .font-serif {
+  h1, h2, h3, h4, .font-serif {
     font-family: var(--font-serif);
-    letter-spacing: -0.01em;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+  }
+
+  /* Tabular figures for any numeric data */
+  .tnum, table, time, [data-numeric] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* Editorial micro-label */
+  .eyebrow {
+    font-size: var(--step-0);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  /* Hairline rule */
+  .rule {
+    border-top: 1px solid var(--color-border);
   }
 }
