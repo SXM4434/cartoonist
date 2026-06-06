@@ -5,8 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { COLORS, STRENGTHS, VIBES, type Profile, type Vibe, loadProfile, pickColor, saveProfile } from "@/lib/profile";
+import { COLORS, type Profile, clearProfile, loadProfile, pickColor, saveProfile } from "@/lib/profile";
 
 export const Route = createFileRoute("/onboarding")({
   ssr: false,
@@ -16,39 +15,39 @@ export const Route = createFileRoute("/onboarding")({
 function Onboarding() {
   const navigate = useNavigate();
   const [displayName, setDisplayName] = useState("");
-  const [vibe, setVibe] = useState<Vibe>("creative");
-  const [strengths, setStrengths] = useState<string[]>([]);
-  const [bio, setBio] = useState("");
+  const [role, setRole] = useState("");
   const [color, setColor] = useState(COLORS[0]);
   const [recording, setRecording] = useState(false);
   const [parsing, setParsing] = useState(false);
-  const recRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const recRef = useRef<unknown>(null);
 
   useEffect(() => {
     const existing = loadProfile();
     if (existing) {
       setDisplayName(existing.displayName);
-      setVibe(existing.vibe);
-      setStrengths(existing.strengths);
-      setBio(existing.bio);
+      setRole(existing.role);
       setColor(existing.color);
     }
   }, []);
 
-  // Audio intro via browser SpeechRecognition (no extra service needed)
   const startMic = async () => {
-    const SR = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+    const SR = (window as unknown as { webkitSpeechRecognition?: new () => unknown; SpeechRecognition?: new () => unknown })
+      .webkitSpeechRecognition || (window as unknown as { SpeechRecognition?: new () => unknown }).SpeechRecognition;
     if (!SR) {
       toast.error("Voice intro works best in Chrome / Edge. Just type instead.");
       return;
     }
-    const rec = new SR();
+    const rec = new (SR as new () => {
+      lang: string; continuous: boolean; interimResults: boolean;
+      onresult: (e: { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void;
+      onerror: () => void; onend: () => Promise<void>;
+      start: () => void; stop: () => void;
+    })();
     rec.lang = "en-US";
     rec.continuous = true;
     rec.interimResults = false;
     let transcript = "";
-    rec.onresult = (e: any) => {
+    rec.onresult = (e) => {
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (e.results[i].isFinal) transcript += e.results[i][0].transcript + " ";
       }
@@ -60,15 +59,14 @@ function Onboarding() {
       if (!text) return;
       await autofill(text);
     };
-    recRef.current = rec as any;
+    recRef.current = rec;
     rec.start();
     setRecording(true);
-    toast.success("Say your name, what you do, and how you like to work");
-    // auto-stop after 12s
-    setTimeout(() => { try { rec.stop(); } catch {} }, 12000);
+    toast.success("Say your first name and what you do (e.g. 'I'm Maya, a product designer')");
+    setTimeout(() => { try { rec.stop(); } catch { /* noop */ } }, 10000);
   };
 
-  const stopMic = () => { try { (recRef.current as any)?.stop?.(); } catch {} };
+  const stopMic = () => { try { (recRef.current as { stop?: () => void } | null)?.stop?.(); } catch { /* noop */ } };
 
   const autofill = async (transcript: string) => {
     setParsing(true);
@@ -76,16 +74,14 @@ function Onboarding() {
       const res = await fetch("/api/parse-intro", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript }),
+        body: JSON.stringify({ transcript, kind: "profile" }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "parse failed");
       if (data.displayName) setDisplayName((v) => v || data.displayName);
-      if (data.vibe && VIBES.find((x) => x.id === data.vibe)) setVibe(data.vibe);
-      if (Array.isArray(data.strengths) && data.strengths.length)
-        setStrengths((cur) => Array.from(new Set([...cur, ...data.strengths.filter((s: string) => STRENGTHS.includes(s))])));
-      if (data.bio) setBio((v) => v || data.bio);
-      toast.success("Autofilled from your intro — tweak anything.");
+      if (data.role) setRole((v) => v || data.role);
+      if (data.displayName && !color) setColor(pickColor(data.displayName));
+      toast.success("Autofilled — tweak anything.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not parse intro");
     } finally {
@@ -93,14 +89,14 @@ function Onboarding() {
     }
   };
 
-  const toggleStrength = (s: string) =>
-    setStrengths((cur) => cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]);
-
   const save = () => {
-    if (!displayName.trim()) { toast.error("Add your display name"); return; }
-    const p: Profile = { displayName: displayName.trim(), vibe, strengths, bio: bio.trim(), color: color || pickColor(displayName) };
+    if (!displayName.trim()) { toast.error("Add your first name"); return; }
+    const p: Profile = {
+      displayName: displayName.trim(),
+      role: role.trim(),
+      color: color || pickColor(displayName),
+    };
     saveProfile(p);
-    toast.success("Profile saved!");
     const pending = typeof window !== "undefined" ? sessionStorage.getItem("cartoonist_pending_join") : null;
     if (pending) {
       sessionStorage.removeItem("cartoonist_pending_join");
@@ -113,24 +109,24 @@ function Onboarding() {
   return (
     <main className="min-h-screen bg-background px-4 py-10">
       <CartoonistHeader />
-      <div className="mx-auto max-w-2xl">
+      <div className="mx-auto max-w-xl">
         <div className="mb-6 flex items-center gap-4">
           <div className="text-5xl">🤖</div>
           <div>
-            <h1 className="font-serif" style={{ fontSize: "var(--step-4)" }}>Let's draw your profile</h1>
-            <p className="text-muted-foreground" style={{ fontSize: "var(--step-2)" }}>
-              So Cartoonist can mediate around your style.
+            <span className="eyebrow text-primary">Step 1 of 2</span>
+            <h1 className="font-serif" style={{ fontSize: "var(--step-5)", lineHeight: 1 }}>Say hi to Cartoonist</h1>
+            <p className="text-muted-foreground mt-1" style={{ fontSize: "var(--step-2)" }}>
+              Just your name and what you do — the session stuff comes next.
             </p>
           </div>
         </div>
 
         <div className="rounded-2xl border-2 border-foreground bg-card p-6 space-y-5">
-          {/* Voice autofill */}
-          <div className="rounded-xl border border-border bg-background p-4 flex items-center justify-between">
+          <div className="rounded-xl border-2 border-foreground bg-yellow-50 p-4 flex items-center justify-between gap-3">
             <div>
-              <p className="font-medium">Skip the form — say hi</p>
+              <p className="font-medium" style={{ fontSize: "var(--step-2)" }}>Skip the form — say it</p>
               <p className="text-muted-foreground" style={{ fontSize: "var(--step-1)" }}>
-                10 sec mic intro. Cartoonist autofills what it hears.
+                10 sec mic. Cartoonist fills in name + role.
               </p>
             </div>
             {recording ? (
@@ -146,57 +142,24 @@ function Onboarding() {
           </div>
 
           <div>
-            <Label className="mb-1.5 block">Display name</Label>
+            <Label className="mb-1.5 block">First name</Label>
             <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Maya" className="rounded-full border-2 border-foreground" />
           </div>
 
           <div>
-            <Label className="mb-2 block">Your vibe</Label>
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-              {VIBES.map((v) => (
-                <button
-                  type="button"
-                  key={v.id}
-                  onClick={() => setVibe(v.id)}
-                  className={`rounded-xl border-2 p-3 text-left transition ${vibe === v.id ? "border-foreground bg-secondary" : "border-border bg-background hover:border-foreground/60"}`}
-                >
-                  <div className="text-2xl">{v.emoji}</div>
-                  <div className="mt-1 font-medium">{v.label}</div>
-                  <div className="text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>{v.sub}</div>
-                </button>
-              ))}
-            </div>
+            <Label className="mb-1.5 block">What do you do?</Label>
+            <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="Designer · PM · Engineer · Founder…" className="rounded-full border-2 border-foreground" />
           </div>
 
           <div>
-            <Label className="mb-2 block">Strengths (pick a few)</Label>
-            <div className="flex flex-wrap gap-2">
-              {STRENGTHS.map((s) => (
-                <button
-                  type="button"
-                  key={s}
-                  onClick={() => toggleStrength(s)}
-                  className={`rounded-full border-2 px-3 py-1 text-sm transition ${strengths.includes(s) ? "border-foreground bg-foreground text-background" : "border-border bg-background hover:border-foreground/60"}`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <Label className="mb-1.5 block">One-line bio (optional)</Label>
-            <Textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={2} className="rounded-xl border-2 border-foreground" />
-          </div>
-
-          <div>
-            <Label className="mb-2 block">Your color</Label>
+            <Label className="mb-2 block">Your color on the canvas</Label>
             <div className="flex gap-2">
               {COLORS.map((c) => (
                 <button
                   key={c}
                   type="button"
                   onClick={() => setColor(c)}
+                  aria-label={`Pick color ${c}`}
                   className={`h-9 w-9 rounded-full border-2 transition ${color === c ? "border-foreground scale-110" : "border-transparent"}`}
                   style={{ backgroundColor: c }}
                 />
@@ -205,7 +168,7 @@ function Onboarding() {
           </div>
 
           <Button onClick={save} className="w-full rounded-full bg-primary py-6 text-base font-medium text-primary-foreground hover:bg-primary/90">
-            Save and continue
+            Save & continue
           </Button>
         </div>
       </div>
@@ -223,7 +186,7 @@ export function CartoonistHeader() {
       </button>
       <div className="flex gap-2">
         <Button variant="ghost" onClick={() => navigate({ to: "/dashboard" })} className="rounded-full">Dashboard</Button>
-        <Button variant="outline" onClick={() => { localStorage.removeItem("cartoonist_profile_v2"); navigate({ to: "/" }); }} className="rounded-full border-2 border-foreground">
+        <Button variant="outline" onClick={() => { clearProfile(); navigate({ to: "/" }); }} className="rounded-full border-2 border-foreground">
           Sign out
         </Button>
       </div>

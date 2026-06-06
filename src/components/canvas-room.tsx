@@ -11,6 +11,14 @@ import { IntroModal } from "./intro-modal";
 import { SketchCanvas } from "./sketch-canvas";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
+type SessionContext = {
+  name: string;
+  goal: string;
+  outputs: string[];
+  facilitation: string;
+  hostRole: string;
+};
+
 export function CanvasRoom({ roomId }: { roomId: string }) {
   const [introOpen, setIntroOpen] = useState(true);
   const [joined, setJoined] = useState(false);
@@ -25,11 +33,14 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
   const [askText, setAskText] = useState("");
   const [thinking, setThinking] = useState(false);
   const [drawError, setDrawError] = useState<string | null>(null);
+  const [sessionCtx, setSessionCtx] = useState<SessionContext | null>(null);
 
   const speech = useSpeech();
   const startedAtRef = useRef(Date.now());
   const lastSentLenRef = useRef(0);
+  const seededRef = useRef(false);
 
+  // Pull session context + auto-join from local profile
   useEffect(() => {
     if (typeof window === "undefined") return;
     const cached = window.localStorage.getItem(`cartoonist_joined_${roomId}`);
@@ -40,7 +51,58 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
       setIntroOpen(false);
       setParticipants([{ id: "local", name, color }]);
     }
+    (async () => {
+      const { data: room } = await supabase
+        .from("rooms")
+        .select("name,goal,outputs,facilitation,host_role")
+        .eq("id", roomId).maybeSingle();
+      if (room) {
+        setSessionCtx({
+          name: (room as { name: string }).name ?? "",
+          goal: (room as { goal: string | null }).goal ?? "",
+          outputs: (room as { outputs: string[] | null }).outputs ?? [],
+          facilitation: (room as { facilitation: string | null }).facilitation ?? "scribe",
+          hostRole: (room as { host_role: string | null }).host_role ?? "",
+        });
+      }
+      const { data: parts } = await supabase.from("participants").select("id,display_name,color").eq("room_id", roomId);
+      if (parts && parts.length) {
+        setParticipants(parts.map((p) => ({ id: p.id, name: p.display_name, color: p.color ?? "#E07A3E" })));
+      }
+    })();
   }, [roomId]);
+
+  // Seed initial shapes from session setup the first time we have context + empty canvas
+  useEffect(() => {
+    if (seededRef.current) return;
+    if (!sessionCtx || !sessionCtx.goal) return;
+    if (shapes.length > 0) { seededRef.current = true; return; }
+    seededRef.current = true;
+    const seeded: SketchPrimitive[] = [];
+    seeded.push({ type: "text", id: "seed_title", x: 60, y: 60, text: sessionCtx.name || "Session", size: 32, weight: "bold" });
+    seeded.push({ type: "path", id: "seed_underline", points: [[60, 96], [220, 100], [380, 94], [520, 98]], closed: false });
+    seeded.push({
+      type: "note", id: "seed_goal", x: 60, y: 130, w: 320, h: 130,
+      text: `GOAL\n${sessionCtx.goal}`, color: "yellow",
+    });
+    sessionCtx.outputs.slice(0, 6).forEach((o, i) => {
+      const col = i % 3;
+      const row = Math.floor(i / 3);
+      seeded.push({
+        type: "note", id: `seed_out_${i}`,
+        x: 420 + col * 180, y: 130 + row * 150, w: 160, h: 130,
+        text: o, color: i % 2 === 0 ? "blue" : "green",
+      });
+    });
+    setShapes(seeded);
+    for (const shape of seeded) {
+      void supabase.from("canvas_events").insert({
+        room_id: roomId, op: JSON.parse(JSON.stringify(shape)),
+        t_offset_ms: Date.now() - startedAtRef.current,
+      });
+    }
+  }, [sessionCtx, shapes.length, roomId]);
+
 
   const summarizeCanvas = useCallback(() => {
     if (shapes.length === 0) return "(empty)";
@@ -82,7 +144,7 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
       const res = await fetch("/api/cartoonist-draw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript: fullContext, latest, existing: summarizeCanvas() }),
+        body: JSON.stringify({ transcript: fullContext, latest, existing: summarizeCanvas(), sessionContext: sessionCtx }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -109,7 +171,7 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
     } finally {
       setThinking(false);
     }
-  }, [roomId, speech.finals, summarizeCanvas]);
+  }, [roomId, speech.finals, summarizeCanvas, sessionCtx]);
 
   // Auto-draw from speech: every ~6s if there's new committed text
   useEffect(() => {
