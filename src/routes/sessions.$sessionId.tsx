@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowRight, Check, Copy } from "lucide-react";
+import { ArrowRight, Check, Copy, Mic, MessageSquare, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,12 +12,18 @@ type Room = {
   goal: string | null; outputs: string[] | null;
   facilitation: string | null; host_role: string | null;
 };
-type Participant = { id: string; display_name: string; role: string | null; color: string | null; personality: string | null };
+type Participant = {
+  id: string; display_name: string; role: string | null; color: string | null; personality: string | null;
+  input_mode?: "voice" | "chat" | "both" | null;
+  linked_participant_id?: string | null;
+};
 
 export const Route = createFileRoute("/sessions/$sessionId")({
   ssr: false,
   component: Lobby,
 });
+
+const norm = (s: string) => s.trim().toLowerCase();
 
 function Lobby() {
   const { sessionId } = Route.useParams();
