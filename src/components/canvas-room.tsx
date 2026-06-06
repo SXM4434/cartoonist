@@ -81,7 +81,7 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
         for (const shape of fresh) {
           void supabase.from("canvas_events").insert({
             room_id: roomId,
-            op: shape as unknown as Record<string, unknown>,
+            op: JSON.parse(JSON.stringify(shape)),
             t_offset_ms: Date.now() - startedAtRef.current,
           });
         }
