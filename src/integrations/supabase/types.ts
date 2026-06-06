@@ -83,7 +83,9 @@ export type Database = {
           color: string | null
           display_name: string
           id: string
+          input_mode: string
           joined_at: string
+          linked_participant_id: string | null
           personality: string | null
           role: string | null
           room_id: string
@@ -93,7 +95,9 @@ export type Database = {
           color?: string | null
           display_name: string
           id?: string
+          input_mode?: string
           joined_at?: string
+          linked_participant_id?: string | null
           personality?: string | null
           role?: string | null
           room_id: string
@@ -103,13 +107,22 @@ export type Database = {
           color?: string | null
           display_name?: string
           id?: string
+          input_mode?: string
           joined_at?: string
+          linked_participant_id?: string | null
           personality?: string | null
           role?: string | null
           room_id?: string
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "participants_linked_participant_id_fkey"
+            columns: ["linked_participant_id"]
+            isOneToOne: false
+            referencedRelation: "participants"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "participants_room_id_fkey"
             columns: ["room_id"]
@@ -173,6 +186,7 @@ export type Database = {
           id: string
           participant_id: string | null
           room_id: string
+          source: string
           t_offset_ms: number
           text: string
         }
@@ -181,6 +195,7 @@ export type Database = {
           id?: string
           participant_id?: string | null
           room_id: string
+          source?: string
           t_offset_ms?: number
           text: string
         }
@@ -189,6 +204,7 @@ export type Database = {
           id?: string
           participant_id?: string | null
           room_id?: string
+          source?: string
           t_offset_ms?: number
           text?: string
         }
