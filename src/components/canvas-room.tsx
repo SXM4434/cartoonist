@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useScribe, CommitStrategy } from "@elevenlabs/react";
-import { Mic, MicOff, Sparkles, StickyNote, Copy, Check, FileDown, Loader2 } from "lucide-react";
+import { Mic, MicOff, Sparkles, StickyNote, Copy, Check, FileDown, Loader2, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { LiveList } from "@liveblocks/client";
@@ -59,6 +59,11 @@ function RoomShell({ roomId }: { roomId: string }) {
   const [generating, setGenerating] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [storageError, setStorageError] = useState(false);
+
+  type DemoCard = { id: string; type: string; text: string; author?: string; x: number; y: number };
+  const [demoCards, setDemoCards] = useState<DemoCard[]>([]);
+  const [demoLine, setDemoLine] = useState<string>("");
+  const [demoRunning, setDemoRunning] = useState(false);
 
   const lastProcessedIdx = useRef(0);
   const startedAtRef = useRef<number>(Date.now());
@@ -325,6 +330,38 @@ function RoomShell({ roomId }: { roomId: string }) {
     }
   }, [committed]);
 
+  const runDemo = useCallback(async () => {
+    if (demoRunning) return;
+    setDemoRunning(true);
+    setDemoCards([]);
+    const script: Array<{ say: string; speaker: string; card?: Omit<DemoCard, "x" | "y"> }> = [
+      { speaker: "Sam (PM)", say: "Okay team, let's map out the onboarding flow. What's the first friction point users hit?" },
+      { speaker: "Alex (Design)", say: "The signup form. Too many fields up front.", card: { id: "d1", type: "sticky", text: "Signup form too long", author: "Alex" } },
+      { speaker: "Jordan (Eng)", say: "Agreed. We could defer profile fields until after first action.", card: { id: "d2", type: "sticky", text: "Defer profile to post-activation", author: "Jordan" } },
+      { speaker: "Sam (PM)", say: "Love it. So step one is just email + password.", card: { id: "d3", type: "flowStep", text: "1. Email + password" } },
+      { speaker: "Alex (Design)", say: "Then drop them straight into a sample workspace.", card: { id: "d4", type: "flowStep", text: "2. Sample workspace" } },
+      { speaker: "Jordan (Eng)", say: "And a tooltip tour on the first key action.", card: { id: "d5", type: "flowStep", text: "3. Guided first action" } },
+      { speaker: "Sam (PM)", say: "Decision: ship the slim signup behind a flag next sprint.", card: { id: "d6", type: "decision", text: "Ship slim signup behind flag — next sprint" } },
+      { speaker: "Alex (Design)", say: "I'll mock the new form by Thursday.", card: { id: "d7", type: "actionItem", text: "Mock new signup form", author: "Alex — Thu" } },
+      { speaker: "Jordan (Eng)", say: "I'll wire the feature flag and migration.", card: { id: "d8", type: "actionItem", text: "Feature flag + DB migration", author: "Jordan" } },
+    ];
+    for (let i = 0; i < script.length; i++) {
+      const step = script[i];
+      setDemoLine(`${step.speaker}: ${step.say}`);
+      await new Promise((r) => setTimeout(r, 1600));
+      if (step.card) {
+        const col = i % 4;
+        const row = Math.floor(i / 4);
+        setDemoCards((prev) => [
+          ...prev,
+          { ...step.card!, x: 40 + col * 240, y: 40 + row * 160 },
+        ]);
+      }
+    }
+    setDemoLine("Demo complete — this is what a live session feels like.");
+    setDemoRunning(false);
+  }, [demoRunning]);
+
   return (
     <div className="flex h-screen flex-col bg-background">
       {/* Masthead — editorial bar, hairline rule, no blur/shadow */}
@@ -367,6 +404,10 @@ function RoomShell({ roomId }: { roomId: string }) {
             <StickyNote className="h-3.5 w-3.5" />
             <span className="eyebrow">Anon</span>
           </Button>
+          <Button size="sm" variant="outline" onClick={runDemo} disabled={demoRunning} className="h-8 gap-1.5 rounded-none border-border">
+            <Play className="h-3.5 w-3.5" />
+            <span className="eyebrow">{demoRunning ? "Playing…" : "Demo"}</span>
+          </Button>
           {isLive ? (
             <Button size="sm" onClick={stopMic} className="h-8 gap-1.5 rounded-none bg-foreground text-background hover:bg-foreground/90">
               <MicOff className="h-3.5 w-3.5" />
@@ -403,18 +444,55 @@ function RoomShell({ roomId }: { roomId: string }) {
       </header>
 
       {/* Live transcript ticker */}
-      {(isLive || committed.length > 0) && (
+      {(isLive || committed.length > 0 || demoLine) && (
         <div className="flex items-center gap-3 border-b border-border bg-background px-5 py-1.5">
-          <span className="eyebrow text-primary">Live</span>
+          <span className="eyebrow text-primary">{demoRunning ? "Demo" : "Live"}</span>
           <span className="truncate text-foreground/70" style={{ fontSize: "var(--step-1)" }}>
-            {partial || committed[committed.length - 1] || "Listening…"}
+            {demoLine || partial || committed[committed.length - 1] || "Listening…"}
           </span>
         </div>
       )}
 
       {/* Canvas */}
-      <div className="flex-1 overflow-hidden">
+      <div className="relative flex-1 overflow-hidden">
         <CanvasBoard />
+        {demoCards.length > 0 && (
+          <div className="pointer-events-none absolute inset-0 overflow-auto bg-background/95 p-6">
+            <div className="mb-4 flex items-baseline gap-3">
+              <span className="eyebrow text-primary">Demo session</span>
+              <span className="text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
+                A simulated conversation building a canvas in real time.
+              </span>
+            </div>
+            <div className="relative" style={{ minHeight: 600 }}>
+              {demoCards.map((c) => {
+                const tone =
+                  c.type === "decision"
+                    ? "border-primary bg-primary/5"
+                    : c.type === "actionItem"
+                    ? "border-foreground bg-background"
+                    : c.type === "flowStep"
+                    ? "border-border bg-muted"
+                    : "border-border bg-background";
+                return (
+                  <div
+                    key={c.id}
+                    className={`absolute w-52 border ${tone} p-3 transition-all`}
+                    style={{ left: c.x, top: c.y }}
+                  >
+                    <div className="eyebrow mb-1 text-muted-foreground">{c.type}</div>
+                    <div className="text-foreground" style={{ fontSize: "var(--step-1)", lineHeight: 1.35 }}>
+                      {c.text}
+                    </div>
+                    {c.author && (
+                      <div className="eyebrow mt-2 text-muted-foreground">— {c.author}</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Bottom-right mediator marker — bordered, not shadowed */}
