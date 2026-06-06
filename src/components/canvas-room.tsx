@@ -35,6 +35,9 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
   const [thinking, setThinking] = useState(false);
   const [drawError, setDrawError] = useState<string | null>(null);
   const [sessionCtx, setSessionCtx] = useState<SessionContext | null>(null);
+  const [inputMode, setInputMode] = useState<"voice" | "chat">("voice");
+  const [selfPid, setSelfPid] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState(true);
 
   const speech = useSpeech();
   const startedAtRef = useRef(Date.now());
