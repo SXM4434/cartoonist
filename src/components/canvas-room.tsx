@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { LiveList } from "@liveblocks/client";
 import {
   RoomProvider,
+  useRoom,
   useMutation,
   useStorage,
   useOthers,
@@ -45,6 +46,7 @@ function randomXY(idx: number) {
 }
 
 function RoomShell({ roomId }: { roomId: string }) {
+  const room = useRoom();
   const cards = useStorage((root) => root.cards) as readonly Card[] | null;
   const others = useOthers();
   const self = useSelf();
@@ -59,10 +61,23 @@ function RoomShell({ roomId }: { roomId: string }) {
 
   const lastProcessedIdx = useRef(0);
   const startedAtRef = useRef<number>(Date.now());
+  const [storageReady, setStorageReady] = useState(() => room.isStorageReady());
 
-  const applyOps = useMutation(({ storage }, ops: Op[]) => {
-    const cardsList = storage.get("cards") as LiveList<Card>;
-    const connList = storage.get("connections") as LiveList<Connection>;
+  useEffect(() => {
+    let cancelled = false;
+    setStorageReady(room.isStorageReady());
+    void room.waitUntilStorageReady().then(() => {
+      if (!cancelled) setStorageReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [room]);
+
+  const applyOps = useMutation((context, ops: Op[]) => {
+    if (!room.isStorageReady()) return false;
+    const cardsList = context.storage.get("cards") as LiveList<Card>;
+    const connList = context.storage.get("connections") as LiveList<Connection>;
 
     for (const op of ops) {
       if (op.type === "connect") {
@@ -153,7 +168,8 @@ function RoomShell({ roomId }: { roomId: string }) {
       }
       cardsList.push(card);
     }
-  }, []);
+    return true;
+  }, [room]);
 
   const scribe = useScribe({
     modelId: "scribe_v2_realtime",
@@ -199,7 +215,7 @@ function RoomShell({ roomId }: { roomId: string }) {
 
   // AI mediator loop: every 10s when live, process new transcript chunks
   useEffect(() => {
-    if (!isLive) return;
+    if (!isLive || !storageReady) return;
     const interval = setInterval(async () => {
       const newChunks = committed.slice(lastProcessedIdx.current);
       if (newChunks.length === 0) return;
@@ -229,8 +245,9 @@ function RoomShell({ roomId }: { roomId: string }) {
           }),
         });
         const data = await res.json();
-        if (data.ops && Array.isArray(data.ops) && cards != null) {
-          applyOps(data.ops as Op[]);
+        if (data.ops && Array.isArray(data.ops) && storageReady) {
+          const applied = applyOps(data.ops as Op[]);
+          if (!applied) return;
           // persist canvas events
           for (const op of data.ops) {
             void supabase.from("canvas_events").insert({
@@ -245,10 +262,10 @@ function RoomShell({ roomId }: { roomId: string }) {
       }
     }, 10000);
     return () => clearInterval(interval);
-  }, [isLive, committed, cards, others, self, applyOps, roomId]);
+  }, [isLive, storageReady, committed, cards, others, self, applyOps, roomId]);
 
   const addAnonNote = useCallback(() => {
-    if (cards == null) {
+    if (!storageReady) {
       toast.error("Canvas is still connecting…");
       return;
     }
@@ -263,7 +280,7 @@ function RoomShell({ roomId }: { roomId: string }) {
         category: "idea",
       },
     ]);
-  }, [applyOps, cards]);
+  }, [applyOps, storageReady]);
 
   const copyLink = () => {
     navigator.clipboard.writeText(window.location.href);
