@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as RRoomIdRouteImport } from './routes/r.$roomId'
 import { Route as ApiLiveblocksAuthRouteImport } from './routes/api/liveblocks-auth'
 import { Route as ApiGenerateArtifactsRouteImport } from './routes/api/generate-artifacts'
+import { Route as ApiCartoonistDrawRouteImport } from './routes/api/cartoonist-draw'
 import { Route as ApiCanvasOpsRouteImport } from './routes/api/canvas-ops'
 import { Route as ApiElevenlabsScribeTokenRouteImport } from './routes/api/elevenlabs/scribe-token'
 
@@ -36,6 +37,11 @@ const ApiGenerateArtifactsRoute = ApiGenerateArtifactsRouteImport.update({
   path: '/api/generate-artifacts',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCartoonistDrawRoute = ApiCartoonistDrawRouteImport.update({
+  id: '/api/cartoonist-draw',
+  path: '/api/cartoonist-draw',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCanvasOpsRoute = ApiCanvasOpsRouteImport.update({
   id: '/api/canvas-ops',
   path: '/api/canvas-ops',
@@ -51,6 +57,7 @@ const ApiElevenlabsScribeTokenRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/canvas-ops': typeof ApiCanvasOpsRoute
+  '/api/cartoonist-draw': typeof ApiCartoonistDrawRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
   '/r/$roomId': typeof RRoomIdRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/canvas-ops': typeof ApiCanvasOpsRoute
+  '/api/cartoonist-draw': typeof ApiCartoonistDrawRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
   '/r/$roomId': typeof RRoomIdRoute
@@ -68,6 +76,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/canvas-ops': typeof ApiCanvasOpsRoute
+  '/api/cartoonist-draw': typeof ApiCartoonistDrawRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
   '/r/$roomId': typeof RRoomIdRoute
@@ -78,6 +87,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/api/canvas-ops'
+    | '/api/cartoonist-draw'
     | '/api/generate-artifacts'
     | '/api/liveblocks-auth'
     | '/r/$roomId'
@@ -86,6 +96,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/api/canvas-ops'
+    | '/api/cartoonist-draw'
     | '/api/generate-artifacts'
     | '/api/liveblocks-auth'
     | '/r/$roomId'
@@ -94,6 +105,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/api/canvas-ops'
+    | '/api/cartoonist-draw'
     | '/api/generate-artifacts'
     | '/api/liveblocks-auth'
     | '/r/$roomId'
@@ -103,6 +115,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiCanvasOpsRoute: typeof ApiCanvasOpsRoute
+  ApiCartoonistDrawRoute: typeof ApiCartoonistDrawRoute
   ApiGenerateArtifactsRoute: typeof ApiGenerateArtifactsRoute
   ApiLiveblocksAuthRoute: typeof ApiLiveblocksAuthRoute
   RRoomIdRoute: typeof RRoomIdRoute
@@ -139,6 +152,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiGenerateArtifactsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cartoonist-draw': {
+      id: '/api/cartoonist-draw'
+      path: '/api/cartoonist-draw'
+      fullPath: '/api/cartoonist-draw'
+      preLoaderRoute: typeof ApiCartoonistDrawRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/canvas-ops': {
       id: '/api/canvas-ops'
       path: '/api/canvas-ops'
@@ -159,6 +179,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiCanvasOpsRoute: ApiCanvasOpsRoute,
+  ApiCartoonistDrawRoute: ApiCartoonistDrawRoute,
   ApiGenerateArtifactsRoute: ApiGenerateArtifactsRoute,
   ApiLiveblocksAuthRoute: ApiLiveblocksAuthRoute,
   RRoomIdRoute: RRoomIdRoute,
@@ -167,3 +188,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
