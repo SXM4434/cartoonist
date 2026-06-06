@@ -10,33 +10,58 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiGenerateArtifactsRouteImport } from './routes/api/generate-artifacts'
+import { Route as ApiElevenlabsScribeTokenRouteImport } from './routes/api/elevenlabs/scribe-token'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiGenerateArtifactsRoute = ApiGenerateArtifactsRouteImport.update({
+  id: '/api/generate-artifacts',
+  path: '/api/generate-artifacts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiElevenlabsScribeTokenRoute =
+  ApiElevenlabsScribeTokenRouteImport.update({
+    id: '/api/elevenlabs/scribe-token',
+    path: '/api/elevenlabs/scribe-token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
+  '/api/elevenlabs/scribe-token': typeof ApiElevenlabsScribeTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
+  '/api/elevenlabs/scribe-token': typeof ApiElevenlabsScribeTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
+  '/api/elevenlabs/scribe-token': typeof ApiElevenlabsScribeTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/api/generate-artifacts' | '/api/elevenlabs/scribe-token'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/api/generate-artifacts' | '/api/elevenlabs/scribe-token'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/generate-artifacts'
+    | '/api/elevenlabs/scribe-token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiGenerateArtifactsRoute: typeof ApiGenerateArtifactsRoute
+  ApiElevenlabsScribeTokenRoute: typeof ApiElevenlabsScribeTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,12 +73,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/generate-artifacts': {
+      id: '/api/generate-artifacts'
+      path: '/api/generate-artifacts'
+      fullPath: '/api/generate-artifacts'
+      preLoaderRoute: typeof ApiGenerateArtifactsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/elevenlabs/scribe-token': {
+      id: '/api/elevenlabs/scribe-token'
+      path: '/api/elevenlabs/scribe-token'
+      fullPath: '/api/elevenlabs/scribe-token'
+      preLoaderRoute: typeof ApiElevenlabsScribeTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiGenerateArtifactsRoute: ApiGenerateArtifactsRoute,
+  ApiElevenlabsScribeTokenRoute: ApiElevenlabsScribeTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
