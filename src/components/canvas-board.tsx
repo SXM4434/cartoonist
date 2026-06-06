@@ -4,6 +4,7 @@ import {
   useOthers,
   useStorage,
   useMutation,
+  useRoom,
   type Card,
   type Connection,
 } from "@/lib/liveblocks";
@@ -21,16 +22,18 @@ export function CanvasBoard({
     | null;
   const others = useOthers();
   const [, setPresence] = useMyPresence();
+  const room = useRoom();
   const boardRef = useRef<HTMLDivElement | null>(null);
 
-  const moveCard = useMutation(({ storage }, id: string, x: number, y: number) => {
-    const list = storage.get("cards") as LiveList<Card>;
+  const moveCard = useMutation((context, id: string, x: number, y: number) => {
+    if (!room.isStorageReady()) return;
+    const list = context.storage.get("cards") as LiveList<Card>;
     const idx = list.findIndex((c) => c.id === id);
     if (idx >= 0) {
       const existing = list.get(idx)!;
       list.set(idx, { ...existing, x, y });
     }
-  }, []);
+  }, [room]);
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
