@@ -123,7 +123,10 @@ export type Database = {
         Row: {
           created_at: string
           ended_at: string | null
+          facilitation: string | null
+          goal: string | null
           host_id: string | null
+          host_role: string | null
           id: string
           join_code: string | null
           mode: string | null
@@ -135,7 +138,10 @@ export type Database = {
         Insert: {
           created_at?: string
           ended_at?: string | null
+          facilitation?: string | null
+          goal?: string | null
           host_id?: string | null
+          host_role?: string | null
           id?: string
           join_code?: string | null
           mode?: string | null
@@ -147,7 +153,10 @@ export type Database = {
         Update: {
           created_at?: string
           ended_at?: string | null
+          facilitation?: string | null
+          goal?: string | null
           host_id?: string | null
+          host_role?: string | null
           id?: string
           join_code?: string | null
           mode?: string | null
