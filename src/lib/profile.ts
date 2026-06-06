@@ -1,29 +1,24 @@
 // Local profile + sessions stored in localStorage (no auth in this app).
-
-export type Vibe = "introvert" | "extrovert" | "analytical" | "creative" | "driver" | "diplomat";
-export const VIBES: { id: Vibe; label: string; sub: string; emoji: string }[] = [
-  { id: "introvert", label: "Introvert", sub: "Recharges in quiet", emoji: "🌙" },
-  { id: "extrovert", label: "Extrovert", sub: "Energized by people", emoji: "✨" },
-  { id: "analytical", label: "Analytical", sub: "Loves data & systems", emoji: "🏛️" },
-  { id: "creative", label: "Creative", sub: "Big-picture & visual", emoji: "🎨" },
-  { id: "driver", label: "Driver", sub: "Action-oriented, decisive", emoji: "🚀" },
-  { id: "diplomat", label: "Diplomat", sub: "Bridges, listens, mediates", emoji: "🤝" },
-];
-
-export const STRENGTHS = [
-  "Strategy","Research","Design","Engineering","Writing","Facilitation",
-  "Marketing","Sales","Operations","Data","Product","Storytelling",
-];
+// Profile is intentionally small — session-specific context (goal, role, etc)
+// lives on the room itself, not the user.
 
 export type Profile = {
   displayName: string;
-  vibe: Vibe;
-  strengths: string[];
-  bio: string;
+  role: string;     // free-text: "Designer", "PM", "Eng", "Founder"…
   color: string;
 };
 
-const KEY = "cartoonist_profile_v2";
+const COLORS = ["#E07A3E", "#3E7AE0", "#5BB07A", "#B05BA0", "#B0A05B", "#A0B05B", "#D94A4A", "#4AB3D9"];
+export { COLORS };
+
+export function pickColor(seed?: string) {
+  if (!seed) return COLORS[Math.floor(Math.random() * COLORS.length)];
+  let h = 0;
+  for (const c of seed) h = (h * 31 + c.charCodeAt(0)) | 0;
+  return COLORS[Math.abs(h) % COLORS.length];
+}
+
+const KEY = "cartoonist_profile_v3";
 const SESSIONS_KEY = "cartoonist_sessions_v1";
 
 export function loadProfile(): Profile | null {
@@ -39,14 +34,22 @@ export function saveProfile(p: Profile) {
   // Mirror to legacy keys used by canvas-room
   window.localStorage.setItem("cartoonist_user_name", p.displayName);
   window.localStorage.setItem("cartoonist_user_color", p.color);
+  window.localStorage.setItem("cartoonist_user_role", p.role);
+}
+
+export function clearProfile() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(KEY);
+  window.localStorage.removeItem("cartoonist_user_name");
+  window.localStorage.removeItem("cartoonist_user_color");
+  window.localStorage.removeItem("cartoonist_user_role");
 }
 
 export type StoredSession = {
   roomId: string;
   joinCode: string;
   name: string;
-  type: string;
-  mode: string;
+  goal?: string;
   outputs: string[];
   createdAt: number;
 };
@@ -66,12 +69,3 @@ export function addSession(s: StoredSession) {
     window.localStorage.setItem(SESSIONS_KEY, JSON.stringify(all.slice(0, 50)));
   }
 }
-
-const COLORS = ["#E07A3E", "#3E7AE0", "#5BB07A", "#B05BA0", "#B0A05B", "#A0B05B"];
-export function pickColor(seed?: string) {
-  if (!seed) return COLORS[Math.floor(Math.random() * COLORS.length)];
-  let h = 0;
-  for (const c of seed) h = (h * 31 + c.charCodeAt(0)) | 0;
-  return COLORS[Math.abs(h) % COLORS.length];
-}
-export { COLORS };

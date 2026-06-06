@@ -1,13 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const SYSTEM = `You extract structured profile fields from a short spoken self-introduction.
-Return STRICT JSON: { "displayName": "", "role": "", "vibe": "", "strengths": [], "bio": "" }
+// Two modes:
+//   kind=profile  → extract { displayName, role } from a short self-intro
+//   kind=goal     → extract { name, goal, outputs[], hostRole, facilitation } from a session brief
+const SYSTEM_PROFILE = `You extract fields from a short spoken self-introduction.
+Return STRICT JSON: { "displayName": "", "role": "" }
 - displayName: first name only if given, else ""
-- role: short role like "Designer", "PM", "Engineer" (or "" if unclear)
-- vibe: one of introvert|extrovert|analytical|creative|driver|diplomat (or "" if unclear)
-- strengths: subset of [Strategy,Research,Design,Engineering,Writing,Facilitation,Marketing,Sales,Operations,Data,Product,Storytelling]
-- bio: one short sentence (max 100 chars) summarising how they like to work, or "" if not mentioned
-Return JSON only, no commentary.`;
+- role: short role like "Designer", "PM", "Engineer", "Founder" — or "" if unclear
+Return JSON only.`;
+
+const SYSTEM_GOAL = `You extract a session setup from a short spoken brief about a meeting that is about to start.
+Return STRICT JSON:
+{
+  "name": "",                  // short session title, max 60 chars
+  "goal": "",                  // one clear sentence: what are we trying to do?
+  "outputs": [],               // subset of: ["Summary","PRD","User journey","Product flow","Timeline","Problem statement","Decisions","Action items"]
+  "hostRole": "",              // speaker's role THIS session: "facilitator","driver","contributor","observer" or ""
+  "facilitation": ""           // how should Cartoonist show up: "scribe","facilitator","devils-advocate" or ""
+}
+Return JSON only — no commentary, no markdown.`;
 
 export const Route = createFileRoute("/api/parse-intro")({
   server: {
@@ -15,9 +26,11 @@ export const Route = createFileRoute("/api/parse-intro")({
       POST: async ({ request }) => {
         const apiKey = process.env.LOVABLE_API_KEY;
         if (!apiKey) return Response.json({ error: "LOVABLE_API_KEY missing" }, { status: 500 });
-        const { transcript } = (await request.json().catch(() => ({}))) as { transcript?: string };
+        const { transcript, kind } = (await request.json().catch(() => ({}))) as { transcript?: string; kind?: "profile" | "goal" };
         if (!transcript || transcript.trim().length < 4)
           return Response.json({ error: "empty transcript" }, { status: 400 });
+
+        const system = kind === "goal" ? SYSTEM_GOAL : SYSTEM_PROFILE;
 
         const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
@@ -28,7 +41,7 @@ export const Route = createFileRoute("/api/parse-intro")({
           body: JSON.stringify({
             model: "google/gemini-2.5-flash",
             messages: [
-              { role: "system", content: SYSTEM },
+              { role: "system", content: system },
               { role: "user", content: transcript },
             ],
             response_format: { type: "json_object" },
