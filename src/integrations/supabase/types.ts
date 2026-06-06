@@ -125,7 +125,11 @@ export type Database = {
           ended_at: string | null
           host_id: string | null
           id: string
+          join_code: string | null
+          mode: string | null
           name: string
+          outputs: string[] | null
+          session_type: string | null
           started_at: string
         }
         Insert: {
@@ -133,7 +137,11 @@ export type Database = {
           ended_at?: string | null
           host_id?: string | null
           id?: string
+          join_code?: string | null
+          mode?: string | null
           name?: string
+          outputs?: string[] | null
+          session_type?: string | null
           started_at?: string
         }
         Update: {
@@ -141,7 +149,11 @@ export type Database = {
           ended_at?: string | null
           host_id?: string | null
           id?: string
+          join_code?: string | null
+          mode?: string | null
           name?: string
+          outputs?: string[] | null
+          session_type?: string | null
           started_at?: string
         }
         Relationships: []
