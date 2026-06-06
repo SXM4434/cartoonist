@@ -263,7 +263,7 @@ function RoomShell({ roomId }: { roomId: string }) {
         category: "idea",
       },
     ]);
-  }, [applyOps]);
+  }, [applyOps, cards]);
 
   const copyLink = () => {
     navigator.clipboard.writeText(window.location.href);
