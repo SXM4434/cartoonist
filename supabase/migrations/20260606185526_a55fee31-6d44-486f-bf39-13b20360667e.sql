@@ -1,0 +1,1 @@
+ALTER FUNCTION public.gen_join_code() SET search_path = public, pg_temp;
