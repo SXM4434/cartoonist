@@ -229,7 +229,7 @@ function RoomShell({ roomId }: { roomId: string }) {
           }),
         });
         const data = await res.json();
-        if (data.ops && Array.isArray(data.ops)) {
+        if (data.ops && Array.isArray(data.ops) && cards != null) {
           applyOps(data.ops as Op[]);
           // persist canvas events
           for (const op of data.ops) {
