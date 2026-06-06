@@ -1,156 +1,106 @@
-# Cartoonist — Hackathon Build Plan (Locked)
 
-## 1. PRD
+# Cartoonist v2 — Live AI Storyboard Canvas
 
-**Product:** Cartoonist — an AI mediator that listens to a conversation and converts it into actionable team artifacts.
+A Figjam-style room where 2+ people join, introduce themselves, talk, and watch an AI mediator draw the meeting as it happens — sticky notes, user flows, journey maps, decisions — onto a shared, scrubbable canvas.
 
-**1-hour MVP:** Solo voice demo. User speaks into the browser mic. ElevenLabs Scribe transcribes live. "Generate" sends the transcript to Lovable AI which streams back 6 artifacts.
+## What the demo shows (must-have slice)
 
-**User flow (judge demo, ~90s):**
-1. Land on `/` → "Start session" button + brief explainer.
-2. Click Start → mic permission → live transcript fills screen.
-3. Talk for 30-60s (or play pre-recorded audio into mic).
-4. Click Stop → transcript locks.
-5. Click "Generate Artifacts" → 6 tabs stream in.
-6. Each artifact: rendered Markdown (Flow tab = Mermaid diagram), copy-to-clipboard.
+1. **Create / join a room** via shareable link (e.g. `/r/abc123`)
+2. **Intro round** — each person records a 10-sec self-intro; AI extracts name + role + (optional) personality tag and pins a "participant card" on the canvas
+3. **Live mic transcription** (ElevenLabs Scribe v2 realtime) with speaker labels per participant
+4. **AI mediator draws live** — every ~8 sec the AI reads the rolling transcript and emits *canvas commands*:
+   - `addStickyNote`, `addParticipant`, `addUserFlow`, `addJourneyMap`, `addDecision`, `addActionItem`, `connect(a, b, label)`
+   - The visual *type* is chosen by the AI from context (flow vs map vs sticky cluster)
+5. **Live collab** — cursors, shared state, anyone can drag/edit nodes (Liveblocks)
+6. **Anonymous note** button — drops a sticky tagged "anonymous"
+7. **"Someone has an idea" nudge** — AI detects an underheard speaker / quiet participant and posts a prompt
+8. **End meeting → scrubbable timeline** — audio + transcript timeline at the bottom; clicking a moment highlights the canvas elements that were created at that moment
+9. **Export panel** — Summary, Decisions, Action Items, PRD (reuses existing artifact generator)
 
-**Success:** Voice → transcript → 6 polished artifacts, no broken UI.
+## Stretch (only if time)
+- Voting on stickies (👍 reactions)
+- Upload past notes → AI ingests as context
+- Agreement / disagreement heatmap overlay
 
-**Non-goals (post-MVP):** auth, rooms, multi-user, anonymous notes, voting, personality types, whiteboard, file uploads.
+## Tech stack
 
----
-
-## 2. Tech Stack
-
-| Layer | Choice |
+| Concern | Choice |
 |---|---|
-| Framework | TanStack Start (template default) |
-| UI | React + Tailwind v4 + shadcn/ui |
-| Transcription | ElevenLabs Scribe v2 realtime via `@elevenlabs/react` (`useScribe`) |
-| AI | Lovable AI Gateway, `google/gemini-3-flash-preview`, streaming SSE |
-| Diagram | `mermaid` (client render) |
-| Markdown | `react-markdown` |
-| Backend | TanStack server routes — no DB |
-| State | In-memory React state |
+| Canvas | **tldraw** (`@tldraw/tldraw`) — gives infinite canvas, shapes, selection, multiplayer hooks out of the box |
+| Realtime collab | **Liveblocks** (`@liveblocks/client`, `@liveblocks/react`, `@liveblocks/yjs`) — presence, cursors, Y.js doc for shapes |
+| Voice → text | ElevenLabs Scribe v2 realtime (already wired) |
+| AI mediator | Lovable AI Gateway → `google/gemini-3-flash-preview`, JSON tool-call returning canvas commands |
+| Rooms / auth / persistence | Lovable Cloud (Supabase) — `rooms`, `participants`, `transcript_chunks`, `canvas_snapshots`, `audio_clips` (storage bucket) |
+| Audio capture for scrub | MediaRecorder → upload to Cloud storage on meeting end |
 
-Connectors to link: **ElevenLabs** (for `ELEVENLABS_API_KEY`). Lovable AI auto-provisioned.
+## Build phases (~3-4 h realistic; we'll cut features to hit 1 h)
 
----
+### Phase A — Foundations (20 min)
+- Enable Lovable Cloud
+- Add secrets: `LIVEBLOCKS_SECRET_KEY` (user provides), reuse `ELEVENLABS_API_KEY`
+- Install `tldraw`, `@liveblocks/client`, `@liveblocks/react`, `@liveblocks/yjs`, `yjs`
+- DB: `rooms`, `participants`, `transcript_chunks`, `canvas_events`, `audio_clips` (+ RLS, grants)
+- Storage bucket: `meeting-audio` (private)
+- Server fn: `/api/liveblocks-auth` (mint Liveblocks token w/ room access)
 
-## 3. Design Direction
+### Phase B — Room + Canvas (25 min)
+- Routes: `/` (create room), `/r/$roomId` (the meeting)
+- Drop tldraw on `/r/$roomId` with `useYjsStore` bound to Liveblocks Y.js provider → cursors + shapes sync for free
+- Header: room URL copy button, participant avatars
 
-**Neutral elegance**: cream background, light grey surfaces, single warm orange accent. Editorial typography (serif display + clean sans body). Generous whitespace, no gradients, no glow — "thoughtful mediator," not "AI hype."
+### Phase C — Intro round (15 min)
+- Modal on join: "Record a 10-sec intro" → Scribe realtime → text → server fn extracts `{name, role, personality?}` → inserts a custom tldraw "ParticipantCard" shape
 
-Tokens (defined in `src/styles.css` via `@theme`):
-- `--color-background`: cream `oklch(0.97 0.01 80)`
-- `--color-foreground`: near-black `oklch(0.18 0 0)`
-- `--color-muted`: light grey `oklch(0.94 0.005 80)`
-- `--color-accent`: orange `oklch(0.7 0.18 50)`
+### Phase D — Live AI mediator (30 min)
+- Per-participant Scribe session writes committed transcripts to `transcript_chunks` (with speaker_id + timestamp)
+- Worker loop in the room (debounced 8 s): server fn `generateCanvasOps({ transcript, currentCanvasSummary })` → returns JSON array of ops
+- Apply ops to tldraw store (which syncs via Liveblocks)
+- Custom shapes: StickyNote, FlowNode, JourneyStep, DecisionDiamond, ActionItem; `connect` creates tldraw arrows
 
----
+### Phase E — Anonymous notes + nudges (10 min)
+- "Anon note" button → modal → adds sticky with author = "anonymous"
+- Quiet-speaker detector: count utterances per speaker in last 2 min; if someone < threshold, AI posts a "💭 [Name] — anything to add?" sticky
 
-## 4. MVP vs Post-MVP
+### Phase F — Scrub timeline + export (20 min)
+- "End meeting" → stop recorders, upload concatenated audio blob to storage
+- Timeline bar: audio `<audio>` + scrubber; canvas events have timestamps → on scrub, highlight (glow) shapes created within ±2 s
+- "Export" drawer reuses existing `/api/generate-artifacts` over the full transcript
 
-**MVP (this build):** single `/` page, mic + Scribe, all 6 artifacts streaming, copy-to-clipboard, demo-transcript failsafe.
+### Phase G — Polish (15 min)
+- Keep cream/orange/grey theme on tldraw via theme tokens
+- Empty states, room-not-found, mic-permission error
+- Quick README
 
-**Post-MVP (do not build now):** auth, rooms by code, multi-user chat, live AI mediator interjections, audio rooms (WebRTC), personality types, anonymous notes, voting, whiteboard / live AI visuals, file uploads / MCP, persistence (Lovable Cloud).
+## Data model (technical)
 
----
-
-## 5. Build Phases
-
-Each phase ends with an **eval gate** (automated + manual GO/NO-GO).
-
-### Phase 0 — Setup (5 min)
-- 0.1 Link **ElevenLabs** connector
-- 0.2 `bun add @elevenlabs/react react-markdown mermaid`
-- 0.3 Confirm `LOVABLE_API_KEY` + `ELEVENLABS_API_KEY` available
-- 0.4 Apply design tokens in `src/styles.css`, add serif display font via `<link>` in `__root.tsx`
-
-**Eval gate 0:** `fetch_secrets` shows both keys; build passes; cream/orange theme visible on `/`.
-
-### Phase 1 — Backend endpoints (15 min, parallel with Phase 2)
-- 1.1 `src/routes/api/elevenlabs/scribe-token.ts` — POST → returns `{ token }` from ElevenLabs `single-use-token/realtime_scribe`
-- 1.2 `src/routes/api/generate-artifacts.ts` — POST `{ transcript }` → streams SSE from Lovable AI Gateway. System prompt + tool-calling schema returns JSON: `summary`, `decisions[]`, `actionItems[]`, `prd`, `userJourney`, `flowMermaid`
-
-**Eval gate 1:**
-- Automated: `invoke-server-function` POST `/api/elevenlabs/scribe-token` → 200 + token. POST `/api/generate-artifacts` with sample transcript → valid JSON with all 6 keys.
-- Manual: artifact content looks reasonable.
-
-### Phase 2 — UI shell (15 min, parallel with Phase 1)
-- 2.1 Replace `src/routes/index.tsx` placeholder. Hero: "Cartoonist" wordmark (serif), tagline, "Start session" button.
-- 2.2 `<TranscriptPanel />` — partial line (italic muted) + committed lines stack
-- 2.3 `<ArtifactTabs />` — 6 tabs with empty states + skeleton shimmer
-- 2.4 Polish: spacing, type scale, focus states
-
-**Eval gate 2:** Build passes, `/` renders cleanly, no console errors, design feels on-brief.
-
-### Phase 3 — Wire transcription (10 min)
-- 3.1 `useScribe` with `commitStrategy: "vad"`
-- 3.2 Fetch token from `/api/elevenlabs/scribe-token`, call `scribe.connect`
-- 3.3 Pipe partial + committed transcripts into `<TranscriptPanel />`
-- 3.4 Start / Stop buttons wired
-
-**Eval gate 3:** Manual — speak into mic, words appear within ~1s. Stop cleanly disconnects.
-
-### Phase 4 — Wire artifact generation (10 min)
-- 4.1 "Generate Artifacts" button → POST transcript to `/api/generate-artifacts`
-- 4.2 Stream parser progressively fills each tab as JSON fields arrive
-- 4.3 Markdown render for text artifacts, Mermaid render for `flowMermaid` (try/catch fallback to raw code)
-- 4.4 Per-tab loading shimmer until that field arrives
-
-**Eval gate 4:**
-- Automated: end-to-end script — POST sample transcript, assert all 6 artifacts populated.
-- Manual: click Generate, all 6 tabs fill with relevant content.
-
-### Phase 5 — Demo polish (5 min)
-- 5.1 "Load demo transcript" button (failsafe if mic fails)
-- 5.2 Copy-to-clipboard on each artifact
-- 5.3 Final visual pass
-
-**Eval gate 5 (final):** Manual dry-run of full judge flow. If anything stutters, use failsafe.
-
----
-
-## 6. Eval System
-
-After every phase I post:
-
-```
-PHASE N COMPLETE
-✅ shipped: <list>
-⚠️ broken/skipped: <list>
-🤖 automated checks: <pass/fail>
-🔜 next: <phase>
-GO / NO-GO?
+```sql
+rooms(id uuid pk, name text, created_by uuid, created_at, ended_at)
+participants(id uuid pk, room_id fk, user_id uuid?, display_name text, role text, personality text, joined_at)
+transcript_chunks(id, room_id, participant_id, text, t_start_ms, t_end_ms, created_at)
+canvas_events(id, room_id, op jsonb, created_at_ms)  -- for scrub replay
+audio_clips(id, room_id, storage_path, duration_ms)
 ```
 
-**Automated checks I run:** build pass, `invoke-server-function` smoke tests, `server-function-logs` error scan, end-to-end transcript→artifacts assertion in Phase 4.
+RLS: room members (by `participants.user_id = auth.uid()`) can read/write their room's rows. Anonymous join allowed via guest user.
 
-**Manual gate:** you reply **GO** to continue, **NO-GO** with feedback, or **SKIP** to drop scope. If a phase overruns, I stop and ask before adding time — we cut scope, not quality.
+## Liveblocks vs Y.js choice
 
----
+tldraw's `useSync` + Liveblocks Y.js provider is ~30 lines of code and gives presence + cursors + shape sync. Raw Y.js + custom WebSocket would eat the hour. Liveblocks free tier covers demo.
 
-## 7. Team Assignments (parallel work for your 4-6 humans)
+## Risks
+- **Liveblocks key**: user must provide one (free signup). If blocked, fallback: single-room mode using Supabase Realtime broadcast (no cursors, last-write-wins).
+- **AI op quality**: model may emit invalid shape refs. Validate ops + ignore bad ones, never crash the canvas.
+- **Scrubbing**: requires single recorded audio file. If multi-mic, just record host's tab audio for v1.
+- **1-hour reality**: this is a 3-4 h build honest. For the hackathon hour, ship Phases A+B+D (room, canvas, AI draws live) and fake intros/scrub with screenshots in the pitch.
 
-- **P1:** Write 3 realistic sample transcripts (~200 words each) for demo failsafe
-- **P2:** Demo script + judge talking points
-- **P3:** Logo/wordmark polish, tagline copy
-- **P4:** Post-MVP roadmap doc (1-pager) to show judges "what's next"
-- **P5:** Record backup video of working demo
+## What carries over from current code
+- ElevenLabs Scribe token route ✅
+- `generate-artifacts` route (reused for export) ✅
+- Cream/orange/grey theme ✅
+- Sample transcripts (for offline demo) ✅
 
----
-
-## 8. Risk Register
-
-| Risk | Mitigation |
-|---|---|
-| Mic fails on demo machine | Phase 5.1 failsafe transcript button |
-| ElevenLabs rate limits | Test once in Phase 3; have transcript ready |
-| AI returns invalid JSON | Tool-calling with strict schema (Phase 1.2) |
-| Mermaid syntax errors | try/catch render, raw code fallback |
-| 1-hour overrun | Hard cut at end of Phase 4; Phase 5 is "nice to have" |
+What gets deleted: solo recording UI on `/`, single-page artifact tabs (moved into export drawer), Mermaid flow component (replaced by tldraw shapes).
 
 ---
 
-**Approve to start Phase 0.**
+**Confirm and I'll switch to build mode and start Phase A.** Also: do you already have a Liveblocks account / secret key, or should I scaffold the Supabase-Realtime fallback instead?
