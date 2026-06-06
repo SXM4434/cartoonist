@@ -253,12 +253,19 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
     window.localStorage.setItem("cartoonist_user_name", data.name);
     window.localStorage.setItem("cartoonist_user_color", data.color);
     window.localStorage.setItem(`cartoonist_joined_${roomId}`, "1");
-    setParticipants([{ id: "local", name: data.name, role: data.role, color: data.color }]);
+    window.localStorage.setItem(`cartoonist_input_mode_${roomId}`, inputMode);
     setIntroOpen(false);
     setJoined(true);
     toast.success(`Welcome, ${data.name}`);
-    void supabase.from("participants").insert({ room_id: roomId, display_name: data.name, role: data.role, personality: data.personality, color: data.color });
-  }, [roomId]);
+    const { data: ins } = await supabase.from("participants").insert({
+      room_id: roomId, display_name: data.name, role: data.role,
+      personality: data.personality, color: data.color, input_mode: inputMode,
+    } as never).select("id").maybeSingle();
+    const pid = ins?.id ?? "local";
+    if (ins?.id) window.localStorage.setItem(`cartoonist_participant_${roomId}`, ins.id);
+    setSelfPid(pid);
+    setParticipants([{ id: pid, name: data.name, role: data.role, color: data.color }]);
+  }, [roomId, inputMode]);
 
   const recentTranscript = useMemo(() => {
     const last = speech.finals.slice(-3).join(" ");
