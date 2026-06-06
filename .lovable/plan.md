@@ -1,106 +1,76 @@
 
-# Cartoonist v2 — Live AI Storyboard Canvas
+# Cartoonist — focused rebuild plan
 
-A Figjam-style room where 2+ people join, introduce themselves, talk, and watch an AI mediator draw the meeting as it happens — sticky notes, user flows, journey maps, decisions — onto a shared, scrubbable canvas.
-
-## What the demo shows (must-have slice)
-
-1. **Create / join a room** via shareable link (e.g. `/r/abc123`)
-2. **Intro round** — each person records a 10-sec self-intro; AI extracts name + role + (optional) personality tag and pins a "participant card" on the canvas
-3. **Live mic transcription** (ElevenLabs Scribe v2 realtime) with speaker labels per participant
-4. **AI mediator draws live** — every ~8 sec the AI reads the rolling transcript and emits *canvas commands*:
-   - `addStickyNote`, `addParticipant`, `addUserFlow`, `addJourneyMap`, `addDecision`, `addActionItem`, `connect(a, b, label)`
-   - The visual *type* is chosen by the AI from context (flow vs map vs sticky cluster)
-5. **Live collab** — cursors, shared state, anyone can drag/edit nodes (Liveblocks)
-6. **Anonymous note** button — drops a sticky tagged "anonymous"
-7. **"Someone has an idea" nudge** — AI detects an underheard speaker / quiet participant and posts a prompt
-8. **End meeting → scrubbable timeline** — audio + transcript timeline at the bottom; clicking a moment highlights the canvas elements that were created at that moment
-9. **Export panel** — Summary, Decisions, Action Items, PRD (reuses existing artifact generator)
-
-## Stretch (only if time)
-- Voting on stickies (👍 reactions)
-- Upload past notes → AI ingests as context
-- Agreement / disagreement heatmap overlay
-
-## Tech stack
-
-| Concern | Choice |
-|---|---|
-| Canvas | **tldraw** (`@tldraw/tldraw`) — gives infinite canvas, shapes, selection, multiplayer hooks out of the box |
-| Realtime collab | **Liveblocks** (`@liveblocks/client`, `@liveblocks/react`, `@liveblocks/yjs`) — presence, cursors, Y.js doc for shapes |
-| Voice → text | ElevenLabs Scribe v2 realtime (already wired) |
-| AI mediator | Lovable AI Gateway → `google/gemini-3-flash-preview`, JSON tool-call returning canvas commands |
-| Rooms / auth / persistence | Lovable Cloud (Supabase) — `rooms`, `participants`, `transcript_chunks`, `canvas_snapshots`, `audio_clips` (storage bucket) |
-| Audio capture for scrub | MediaRecorder → upload to Cloud storage on meeting end |
-
-## Build phases (~3-4 h realistic; we'll cut features to hit 1 h)
-
-### Phase A — Foundations (20 min)
-- Enable Lovable Cloud
-- Add secrets: `LIVEBLOCKS_SECRET_KEY` (user provides), reuse `ELEVENLABS_API_KEY`
-- Install `tldraw`, `@liveblocks/client`, `@liveblocks/react`, `@liveblocks/yjs`, `yjs`
-- DB: `rooms`, `participants`, `transcript_chunks`, `canvas_events`, `audio_clips` (+ RLS, grants)
-- Storage bucket: `meeting-audio` (private)
-- Server fn: `/api/liveblocks-auth` (mint Liveblocks token w/ room access)
-
-### Phase B — Room + Canvas (25 min)
-- Routes: `/` (create room), `/r/$roomId` (the meeting)
-- Drop tldraw on `/r/$roomId` with `useYjsStore` bound to Liveblocks Y.js provider → cursors + shapes sync for free
-- Header: room URL copy button, participant avatars
-
-### Phase C — Intro round (15 min)
-- Modal on join: "Record a 10-sec intro" → Scribe realtime → text → server fn extracts `{name, role, personality?}` → inserts a custom tldraw "ParticipantCard" shape
-
-### Phase D — Live AI mediator (30 min)
-- Per-participant Scribe session writes committed transcripts to `transcript_chunks` (with speaker_id + timestamp)
-- Worker loop in the room (debounced 8 s): server fn `generateCanvasOps({ transcript, currentCanvasSummary })` → returns JSON array of ops
-- Apply ops to tldraw store (which syncs via Liveblocks)
-- Custom shapes: StickyNote, FlowNode, JourneyStep, DecisionDiamond, ActionItem; `connect` creates tldraw arrows
-
-### Phase E — Anonymous notes + nudges (10 min)
-- "Anon note" button → modal → adds sticky with author = "anonymous"
-- Quiet-speaker detector: count utterances per speaker in last 2 min; if someone < threshold, AI posts a "💭 [Name] — anything to add?" sticky
-
-### Phase F — Scrub timeline + export (20 min)
-- "End meeting" → stop recorders, upload concatenated audio blob to storage
-- Timeline bar: audio `<audio>` + scrubber; canvas events have timestamps → on scrub, highlight (glow) shapes created within ±2 s
-- "Export" drawer reuses existing `/api/generate-artifacts` over the full transcript
-
-### Phase G — Polish (15 min)
-- Keep cream/orange/grey theme on tldraw via theme tokens
-- Empty states, room-not-found, mic-permission error
-- Quick README
-
-## Data model (technical)
-
-```sql
-rooms(id uuid pk, name text, created_by uuid, created_at, ended_at)
-participants(id uuid pk, room_id fk, user_id uuid?, display_name text, role text, personality text, joined_at)
-transcript_chunks(id, room_id, participant_id, text, t_start_ms, t_end_ms, created_at)
-canvas_events(id, room_id, op jsonb, created_at_ms)  -- for scrub replay
-audio_clips(id, room_id, storage_path, duration_ms)
-```
-
-RLS: room members (by `participants.user_id = auth.uid()`) can read/write their room's rows. Anonymous join allowed via guest user.
-
-## Liveblocks vs Y.js choice
-
-tldraw's `useSync` + Liveblocks Y.js provider is ~30 lines of code and gives presence + cursors + shape sync. Raw Y.js + custom WebSocket would eat the hour. Liveblocks free tier covers demo.
-
-## Risks
-- **Liveblocks key**: user must provide one (free signup). If blocked, fallback: single-room mode using Supabase Realtime broadcast (no cursors, last-write-wins).
-- **AI op quality**: model may emit invalid shape refs. Validate ops + ignore bad ones, never crash the canvas.
-- **Scrubbing**: requires single recorded audio file. If multi-mic, just record host's tab audio for v1.
-- **1-hour reality**: this is a 3-4 h build honest. For the hackathon hour, ship Phases A+B+D (room, canvas, AI draws live) and fake intros/scrub with screenshots in the pitch.
-
-## What carries over from current code
-- ElevenLabs Scribe token route ✅
-- `generate-artifacts` route (reused for export) ✅
-- Cream/orange/grey theme ✅
-- Sample transcripts (for offline demo) ✅
-
-What gets deleted: solo recording UI on `/`, single-page artifact tabs (moved into export drawer), Mermaid flow component (replaced by tldraw shapes).
+You're right: sticky-box demos aren't the product. The product is **a real whiteboard where the AI draws what's being said, in real time**, and you can clearly see/hear that the mic is listening. I want to nail that loop first, then layer everything else on top. Trying to ship all 4 phases in one pass is what's caused the blank-screen churn — so I'll do it in **three tight passes**, each one verifiable in the preview before the next.
 
 ---
 
-**Confirm and I'll switch to build mode and start Phase A.** Also: do you already have a Liveblocks account / secret key, or should I scaffold the Supabase-Realtime fallback instead?
+## Pass 1 — A whiteboard that actually draws (no fake demo)
+
+**Goal:** Speak (or type) a sentence → within ~2s an actual sketch appears on the canvas. No sticky-note rectangles.
+
+- Rip out the current demo overlay + "sticky note" cards from `canvas-room.tsx`. They're misleading.
+- Replace the canvas with **two real surfaces stacked**:
+  1. **SVG sketch layer** (the "drawing") — the AI returns sketch primitives (`stroke` polylines, `arrow`, `box`, `circle`, `label`, `connector`) with hand-drawn jitter applied client-side via `rough.js`. This is what makes it feel like a whiteboard, not a Kanban.
+  2. **Freehand layer** — you can draw with mouse/touch using `perfect-freehand`, so humans + AI share the same surface.
+- Mic feedback that you can't miss:
+  - Big pulsing red dot + live waveform bar driven by `AnalyserNode` (so you *see* your voice level moving).
+  - Live partial transcript ribbon at the bottom ("…hearing: 'so the user lands on…'") updating as you speak.
+  - Toast on permission denied / no-speech / browser unsupported.
+- Web Speech API wired with `interimResults: true`, auto-restart on `end`, Chrome-only banner.
+
+**Verify:** I open preview, click mic, say "draw a login flow with email and Google", and see strokes appear within a couple seconds. If that doesn't work, I don't move on.
+
+---
+
+## Pass 2 — The AI "cartoonist" brain
+
+**Goal:** The drawings come from real AI, not scripted demos.
+
+- Edge function `cartoonist-draw` (Lovable AI, `google/gemini-3-flash-preview`, structured tool-call output) that takes the last ~30s of transcript + current canvas state and returns a JSON patch of sketch primitives to add/update/remove. Runs on a debounce (every ~3s while someone's talking, or on "pause detected").
+- Edge function `mediator-monitor` returns short cards: surfaced quiet ideas, agreements, disagreements, open questions. Renders in the right rail (not as canvas cards).
+- Both write to existing `canvas_events` / `transcript_chunks` tables so multiple participants see the same drawing via Supabase Realtime.
+- Failures show a clear inline error in the mediator rail — never blank the screen.
+
+**Verify:** Two browser tabs in the same room both see the same drawing evolve.
+
+---
+
+## Pass 3 — Wrap-up: docs, votes, action items, team alignment
+
+Only after passes 1+2 feel good:
+- `generate-artifact` edge function → Documents tab (summary, PRD, user journey, flow, timeline, problem statement, decisions, action items, team alignment). Editable + copy-to-markdown.
+- Polls + live tallies (Realtime on `polls` / `vote_responses` — needs two new tables).
+- Action item Kanban (new `action_items` table).
+- Uploads & Notes (new `uploads` table + Storage bucket).
+- Profile onboarding (personality + strengths) + dashboard list of past sessions.
+
+---
+
+## Design pass (applies across all three)
+
+Kept tight per your locked memory:
+- Off-black canvas (`oklch(0.22 0 0)`), warm orange accent for the mic/record state only, everything else desaturated.
+- Hand-drawn feel comes from `rough.js` strokes on the canvas itself — **not** from wobbly UI chrome. The app UI stays disciplined editorial; the *drawings* are the playful part. That's the right contrast and matches your "cool on first read, warmer on interaction" north star.
+- Fraunces for the masthead, Inter for everything else, locked type ladder.
+
+---
+
+## Technical details
+
+- New deps: `roughjs`, `perfect-freehand`. No React Flow (it was the wrong primitive — it's a node-graph lib, not a sketching surface).
+- Edge functions: `cartoonist-draw`, `mediator-monitor`, `generate-artifact`. All call Lovable AI Gateway with `LOVABLE_API_KEY` (already set). Tool-calling for structured sketch output, kept schema small to avoid Gemini's "too many states".
+- Migration in Pass 3 only: `polls`, `vote_responses`, `action_items`, `uploads` (+ GRANTs + RLS + Realtime publication).
+- Liveblocks stays removed — Supabase Realtime on `canvas_events` is the source of truth, which fixes the blank-screen crashes for good.
+- Strict verification after each pass: open the preview, reproduce the user flow, check console + network. No "should work" claims.
+
+---
+
+## One thing I need from you before I start
+
+Pass 1 alone is real work (~the biggest single change in the project so far). Two quick confirmations:
+
+1. **Stack of changes is fine?** I will delete the current demo overlay and the sticky-card rendering. The "Play demo" button goes away — replaced by mic + real AI.
+2. **Drawing style:** rough.js "hand-sketched" (wobbly pen lines, like Excalidraw) — that's what I'm assuming based on your "Cartoonist" mascot direction. Confirm or say "cleaner / more architectural" and I'll adjust.
+
+Approve and I'll start Pass 1 immediately.
