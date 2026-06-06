@@ -308,13 +308,27 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
           <Button size="sm" variant="outline" onClick={copyLink} className="h-8 gap-1.5 rounded-none border-border">
             {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}<span className="eyebrow">Share</span>
           </Button>
-          {speech.listening ? (
-            <Button size="sm" onClick={speech.stop} className="h-8 gap-1.5 rounded-none bg-foreground text-background hover:bg-foreground/90">
-              <MicOff className="h-3.5 w-3.5" /><span className="eyebrow">Stop</span>
-            </Button>
+          <Button size="sm" variant="outline" onClick={() => setChatOpen((v) => !v)} className={`h-8 gap-1.5 rounded-none border-border ${chatOpen ? "bg-foreground text-background" : ""}`}>
+            <MessageSquare className="h-3.5 w-3.5" /><span className="eyebrow">Chat</span>
+          </Button>
+          {inputMode === "voice" ? (
+            speech.listening ? (
+              <Button size="sm" onClick={speech.stop} className="h-8 gap-1.5 rounded-none bg-foreground text-background hover:bg-foreground/90">
+                <MicOff className="h-3.5 w-3.5" /><span className="eyebrow">Stop</span>
+              </Button>
+            ) : (
+              <Button size="sm" onClick={() => void speech.start()} className="h-8 gap-1.5 rounded-none bg-primary text-primary-foreground hover:bg-primary/90">
+                <Mic className="h-3.5 w-3.5" /><span className="eyebrow">Listen</span>
+              </Button>
+            )
           ) : (
-            <Button size="sm" onClick={() => void speech.start()} className="h-8 gap-1.5 rounded-none bg-primary text-primary-foreground hover:bg-primary/90">
-              <Mic className="h-3.5 w-3.5" /><span className="eyebrow">Listen</span>
+            <Button size="sm" onClick={() => {
+              setInputMode("voice");
+              window.localStorage.setItem(`cartoonist_input_mode_${roomId}`, "voice");
+              if (selfPid) void supabase.from("participants").update({ input_mode: "both" } as never).eq("id", selfPid);
+              void speech.start();
+            }} className="h-8 gap-1.5 rounded-none bg-primary text-primary-foreground hover:bg-primary/90">
+              <Mic className="h-3.5 w-3.5" /><span className="eyebrow">Add voice</span>
             </Button>
           )}
           <Sheet open={exportOpen} onOpenChange={setExportOpen}>
