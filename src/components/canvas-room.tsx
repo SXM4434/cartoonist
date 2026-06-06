@@ -100,7 +100,7 @@ function RoomShell({ roomId }: { roomId: string }) {
           };
           if (op.connectsFrom) {
             const id = `conn_${op.connectsFrom}_${op.id}`;
-            if (!connList.toArray().some((c) => c.id === id)) {
+            if (!connList.find((c: Connection) => c.id === id)) {
               connList.push({ id, from: op.connectsFrom, to: op.id });
             }
           }
