@@ -171,7 +171,7 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
     } finally {
       setThinking(false);
     }
-  }, [roomId, speech.finals, summarizeCanvas]);
+  }, [roomId, speech.finals, summarizeCanvas, sessionCtx]);
 
   // Auto-draw from speech: every ~6s if there's new committed text
   useEffect(() => {
