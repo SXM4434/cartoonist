@@ -181,8 +181,9 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
     }
   }, [roomId, speech.finals, summarizeCanvas, sessionCtx]);
 
-  // Auto-draw from speech: every ~6s if there's new committed text
+  // Auto-draw from speech: every ~6s if there's new committed text (voice mode only)
   useEffect(() => {
+    if (inputMode === "chat") return;
     if (!speech.listening) return;
     const interval = setInterval(() => {
       const text = speech.finals.join(" ");
@@ -194,11 +195,18 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
       void supabase.from("transcript_chunks").insert({
         room_id: roomId,
         text: newText,
+        source: "voice",
+        participant_id: selfPid,
         t_offset_ms: Date.now() - startedAtRef.current,
-      });
+      } as never);
     }, 6000);
     return () => clearInterval(interval);
-  }, [requestDraw, roomId, speech.finals, speech.listening]);
+  }, [requestDraw, roomId, speech.finals, speech.listening, inputMode, selfPid]);
+
+  // Chat → AI handler (transcript persistence happens inside ChatPanel)
+  const handleChatMessage = useCallback((text: string) => {
+    void requestDraw(text);
+  }, [requestDraw]);
 
   const askDraw = useCallback(async () => {
     const text = askText.trim();
