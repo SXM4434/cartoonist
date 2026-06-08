@@ -460,12 +460,9 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
       <div className="flex flex-1 overflow-hidden">
         <div className="relative flex-1 overflow-hidden">
-          <SketchCanvas
-            shapes={shapes}
-            freehand={freehand}
-            drawingEnabled={drawing}
-            onFreehandComplete={(stroke) => setFreehand((current) => [...current, stroke])}
-          />
+          <CanvasProvider>
+            <Canvas shapes={shapes} drawingEnabled={drawing} />
+          </CanvasProvider>
 
           {shapes.length === 0 && freehand.length === 0 && (
             <div className="pointer-events-none absolute left-8 top-8 max-w-md border border-border bg-background p-5">
