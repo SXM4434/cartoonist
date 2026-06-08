@@ -333,7 +333,16 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
               {p.name.slice(0, 1)}
             </div>
           ))}
+          <button
+            type="button"
+            onClick={openAddPerson}
+            title="Add someone on this device"
+            className="flex h-6 w-6 items-center justify-center border border-dashed border-border text-muted-foreground transition hover:border-foreground hover:text-foreground"
+          >
+            <UserPlus className="h-3 w-3" />
+          </button>
         </div>
+
 
         <div className="flex items-center justify-end gap-1.5">
           <Button size="sm" variant="outline" onClick={() => setDrawing((d) => !d)} className={`h-8 gap-1.5 rounded-none border-border ${drawing ? "bg-foreground text-background" : ""}`}>
