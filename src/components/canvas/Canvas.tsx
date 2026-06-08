@@ -16,6 +16,12 @@ const toRichText = (text: string): RichText => ({
 });
 
 const shapeId = (id: string) => `shape:cartoonist-${id.replace(/[^a-zA-Z0-9_-]/g, "-")}` as TLShapePartial["id"];
+const noteColor = (color?: "yellow" | "pink" | "blue" | "green") => {
+  if (color === "pink") return "light-red";
+  if (color === "blue") return "light-blue";
+  if (color === "green") return "light-green";
+  return "yellow";
+};
 
 function toTldrawShape(shape: SketchPrimitive): TLShapePartial | null {
   const common = { id: shapeId(shape.id), opacity: 1, isLocked: false };
@@ -47,7 +53,7 @@ function toTldrawShape(shape: SketchPrimitive): TLShapePartial | null {
       type: "note",
       x: shape.x,
       y: shape.y,
-      props: { w: shape.w ?? 160, h: shape.h ?? 140, color: shape.color ?? "yellow", richText: toRichText(shape.text) },
+      props: { w: shape.w ?? 160, h: shape.h ?? 140, color: noteColor(shape.color), richText: toRichText(shape.text) },
     };
   }
   if (shape.type === "text") {
@@ -69,7 +75,13 @@ function toTldrawShape(shape: SketchPrimitive): TLShapePartial | null {
     };
   }
   if (shape.type === "line") {
-    return { ...common, type: "draw", x: Math.min(shape.x1, shape.x2), y: Math.min(shape.y1, shape.y2), props: { color: "black", fill: "none", dash: shape.dashed ? "dashed" : "draw", size: "m", segments: [{ type: "free", points: [{ x: shape.x1 - Math.min(shape.x1, shape.x2), y: shape.y1 - Math.min(shape.y1, shape.y2), z: 0.5 }, { x: shape.x2 - Math.min(shape.x1, shape.x2), y: shape.y2 - Math.min(shape.y1, shape.y2), z: 0.5 }] }], isComplete: true, isClosed: false, isPen: false, scale: 1 } };
+    return {
+      ...common,
+      type: "arrow",
+      x: shape.x1,
+      y: shape.y1,
+      props: { kind: "arc", color: "black", fill: "none", dash: shape.dashed ? "dashed" : "draw", size: "m", arrowheadStart: "none", arrowheadEnd: "none", font: "draw", labelColor: "black", start: { x: 0, y: 0 }, end: { x: shape.x2 - shape.x1, y: shape.y2 - shape.y1 }, bend: 0, richText: toRichText(""), labelPosition: 0.5, scale: 1, elbowMidPoint: 0.5 },
+    };
   }
   return null;
 }
