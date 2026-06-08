@@ -10,7 +10,7 @@ import { ArtifactTabs, type Artifacts } from "./artifact-tabs";
 import { IntroModal } from "./intro-modal";
 import { SketchCanvas } from "./sketch-canvas";
 import { Canvas as TldrawCanvas } from "./canvas/Canvas";
-import { CanvasProvider } from "./canvas/canvas-context";
+import { CanvasProvider, useCanvas } from "./canvas/canvas-context";
 import { ChatPanel } from "./chat-panel";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
