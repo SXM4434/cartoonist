@@ -1,26 +1,25 @@
-/* Editorial theming for tldraw — off-black surfaces, warm orange accent,
-   square corners, borders not shadows, Inter UI / Fraunces titles. */
-@import "@tldraw/editor/editor.css";
+/* Editorial theming for tldraw — warm paper to match the app surface,
+   off-black ink, warm orange accent. Borders, not shadows. */
 
 .tl-container {
-  --color-background: oklch(0.22 0 0);
-  --color-low: oklch(0.25 0 0);
-  --color-panel: oklch(0.25 0 0);
-  --color-panel-contrast: oklch(0.28 0 0);
-  --color-divider: oklch(0.32 0 0);
-  --color-muted-1: oklch(0.30 0 0);
-  --color-muted-2: oklch(0.28 0 0);
-  --color-hint: oklch(0.50 0 0);
-  --color-text: oklch(0.92 0 0);
-  --color-text-1: oklch(0.92 0 0);
-  --color-text-3: oklch(0.65 0 0);
-  --color-selected: oklch(0.72 0.16 55);
-  --color-selected-contrast: oklch(0.15 0 0);
-  --color-selection-stroke: oklch(0.72 0.16 55);
-  --color-selection-fill: color-mix(in oklab, oklch(0.72 0.16 55) 12%, transparent);
-  --color-focus: oklch(0.72 0.16 55);
-  --color-brush-fill: color-mix(in oklab, oklch(0.72 0.16 55) 10%, transparent);
-  --color-brush-stroke: oklch(0.72 0.16 55);
+  --color-background: oklch(0.965 0.008 85);   /* warm paper — matches --background */
+  --color-low: oklch(0.945 0.008 85);
+  --color-panel: oklch(0.98 0.006 85);
+  --color-panel-contrast: oklch(0.93 0.006 80);
+  --color-divider: oklch(0.85 0.006 80);
+  --color-muted-1: oklch(0.93 0.006 80);
+  --color-muted-2: oklch(0.90 0.006 80);
+  --color-hint: oklch(0.55 0.010 60);
+  --color-text: oklch(0.22 0.012 60);          /* off-black ink */
+  --color-text-1: oklch(0.22 0.012 60);
+  --color-text-3: oklch(0.45 0.010 60);
+  --color-selected: oklch(0.62 0.18 42);
+  --color-selected-contrast: oklch(0.985 0.005 85);
+  --color-selection-stroke: oklch(0.62 0.18 42);
+  --color-selection-fill: color-mix(in oklab, oklch(0.62 0.18 42) 10%, transparent);
+  --color-focus: oklch(0.62 0.18 42);
+  --color-brush-fill: color-mix(in oklab, oklch(0.62 0.18 42) 8%, transparent);
+  --color-brush-stroke: oklch(0.62 0.18 42);
 
   --radius-1: 2px;
   --radius-2: 2px;
@@ -28,6 +27,7 @@
   --radius-4: 2px;
 
   font-family: "Inter", system-ui, sans-serif;
+  background: oklch(0.965 0.008 85) !important;
 }
 
 /* Kill drop shadows — borders only */

@@ -51,14 +51,15 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [selfPid, setSelfPid] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(true);
 
-  // Canvas engine: tldraw by default (rendered with hideUi — we drive tools
-  // from our own header). Use ?canvas=legacy to fall back to SketchCanvas.
+  // Feature flag — tldraw stays opt-in via ?canvas=tldraw (or
+  // localStorage.cartoonist_canvas = "tldraw") until it's fully ready.
+  // Default = legacy SketchCanvas.
   const useTldraw = useMemo(() => {
-    if (typeof window === "undefined") return true;
+    if (typeof window === "undefined") return false;
     const params = new URLSearchParams(window.location.search);
-    if (params.get("canvas") === "legacy") return false;
     if (params.get("canvas") === "tldraw") return true;
-    return window.localStorage.getItem("cartoonist_canvas") !== "legacy";
+    if (params.get("canvas") === "legacy") return false;
+    return window.localStorage.getItem("cartoonist_canvas") === "tldraw";
   }, []);
 
   const speech = useSpeech();
