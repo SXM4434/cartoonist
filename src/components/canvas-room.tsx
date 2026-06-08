@@ -51,6 +51,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [inputMode, setInputMode] = useState<"voice" | "chat">("voice");
   const [selfPid, setSelfPid] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(true);
+  const [tldrawHasContent, setTldrawHasContent] = useState(false);
 
   // Feature flag — tldraw stays opt-in via ?canvas=tldraw (or
   // localStorage.cartoonist_canvas = "tldraw") until it's fully ready.
@@ -251,6 +252,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const clearCanvas = useCallback(() => {
     setShapes([]);
     setFreehand([]);
+    setTldrawHasContent(false);
     lastSentLenRef.current = speech.finals.join(" ").length;
     if (tldrawEditor) {
       const ids = Array.from(tldrawEditor.getCurrentPageShapeIds());
@@ -487,7 +489,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       <div className="flex flex-1 overflow-hidden">
         <div className="relative flex-1 overflow-hidden">
           {useTldraw ? (
-            <TldrawCanvas />
+            <TldrawCanvas shapes={shapes} drawingEnabled={drawing} onHasContentChange={setTldrawHasContent} />
           ) : (
             <SketchCanvas
               shapes={shapes}
@@ -497,7 +499,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
             />
           )}
 
-          {shapes.length === 0 && freehand.length === 0 && (
+          {shapes.length === 0 && freehand.length === 0 && (!useTldraw || !tldrawHasContent) && (
             <div className="pointer-events-none absolute left-8 top-8 max-w-md border border-border bg-background p-5">
               <p className="eyebrow text-primary">Whiteboard ready</p>
               <p className="mt-2 font-serif" style={{ fontSize: "var(--step-3)" }}>
