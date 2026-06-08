@@ -458,6 +458,32 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         </div>
       )}
 
+      {diarization.pendingClusters.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted/30 px-5 py-2">
+          <span className="eyebrow text-muted-foreground shrink-0">New voice detected — who's speaking?</span>
+          {diarization.pendingClusters.map((cluster) => (
+            <div key={cluster} className="flex items-center gap-1.5 border border-border bg-background px-2 py-1">
+              <span className="eyebrow text-foreground" data-numeric>{cluster}</span>
+              {diarization.latestByCluster[cluster] && (
+                <span className="max-w-[160px] truncate text-xs italic text-muted-foreground">"{diarization.latestByCluster[cluster]}"</span>
+              )}
+              <span className="text-xs text-muted-foreground">→</span>
+              {participants.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => void diarization.assignSpeaker(cluster, p.id)}
+                  className="flex h-5 items-center gap-1 border border-border px-1.5 text-xs text-foreground transition hover:bg-foreground hover:text-background"
+                >
+                  <span className="h-2 w-2" style={{ backgroundColor: p.color }} />
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="flex flex-1 overflow-hidden">
         <div className="relative flex-1 overflow-hidden">
           {useTldraw ? (
