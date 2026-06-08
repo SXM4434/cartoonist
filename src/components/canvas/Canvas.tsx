@@ -19,7 +19,7 @@ export function Canvas() {
 
   return (
     <div className="absolute inset-0">
-      <Tldraw onMount={handleMount} />
+      <Tldraw hideUi onMount={handleMount} />
     </div>
   );
 }
