@@ -69,11 +69,17 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
     const storedPid = window.localStorage.getItem(`cartoonist_participant_${roomId}`);
     if (storedMode) setInputMode(storedMode);
     if (storedPid) setSelfPid(storedPid);
-    if (cached && name) {
+    if (name) {
+      // Auto-join with the profile they set up during onboarding.
+      // No popup — they already introduced themselves.
       setJoined(true);
       setIntroOpen(false);
       setParticipants([{ id: storedPid ?? "local", name, color }]);
+      if (!cached) {
+        window.localStorage.setItem(`cartoonist_joined_${roomId}`, "1");
+      }
     }
+
     (async () => {
       const { data: room } = await supabase
         .from("rooms")
