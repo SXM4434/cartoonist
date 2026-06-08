@@ -243,11 +243,25 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     await requestDraw(text);
   }, [askText, requestDraw]);
 
+  const { editor: tldrawEditor } = useCanvas();
+
   const clearCanvas = useCallback(() => {
     setShapes([]);
     setFreehand([]);
     lastSentLenRef.current = speech.finals.join(" ").length;
-  }, [speech.finals]);
+    if (tldrawEditor) {
+      const ids = Array.from(tldrawEditor.getCurrentPageShapeIds());
+      if (ids.length) tldrawEditor.deleteShapes(ids);
+    }
+  }, [speech.finals, tldrawEditor]);
+
+  const toggleDraw = useCallback(() => {
+    setDrawing((d) => {
+      const next = !d;
+      if (tldrawEditor) tldrawEditor.setCurrentTool(next ? "draw" : "select");
+      return next;
+    });
+  }, [tldrawEditor]);
 
   const copyLink = useCallback(async () => {
     await navigator.clipboard.writeText(window.location.href);
