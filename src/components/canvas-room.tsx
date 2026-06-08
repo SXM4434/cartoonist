@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Participant } from "@/lib/canvas-types";
 import type { FreehandStroke, SketchPrimitive } from "@/lib/sketch-types";
 import { useSpeech } from "@/lib/use-speech";
+import { useLiveDiarization } from "@/hooks/use-live-diarization";
 import { ArtifactTabs, type Artifacts } from "./artifact-tabs";
 import { IntroModal } from "./intro-modal";
 import { SketchCanvas } from "./sketch-canvas";
