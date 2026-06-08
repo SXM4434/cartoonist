@@ -1,8 +1,11 @@
-/* Editorial theming for tldraw — warm paper to match the app surface,
-   off-black ink, warm orange accent. Borders, not shadows. */
+/* Editorial / sketchy theming for tldraw — warm paper, off-black ink,
+   warm orange accent. Borders only, no shadows. Hand-drawn vibe via
+   tldraw's built-in "draw" font + "draw" dash (we set those in
+   toTldrawShape). Here we recolor the surface + sticky notes so they
+   stop looking like generic SaaS yellow cards. */
 
 .tl-container {
-  --color-background: oklch(0.965 0.008 85);   /* warm paper — matches --background */
+  --color-background: oklch(0.965 0.008 85);
   --color-low: oklch(0.945 0.008 85);
   --color-panel: oklch(0.98 0.006 85);
   --color-panel-contrast: oklch(0.93 0.006 80);
@@ -10,7 +13,7 @@
   --color-muted-1: oklch(0.93 0.006 80);
   --color-muted-2: oklch(0.90 0.006 80);
   --color-hint: oklch(0.55 0.010 60);
-  --color-text: oklch(0.22 0.012 60);          /* off-black ink */
+  --color-text: oklch(0.22 0.012 60);
   --color-text-1: oklch(0.22 0.012 60);
   --color-text-3: oklch(0.45 0.010 60);
   --color-selected: oklch(0.62 0.18 42);
@@ -21,6 +24,24 @@
   --color-brush-fill: color-mix(in oklab, oklch(0.62 0.18 42) 8%, transparent);
   --color-brush-stroke: oklch(0.62 0.18 42);
 
+  /* Ink palette — override tldraw's saturated defaults with our muted set.
+     `black` is our off-black; the named colors become warm/desat versions
+     so AI-generated shapes feel like the rest of the app. */
+  --color-black: oklch(0.22 0.012 60);
+  --color-grey: oklch(0.55 0.010 60);
+  --color-light-violet: oklch(0.72 0.08 300);
+  --color-violet: oklch(0.52 0.12 300);
+  --color-blue: oklch(0.55 0.10 240);
+  --color-light-blue: oklch(0.86 0.04 235);
+  --color-yellow: oklch(0.82 0.10 85);
+  --color-light-yellow: oklch(0.92 0.06 90);   /* warm-paper sticky */
+  --color-orange: oklch(0.62 0.18 42);          /* our primary accent */
+  --color-light-orange: oklch(0.86 0.07 50);
+  --color-green: oklch(0.55 0.08 150);
+  --color-light-green: oklch(0.86 0.05 145);
+  --color-red: oklch(0.55 0.14 27);
+  --color-light-red: oklch(0.88 0.05 25);
+
   --radius-1: 2px;
   --radius-2: 2px;
   --radius-3: 2px;
@@ -30,26 +51,56 @@
   background: oklch(0.965 0.008 85) !important;
 }
 
-/* Kill drop shadows — borders only */
+/* Borders, never shadows — kill tldraw's default elevation on any UI we
+   don't fully hide. */
 .tl-container .tlui-button,
 .tl-container .tlui-menu,
 .tl-container .tlui-popover__content,
 .tl-container .tlui-panel,
 .tl-container .tlui-toolbar,
-.tl-container .tlui-style-panel {
+.tl-container .tlui-style-panel,
+.tl-container .tl-note__container,
+.tl-container .tl-shape {
   box-shadow: none !important;
-  border: 1px solid var(--color-divider);
-  border-radius: 2px;
 }
 
 .tl-container .tlui-button {
   font-size: 13px;
   font-weight: 500;
+  border: 1px solid var(--color-divider);
+  border-radius: 2px;
 }
 
-/* Hide tldraw branding */
+/* Sticky notes: warm-paper instead of neon yellow, border instead of shadow,
+   Fraunces for that editorial sticky vibe. tldraw's "draw" font is already
+   sketchy — we only swap in serif for non-handwritten display text. */
+.tl-container .tl-note__container {
+  border: 1px solid color-mix(in oklab, oklch(0.22 0.012 60) 35%, transparent);
+}
+
+/* Hand-drawn labels stay in tldraw's draw font (sketchy). Headings
+   (text shapes) pick up Fraunces if we ever flip them off draw font. */
+.tl-container .tl-text-content,
+.tl-container .tl-rich-text {
+  font-feature-settings: "ss01", "cv11";
+}
+
+/* Hide all remaining tldraw chrome — we're headless. */
 .tlui-debug-panel,
 .tl-watermark_SEE-LICENSE,
-.tlui-share-zone {
+.tlui-share-zone,
+.tlui-help-menu,
+.tlui-navigation-zone,
+.tlui-menu-zone,
+.tlui-toolbar,
+.tlui-style-panel,
+.tlui-people-menu,
+.tlui-page-menu {
   display: none !important;
+}
+
+/* Selection / hover: warm orange, hairline */
+.tl-container .tl-selection__fg__outline,
+.tl-container .tl-selection__bg {
+  stroke-width: 1.5px;
 }
