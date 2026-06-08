@@ -101,10 +101,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     if (shapes.length > 0) { seededRef.current = true; return; }
     seededRef.current = true;
     const seeded: SketchPrimitive[] = [];
-    seeded.push({ type: "text", id: "seed_title", x: 60, y: 60, text: sessionCtx.name || "Session", size: 32, weight: "bold" });
-    seeded.push({ type: "path", id: "seed_underline", points: [[60, 96], [220, 100], [380, 94], [520, 98]], closed: false });
+    seeded.push({ type: "text", id: "seed_title", x: 60, y: 60, text: sessionCtx.name || "Session", size: 18, weight: "bold" });
+    seeded.push({ type: "line", id: "seed_underline_1", x1: 60, y1: 104, x2: 215, y2: 108 });
+    seeded.push({ type: "line", id: "seed_underline_2", x1: 214, y1: 108, x2: 385, y2: 104 });
+    seeded.push({ type: "line", id: "seed_underline_3", x1: 382, y1: 104, x2: 515, y2: 107 });
     seeded.push({
-      type: "note", id: "seed_goal", x: 60, y: 130, w: 320, h: 130,
+      type: "note", id: "seed_goal", x: 60, y: 132, w: 315, h: 118,
       text: `GOAL\n${sessionCtx.goal}`, color: "yellow",
     });
     sessionCtx.outputs.slice(0, 6).forEach((o, i) => {
@@ -112,7 +114,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const row = Math.floor(i / 3);
       seeded.push({
         type: "note", id: `seed_out_${i}`,
-        x: 420 + col * 180, y: 130 + row * 150, w: 160, h: 130,
+        x: 410 + col * 176, y: 132 + row * 140, w: 156, h: 118,
         text: o, color: i % 2 === 0 ? "blue" : "green",
       });
     });
