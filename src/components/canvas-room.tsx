@@ -459,18 +459,14 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
       <div className="flex flex-1 overflow-hidden">
         <div className="relative flex-1 overflow-hidden">
-          {useTldraw ? (
-            <TldrawCanvas shapes={shapes} drawingEnabled={drawing} onHasContentChange={setTldrawHasContent} />
-          ) : (
-            <SketchCanvas
-              shapes={shapes}
-              freehand={freehand}
-              drawingEnabled={drawing}
-              onFreehandComplete={(stroke) => setFreehand((current) => [...current, stroke])}
-            />
-          )}
+          <SketchCanvas
+            shapes={shapes}
+            freehand={freehand}
+            drawingEnabled={drawing}
+            onFreehandComplete={(stroke) => setFreehand((current) => [...current, stroke])}
+          />
 
-          {shapes.length === 0 && freehand.length === 0 && (!useTldraw || !tldrawHasContent) && (
+          {shapes.length === 0 && freehand.length === 0 && (
             <div className="pointer-events-none absolute left-8 top-8 max-w-md border border-border bg-background p-5">
               <p className="eyebrow text-primary">Whiteboard ready</p>
               <p className="mt-2 font-serif" style={{ fontSize: "var(--step-3)" }}>
