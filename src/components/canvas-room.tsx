@@ -41,6 +41,17 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
   const [selfPid, setSelfPid] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(true);
 
+  // Feature flag — tldraw canvas. Enable via ?canvas=tldraw or
+  // localStorage.cartoonist_canvas = "tldraw". Default off during Phase 1
+  // chunk A so legacy rooms keep rendering unchanged.
+  const useTldraw = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("canvas") === "tldraw") return true;
+    if (params.get("canvas") === "legacy") return false;
+    return window.localStorage.getItem("cartoonist_canvas") === "tldraw";
+  }, []);
+
   const speech = useSpeech();
   const startedAtRef = useRef(Date.now());
   const lastSentLenRef = useRef(0);
