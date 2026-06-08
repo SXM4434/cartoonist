@@ -1,35 +1,62 @@
-## Problem
+## Goal
 
-All the planning/spec docs were written to `/mnt/documents/`, which is a sandbox artifacts location — files there are downloadable but live **outside** the project repo, so git never sees them. That's why none of them appear in your GitHub sync.
+One unified "speak to join" step replaces the separate enrollment + form, and the same captured audio later powers live speaker attribution during the session.
 
-Files currently stranded in `/mnt/documents/`:
-- `cartoonist-prd.md`
-- `cartoonist-roadmap-v1.md`
-- `cartoonist-roadmap-v2.md`
-- `feature-human-layer.md`
-- `feature-team-desk.md`
-- `feature-contextual-drawing.md`
-- `feature-canvas-memory.md`
-- `cartoonist-rebuild-plan.md` (older, superseded by v1)
-- `Cartoonist_PRD.md` (older duplicate of `cartoonist-prd.md`)
+## Part 1 — Unified voice onboarding (enrollment + autofill in one take)
 
-## Fix
+Single screen for both host and people being added:
 
-1. Create a `docs/` folder in the repo.
-2. Copy the 7 canonical docs into `docs/`:
-   - `docs/cartoonist-prd.md`
-   - `docs/cartoonist-roadmap-v1.md`
-   - `docs/cartoonist-roadmap-v2.md`
-   - `docs/feature-human-layer.md`
-   - `docs/feature-team-desk.md`
-   - `docs/feature-contextual-drawing.md`
-   - `docs/feature-canvas-memory.md`
-3. Skip the two stale ones (`cartoonist-rebuild-plan.md`, `Cartoonist_PRD.md`) — `cartoonist-roadmap-v1.md` and `cartoonist-prd.md` already replace them. (Say the word if you want them copied anyway as historical artifacts.)
-4. Add a short `docs/README.md` index explaining what each doc is and how v1/v2 relate, so the folder is self-navigable on GitHub.
-5. Leave the originals in `/mnt/documents/` alone (no harm, still downloadable).
+1. Press-and-hold (or tap to start/stop) **one** recording, ~15–30s.
+   Prompt shown on screen: *"Say your name, your role, and what you want out of this meeting."*
+2. On stop we do, in parallel:
+   - Upload the raw audio to the `voice-samples` storage bucket → save `voice_sample_path` on `participants`.
+   - Transcribe it via ElevenLabs Scribe (batch, `scribe_v2`, no diarize) in a server function → save the full transcript to `voice_sample_transcript`.
+   - Run the transcript through Lovable AI (`google/gemini-3-flash-preview`, structured output) to extract `{ display_name, role, personality, goal_hint }`.
+3. Show the extracted fields pre-filled in the existing form so the user can confirm/edit, then save.
 
-After this, the docs will sync to GitHub on the next commit and stay in version control alongside the code they describe.
+That same audio + transcript is the speaker's enrollment reference — no second recording step.
 
-## Note for future doc work
+## Part 2 — Live speaker attribution during the session
 
-From now on, project docs go in `docs/` in the repo, not `/mnt/documents/`. `/mnt/documents/` is only for one-off downloadable artifacts (reports, exports). I'll follow that rule going forward.
+While the room is active:
+
+1. Capture mic audio in rolling ~8s chunks on the client.
+2. Send each chunk to a server function that calls Scribe batch with `diarize: true` → returns words tagged `speaker_0/1/2…`.
+3. Map cluster IDs → real participants:
+   - **First-utterance confirm flow** (simple, reliable): when a new `speaker_N` first appears, surface a small "Who's speaking?" chip in the UI with the top guess based on whose enrolled sample is most textually similar to recent context; host or that person taps to confirm. Mapping persists for the rest of the session in a new `speaker_map` table (`room_id`, `cluster_label`, `participant_id`).
+   - Once mapped, every transcript chunk inserts into `transcript_chunks` with the correct `participant_id`.
+4. Existing transcript UI shows "Name: text" live.
+
+(Acoustic similarity matching against enrollment samples is possible later but isn't reliable from Scribe alone — the confirm flow is the pragmatic v1.)
+
+## Schema changes
+
+- New table `public.speaker_map` (`id`, `room_id`, `cluster_label text`, `participant_id`, `created_at`) with RLS + GRANTs, unique on `(room_id, cluster_label)`.
+- No changes needed to `participants` (already has `voice_sample_path`, `voice_sample_transcript`).
+
+## Server functions / routes
+
+- `transcribeVoiceSample` (serverFn, POST) — accepts audio, returns `{ transcript }`.
+- `extractParticipantFromTranscript` (serverFn, POST) — Lovable AI structured output → `{ display_name, role, personality, goal_hint }`.
+- `transcribeRoomChunk` (serverFn, POST) — accepts chunk + `room_id`, returns diarized words with cluster labels; inserts mapped chunks into `transcript_chunks` for already-known clusters; returns unmapped clusters for the UI to confirm.
+- `assignSpeaker` (serverFn, POST) — `{ room_id, cluster_label, participant_id }` → upsert into `speaker_map`.
+
+## Client changes
+
+- Rework `intro-modal.tsx` (and the "add person" modal) into a single **VoiceOnboarding** component: record → transcribe+extract → confirm form → save.
+- New `useLiveDiarization` hook in the room: MediaRecorder rolling chunks → `transcribeRoomChunk` → renders unmapped-speaker confirm chips.
+- Live transcript panel updates from `transcript_chunks` realtime subscription (already wired).
+
+## Secrets
+
+`ELEVENLABS_API_KEY` and `LOVABLE_API_KEY` already present — no new secrets.
+
+## Order of work
+
+1. Migration: `speaker_map` table.
+2. Server functions for transcribe + extract.
+3. Replace intro/add-person modals with unified VoiceOnboarding.
+4. Live diarization hook + confirm-chip UI + `assignSpeaker`.
+5. Wire transcript chunks insert path.
+
+Tldraw canvas work stays untouched — separate track.
