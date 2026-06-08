@@ -40,9 +40,12 @@ export function IntroModal({
   const [countdown, setCountdown] = useState(SAMPLE_SECONDS);
   const [sampleBlob, setSampleBlob] = useState<Blob | null>(null);
   const [sampleUrl, setSampleUrl] = useState<string | null>(null);
+  const [parsing, setParsing] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recognitionRef = useRef<{ stop: () => void } | null>(null);
+  const transcriptRef = useRef<string>("");
 
   // Reset state when modal opens fresh
   useEffect(() => {
@@ -50,13 +53,62 @@ export function IntroModal({
       setName(""); setRole(""); setPersonality(""); setColor(COLORS[0]);
       setSampleBlob(null); setSampleUrl(null); setRecording(false);
       setCountdown(SAMPLE_SECONDS);
+      transcriptRef.current = "";
       if (timerRef.current) clearInterval(timerRef.current);
-      try { recorderRef.current?.stop(); } catch {}
+      try { recorderRef.current?.stop(); } catch { /* ignore */ }
+      try { recognitionRef.current?.stop(); } catch { /* ignore */ }
     }
   }, [open]);
 
+  const autofillFromTranscript = async (transcript: string) => {
+    if (!transcript.trim()) return;
+    setParsing(true);
+    try {
+      const res = await fetch("/api/parse-intro", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript, kind: "profile" }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { displayName?: string; role?: string };
+      if (data.displayName) setName((cur) => cur || data.displayName!);
+      if (data.role) setRole((cur) => cur || data.role!);
+      setPersonality((cur) => cur || transcript.trim());
+    } catch {
+      setPersonality((cur) => cur || transcript.trim());
+    } finally {
+      setParsing(false);
+    }
+  };
+
+  const startRecognition = () => {
+    const w = window as unknown as { SpeechRecognition?: new () => unknown; webkitSpeechRecognition?: new () => unknown };
+    const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+    if (!Ctor) return;
+    try {
+      const rec = new Ctor() as {
+        continuous: boolean; interimResults: boolean; lang: string;
+        onresult: (e: { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }> }) => void;
+        start: () => void; stop: () => void;
+      };
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = "en-US";
+      rec.onresult = (e) => {
+        let finalText = "";
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const r = e.results[i];
+          if (r.isFinal) finalText += r[0].transcript + " ";
+        }
+        if (finalText) transcriptRef.current += finalText;
+      };
+      rec.start();
+      recognitionRef.current = rec;
+    } catch { /* ignore */ }
+  };
+
   const startRecording = async () => {
     try {
+      transcriptRef.current = "";
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mr = new MediaRecorder(stream);
       chunksRef.current = [];
@@ -68,15 +120,18 @@ export function IntroModal({
         setSampleUrl(URL.createObjectURL(blob));
         setRecording(false);
         if (timerRef.current) clearInterval(timerRef.current);
+        try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+        setTimeout(() => void autofillFromTranscript(transcriptRef.current), 300);
       };
       recorderRef.current = mr;
       mr.start();
+      startRecognition();
       setRecording(true);
       setCountdown(SAMPLE_SECONDS);
       timerRef.current = setInterval(() => {
         setCountdown((c) => {
           if (c <= 1) {
-            try { mr.stop(); } catch {}
+            try { mr.stop(); } catch { /* ignore */ }
             return 0;
           }
           return c - 1;
@@ -167,8 +222,9 @@ export function IntroModal({
           {/* Voice enrollment */}
           <div className="space-y-2 border-t border-border pt-3">
             <Label>
-              Voice sample <span className="text-muted-foreground">(required — say your name and a sentence)</span>
+              Voice sample <span className="text-muted-foreground">(say your name, role, and how you like to work — we'll auto-fill the form)</span>
             </Label>
+            {parsing && <p className="text-xs text-muted-foreground">Filling in what you said…</p>}
 
             {sampleBlob ? (
               <div className="flex items-center gap-2">
