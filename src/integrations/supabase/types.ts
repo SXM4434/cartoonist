@@ -90,6 +90,8 @@ export type Database = {
           role: string | null
           room_id: string
           user_id: string | null
+          voice_sample_path: string | null
+          voice_sample_transcript: string | null
         }
         Insert: {
           color?: string | null
@@ -102,6 +104,8 @@ export type Database = {
           role?: string | null
           room_id: string
           user_id?: string | null
+          voice_sample_path?: string | null
+          voice_sample_transcript?: string | null
         }
         Update: {
           color?: string | null
@@ -114,6 +118,8 @@ export type Database = {
           role?: string | null
           room_id?: string
           user_id?: string | null
+          voice_sample_path?: string | null
+          voice_sample_transcript?: string | null
         }
         Relationships: [
           {

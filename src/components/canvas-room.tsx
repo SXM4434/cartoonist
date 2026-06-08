@@ -270,7 +270,7 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
     }
   }, [speech.finals]);
 
-  const handleIntroSubmit = useCallback(async (data: { name: string; role: string; personality: string; color: string }) => {
+  const handleIntroSubmit = useCallback(async (data: { name: string; role: string; personality: string; color: string; voiceSamplePath: string | null }) => {
     const isAdd = introMode === "add";
     setIntroOpen(false);
 
@@ -286,7 +286,9 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
     const { data: ins } = await supabase.from("participants").insert({
       room_id: roomId, display_name: data.name, role: data.role,
       personality: data.personality, color: data.color, input_mode: inputMode,
+      voice_sample_path: data.voiceSamplePath,
     } as never).select("id").maybeSingle();
+
     const pid = ins?.id ?? `local-${Date.now()}`;
 
     if (isAdd) {
@@ -495,9 +497,11 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
       <IntroModal
         open={introOpen}
         mode={introMode}
+        roomId={roomId}
         onClose={() => { setIntroOpen(false); setIntroMode("self"); }}
         onSubmit={handleIntroSubmit}
       />
+
 
     </div>
   );
