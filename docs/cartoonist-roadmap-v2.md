@@ -161,3 +161,23 @@ feature-team-desk.md                 ← spec, owned by v2.P1
 feature-contextual-drawing.md        ← spec, owned by v2.P1.5
 feature-canvas-memory.md             ← spec, owned by v2.P6
 ```
+
+---
+
+## v2.P-Next — AI self-edit (revise, don't pile)
+
+**Slots after:** v2.P1.5 (contextual drawing).
+**Est:** ~1 day.
+
+Problem: today every AI draw call **appends** new shapes. When the user says "nah, that's bad, redo it" or "make the user flow simpler", we just add another diagram next to the broken one and the canvas turns into a graveyard.
+
+Scope:
+- Extend the cartoonist-draw contract: response can include `edits: [{ id, patch }]` and `removes: [id]` alongside `shapes: [...]`.
+- Pass a richer "Already on canvas" digest to the AI: not just `(empty)` vs a count, but a compact list of `{ id, kind, label, bbox }` so the model can target specific shapes to revise or delete.
+- Detect revise-intent in the latest chunk ("redo / make it better / simpler / wrong / fix the flow / change X to Y / remove the…") and bias the prompt toward edit/remove ops on the most recent cluster.
+- Client applies `removes` first, then `edits` via `editor.updateShapes`, then `createShapes` for new ones — all in one history entry so undo reverts the whole revision.
+- Guard: never edit/remove user-drawn shapes (only shapes whose id starts with `shape:cartoonist-`).
+
+Out of scope:
+- Full version history per shape. (Tldraw's undo stack is enough for v2.)
+- Letting the AI restructure user sketches. Hands off human strokes.

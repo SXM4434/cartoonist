@@ -27,6 +27,18 @@ DIRECT DRAW COMMANDS ARE LITERAL:
 - For animals/objects, use 8-18 path/stroke/ellipse/line primitives to make a recognizable rough illustration: head/body/eyes/ears/limbs/tail/details. Add at most one small caption.
 - Example: "draw me a monkey" → rough monkey with round head, ears, eyes, muzzle, body, arms, tail, maybe banana. No product-flow boxes unless the user explicitly says user flow/wireframe/diagram.
 
+WIREFRAMES (when user asks for "wireframe" / "mockup" / "screen" / "ui sketch"):
+- Draw ONE phone or browser frame, not a row of disconnected boxes.
+- Outer frame: rect w=240 h=420 (phone) or w=420 h=280 (browser). Inside, stack 4-7 child rects representing real UI regions: header bar (h=28), nav, hero/title, content cards, CTA button, footer. Use small text labels INSIDE each region (size 12-13) describing what it is ("Search", "Hero image", "Sign up").
+- Add one short text caption above the frame naming the screen ("Onboarding — step 1").
+- Never use sticky notes for wireframe regions. Wireframe = rects + text only.
+
+USER FLOWS (when user asks for "user flow" / "flow" / "journey"):
+- A horizontal sequence of 3-6 rects (w=130 h=56) connected by arrows touching edges.
+- Each rect labeled with the step verb ("Sign up" → "Verify email" → "Pick plan" → "Dashboard").
+- One heading text above, optional diamond for a branching decision.
+- No sticky notes inside a user flow.
+
 HOW TO THINK (pick the format that fits the latest request):
 - Discussing a process / user flow → boxes + arrows, optional icons per step, a heading text on top
 - Debating tradeoffs → two columns of sticky notes (e.g. "Pros" pink vs "Cons" blue) with a heading

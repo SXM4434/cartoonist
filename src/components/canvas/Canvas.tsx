@@ -94,9 +94,11 @@ function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
     }];
   }
   if (shape.type === "note") {
-    // Render notes as filled geo rectangles so we control w/h and text size.
+    // Render notes as a filled geo rect with TWO overlapping outline rects
+    // on top — each at a tiny rotation — so the border reads as a
+    // hand-drawn multi-stroke wobble instead of a single clean line.
     const { w, h } = clampNoteSize(shape.w, shape.h);
-    return [{
+    const fill: TLShapePartial = {
       ...common,
       type: "geo",
       x: shape.x,
@@ -116,12 +118,32 @@ function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
         labelColor: "black",
         richText: toRichText(shape.text),
       },
-    },
-    sketchLine(`${shape.id}-edge-top`, shape.x - 1, shape.y + 1, shape.x + w + 1, shape.y - 1),
-    sketchLine(`${shape.id}-edge-right`, shape.x + w + 1, shape.y, shape.x + w - 1, shape.y + h + 1),
-    sketchLine(`${shape.id}-edge-bottom`, shape.x + w, shape.y + h + 1, shape.x, shape.y + h - 1),
-    sketchLine(`${shape.id}-edge-left`, shape.x - 1, shape.y + h, shape.x + 1, shape.y),
-    ];
+    };
+    const outline = (suffix: string, dx: number, dy: number, rot: number): TLShapePartial => ({
+      id: shapeId(`${shape.id}-stroke-${suffix}`),
+      type: "geo",
+      x: shape.x + dx,
+      y: shape.y + dy,
+      rotation: rot,
+      opacity: 0.85,
+      isLocked: false,
+      props: {
+        geo: "rectangle",
+        w,
+        h,
+        color: "black",
+        fill: "none",
+        dash: "draw",
+        size: "s",
+        scale: 0.64,
+        font: "draw",
+        align: "start",
+        verticalAlign: "start",
+        labelColor: "black",
+        richText: toRichText(""),
+      },
+    });
+    return [fill, outline("a", -1.5, -1, -0.006), outline("b", 1, 1.5, 0.008)];
   }
   if (shape.type === "text") {
     return [{
