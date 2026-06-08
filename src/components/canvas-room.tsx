@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, Eraser, FileDown, Mic, MicOff, MessageSquare, Pencil, Send, Sparkles } from "lucide-react";
+import { Check, Copy, Eraser, FileDown, Mic, MicOff, MessageSquare, Pencil, Send, Sparkles, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,8 +23,10 @@ type SessionContext = {
 };
 
 export function CanvasRoom({ roomId }: { roomId: string }) {
-  const [introOpen, setIntroOpen] = useState(true);
+  const [introOpen, setIntroOpen] = useState(false);
+  const [introMode, setIntroMode] = useState<"self" | "add">("self");
   const [joined, setJoined] = useState(false);
+
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [shapes, setShapes] = useState<SketchPrimitive[]>([]);
   const [freehand, setFreehand] = useState<FreehandStroke[]>([]);
@@ -67,11 +69,17 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
     const storedPid = window.localStorage.getItem(`cartoonist_participant_${roomId}`);
     if (storedMode) setInputMode(storedMode);
     if (storedPid) setSelfPid(storedPid);
-    if (cached && name) {
+    if (name) {
+      // Auto-join with the profile they set up during onboarding.
+      // No popup — they already introduced themselves.
       setJoined(true);
       setIntroOpen(false);
       setParticipants([{ id: storedPid ?? "local", name, color }]);
+      if (!cached) {
+        window.localStorage.setItem(`cartoonist_joined_${roomId}`, "1");
+      }
     }
+
     (async () => {
       const { data: room } = await supabase
         .from("rooms")
@@ -263,22 +271,38 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
   }, [speech.finals]);
 
   const handleIntroSubmit = useCallback(async (data: { name: string; role: string; personality: string; color: string }) => {
-    window.localStorage.setItem("cartoonist_user_name", data.name);
-    window.localStorage.setItem("cartoonist_user_color", data.color);
-    window.localStorage.setItem(`cartoonist_joined_${roomId}`, "1");
-    window.localStorage.setItem(`cartoonist_input_mode_${roomId}`, inputMode);
+    const isAdd = introMode === "add";
     setIntroOpen(false);
-    setJoined(true);
-    toast.success(`Welcome, ${data.name}`);
+
+    if (!isAdd) {
+      window.localStorage.setItem("cartoonist_user_name", data.name);
+      window.localStorage.setItem("cartoonist_user_color", data.color);
+      window.localStorage.setItem(`cartoonist_joined_${roomId}`, "1");
+      window.localStorage.setItem(`cartoonist_input_mode_${roomId}`, inputMode);
+      setJoined(true);
+    }
+    toast.success(isAdd ? `${data.name} added` : `Welcome, ${data.name}`);
+
     const { data: ins } = await supabase.from("participants").insert({
       room_id: roomId, display_name: data.name, role: data.role,
       personality: data.personality, color: data.color, input_mode: inputMode,
     } as never).select("id").maybeSingle();
-    const pid = ins?.id ?? "local";
-    if (ins?.id) window.localStorage.setItem(`cartoonist_participant_${roomId}`, ins.id);
-    setSelfPid(pid);
-    setParticipants([{ id: pid, name: data.name, role: data.role, color: data.color }]);
-  }, [roomId, inputMode]);
+    const pid = ins?.id ?? `local-${Date.now()}`;
+
+    if (isAdd) {
+      setParticipants((prev) => [...prev, { id: pid, name: data.name, role: data.role, color: data.color }]);
+    } else {
+      if (ins?.id) window.localStorage.setItem(`cartoonist_participant_${roomId}`, ins.id);
+      setSelfPid(pid);
+      setParticipants([{ id: pid, name: data.name, role: data.role, color: data.color }]);
+    }
+  }, [roomId, inputMode, introMode]);
+
+  const openAddPerson = useCallback(() => {
+    setIntroMode("add");
+    setIntroOpen(true);
+  }, []);
+
 
   const recentTranscript = useMemo(() => {
     const last = speech.finals.slice(-3).join(" ");
@@ -309,7 +333,16 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
               {p.name.slice(0, 1)}
             </div>
           ))}
+          <button
+            type="button"
+            onClick={openAddPerson}
+            title="Add someone on this device"
+            className="flex h-6 w-6 items-center justify-center border border-dashed border-border text-muted-foreground transition hover:border-foreground hover:text-foreground"
+          >
+            <UserPlus className="h-3 w-3" />
+          </button>
         </div>
+
 
         <div className="flex items-center justify-end gap-1.5">
           <Button size="sm" variant="outline" onClick={() => setDrawing((d) => !d)} className={`h-8 gap-1.5 rounded-none border-border ${drawing ? "bg-foreground text-background" : ""}`}>
@@ -459,7 +492,13 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
         )}
       </div>
 
-      {!joined && <IntroModal open={introOpen} onClose={() => setIntroOpen(false)} onSubmit={handleIntroSubmit} />}
+      <IntroModal
+        open={introOpen}
+        mode={introMode}
+        onClose={() => { setIntroOpen(false); setIntroMode("self"); }}
+        onSubmit={handleIntroSubmit}
+      />
+
     </div>
   );
 }
