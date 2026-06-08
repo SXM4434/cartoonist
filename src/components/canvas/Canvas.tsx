@@ -86,7 +86,15 @@ function toTldrawShape(shape: SketchPrimitive): TLShapePartial | null {
   return null;
 }
 
-export function Canvas({ shapes = [], onHasContentChange }: { shapes?: readonly SketchPrimitive[]; onHasContentChange?: (hasContent: boolean) => void }) {
+export function Canvas({
+  shapes = [],
+  drawingEnabled,
+  onHasContentChange,
+}: {
+  shapes?: readonly SketchPrimitive[];
+  drawingEnabled: boolean;
+  onHasContentChange?: (hasContent: boolean) => void;
+}) {
   const { setEditor } = useCanvas();
   const editorRef = useRef<Editor | null>(null);
   const createdShapeIdsRef = useRef(new Set<string>());
@@ -99,14 +107,20 @@ export function Canvas({ shapes = [], onHasContentChange }: { shapes?: readonly 
       setMounted(true);
       // Light theme to match the editorial warm-paper surface.
       editor.user.updateUserPreferences({ colorScheme: "light" });
-      editor.setCurrentTool("draw");
+      editor.setCurrentTool(drawingEnabled ? "draw" : "select");
       const off = editor.store.listen(() => {
         onHasContentChange?.(editor.getCurrentPageShapeIds().size > 0);
       }, { source: "user", scope: "document" });
       return () => off();
     },
-    [onHasContentChange, setEditor],
+    [drawingEnabled, onHasContentChange, setEditor],
   );
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!mounted || !editor) return;
+    editor.setCurrentTool(drawingEnabled ? "draw" : "select");
+  }, [drawingEnabled, mounted]);
 
   useEffect(() => {
     const editor = editorRef.current;
