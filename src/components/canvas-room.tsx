@@ -10,8 +10,6 @@ import { useLiveDiarization } from "@/hooks/use-live-diarization";
 import { ArtifactTabs, type Artifacts } from "./artifact-tabs";
 import { IntroModal } from "./intro-modal";
 import { SketchCanvas } from "./sketch-canvas";
-import { Canvas as TldrawCanvas } from "./canvas/Canvas";
-import { CanvasProvider, useCanvas } from "./canvas/canvas-context";
 import { ChatPanel } from "./chat-panel";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
@@ -24,11 +22,7 @@ type SessionContext = {
 };
 
 export function CanvasRoom(props: { roomId: string }) {
-  return (
-    <CanvasProvider>
-      <CanvasRoomInner {...props} />
-    </CanvasProvider>
-  );
+  return <CanvasRoomInner {...props} />;
 }
 
 function CanvasRoomInner({ roomId }: { roomId: string }) {
@@ -51,18 +45,6 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [inputMode, setInputMode] = useState<"voice" | "chat">("voice");
   const [selfPid, setSelfPid] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(true);
-  const [tldrawHasContent, setTldrawHasContent] = useState(false);
-
-  // Feature flag — tldraw stays opt-in via ?canvas=tldraw (or
-  // localStorage.cartoonist_canvas = "tldraw") until it's fully ready.
-  // Default = legacy SketchCanvas.
-  const useTldraw = useMemo(() => {
-    if (typeof window === "undefined") return false;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("canvas") === "tldraw") return true;
-    if (params.get("canvas") === "legacy") return false;
-    return window.localStorage.getItem("cartoonist_canvas") === "tldraw";
-  }, []);
 
   const speech = useSpeech();
   const startedAtRef = useRef(Date.now());
@@ -247,26 +229,15 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     await requestDraw(text);
   }, [askText, requestDraw]);
 
-  const { editor: tldrawEditor } = useCanvas();
-
   const clearCanvas = useCallback(() => {
     setShapes([]);
     setFreehand([]);
-    setTldrawHasContent(false);
     lastSentLenRef.current = speech.finals.join(" ").length;
-    if (tldrawEditor) {
-      const ids = Array.from(tldrawEditor.getCurrentPageShapeIds());
-      if (ids.length) tldrawEditor.deleteShapes(ids);
-    }
-  }, [speech.finals, tldrawEditor]);
+  }, [speech.finals]);
 
   const toggleDraw = useCallback(() => {
-    setDrawing((d) => {
-      const next = !d;
-      if (tldrawEditor) tldrawEditor.setCurrentTool(next ? "draw" : "select");
-      return next;
-    });
-  }, [tldrawEditor]);
+    setDrawing((d) => !d);
+  }, []);
 
   const copyLink = useCallback(async () => {
     await navigator.clipboard.writeText(window.location.href);
@@ -488,18 +459,14 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
       <div className="flex flex-1 overflow-hidden">
         <div className="relative flex-1 overflow-hidden">
-          {useTldraw ? (
-            <TldrawCanvas shapes={shapes} drawingEnabled={drawing} onHasContentChange={setTldrawHasContent} />
-          ) : (
-            <SketchCanvas
-              shapes={shapes}
-              freehand={freehand}
-              drawingEnabled={drawing}
-              onFreehandComplete={(stroke) => setFreehand((current) => [...current, stroke])}
-            />
-          )}
+          <SketchCanvas
+            shapes={shapes}
+            freehand={freehand}
+            drawingEnabled={drawing}
+            onFreehandComplete={(stroke) => setFreehand((current) => [...current, stroke])}
+          />
 
-          {shapes.length === 0 && freehand.length === 0 && (!useTldraw || !tldrawHasContent) && (
+          {shapes.length === 0 && freehand.length === 0 && (
             <div className="pointer-events-none absolute left-8 top-8 max-w-md border border-border bg-background p-5">
               <p className="eyebrow text-primary">Whiteboard ready</p>
               <p className="mt-2 font-serif" style={{ fontSize: "var(--step-3)" }}>
