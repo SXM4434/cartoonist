@@ -1,7 +1,33 @@
 import { useCallback } from "react";
-import { Tldraw, type Editor } from "tldraw";
+import {
+  ArrowShapeTool,
+  DrawShapeTool,
+  EraserTool,
+  FrameShapeTool,
+  GeoShapeTool,
+  HandTool,
+  NoteShapeTool,
+  SelectTool,
+  TextShapeTool,
+  TldrawEditor,
+  defaultBindingUtils,
+  defaultShapeUtils,
+  type Editor,
+} from "tldraw";
 import { useCanvas } from "./canvas-context";
 import "@/styles/tldraw.css";
+
+const tools = [
+  SelectTool,
+  HandTool,
+  DrawShapeTool,
+  EraserTool,
+  ArrowShapeTool,
+  TextShapeTool,
+  NoteShapeTool,
+  GeoShapeTool,
+  FrameShapeTool,
+];
 
 export function Canvas() {
   const { setEditor } = useCanvas();
@@ -17,7 +43,14 @@ export function Canvas() {
 
   return (
     <div className="absolute inset-0">
-      <Tldraw hideUi onMount={handleMount} />
+      <TldrawEditor
+        shapeUtils={defaultShapeUtils}
+        bindingUtils={defaultBindingUtils}
+        tools={tools}
+        initialState="select"
+        colorScheme="dark"
+        onMount={handleMount}
+      />
     </div>
   );
 }
