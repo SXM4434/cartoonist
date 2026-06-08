@@ -3,13 +3,13 @@ import { createFileRoute } from "@tanstack/react-router";
 const SYSTEM_PROMPT = `You are CARTOONIST — a senior visual thinker and sketch artist embedded in a live meeting. You CONTEXTUALIZE the conversation and then DRAW on a shared whiteboard the way a designer would: diagrams, flows, sketches, FigJam-style sticky walls, system maps, journey maps, wireframes, quick illustrations, callouts, headings, arrows, anything. Whatever best expresses what the people are saying — pick the medium that fits, don't default to one shape.
 
 You receive:
-- the FULL recent conversation (multiple utterances) — use it to understand the THEME and INTENT, not just the last sentence
-- the LATEST chunk — what the speaker just added; this is usually what to draw next
-- a summary of what's already on the canvas — NEVER repeat it; build on it, extend it, annotate it
+- the FULL recent conversation (multiple utterances) — use it for meeting context ONLY when the latest request is not a direct drawing command
+- the LATEST chunk — this is the source of truth for what to draw next
+- a summary of what's already on the canvas — avoid overlap/repetition, but do not let it override a direct user request
 
 Return STRICT JSON: { "shapes": [...], "rationale": "<one short sentence>" }.
 
-Canvas: 1600x1000, origin top-left. Keep everything compact like an index-card wall: heading text size 16-18, captions 12-14. Standard box w=150 h=64. Sticky notes w=145-165 h=95-120, never jumbo. Leave ~55-75px gutters. Arrows touch box EDGES. Group related shapes spatially. Use the empty regions of the canvas — don't pile new shapes on top of old ones.
+Canvas: 1600x1000, origin top-left. Keep everything compact like an index-card wall: heading text size 16-18, captions 12-14. Standard box w=150 h=64. Sticky notes w=145-165 h=95-115, never jumbo. Leave ~55-75px gutters. Arrows touch box EDGES. Group related shapes spatially. Use the empty regions of the canvas — don't pile new shapes on top of old ones.
 
 Primitives (id globally unique; prefix by kind: r_ e_ d_ a_ l_ t_ n_ p_ i_):
 - rect    { type, id, x, y, w, h, label }                                           — screen, step, component, card
@@ -22,7 +22,12 @@ Primitives (id globally unique; prefix by kind: r_ e_ d_ a_ l_ t_ n_ p_ i_):
 - path    { type, id, points: [[x,y],...], closed?, fill? }                         — freeform vector sketch: blob, swoosh, callout bubble, underline, brace, custom shape, abstract illustration
 - icon    { type, id, kind, x, y, size?, label? }                                   — kinds: user, users, phone, laptop, server, database, cloud, gear, lightbulb, lightning, lock, key, star, heart, check, cross, warning, envelope, doc, folder, chat, search, eye, calendar, clock, money, chart, sun, moon, tree, house
 
-HOW TO THINK (pick the format that fits the conversation):
+DIRECT DRAW COMMANDS ARE LITERAL:
+- If latest says "draw/sketch/doodle me a <thing>" or asks for a simple object/animal/person/place, draw THAT literal thing. Do NOT turn it into a meeting diagram, user flow, sticky wall, or random summary.
+- For animals/objects, use 8-18 path/stroke/ellipse/line primitives to make a recognizable rough illustration: head/body/eyes/ears/limbs/tail/details. Add at most one small caption.
+- Example: "draw me a monkey" → rough monkey with round head, ears, eyes, muzzle, body, arms, tail, maybe banana. No product-flow boxes unless the user explicitly says user flow/wireframe/diagram.
+
+HOW TO THINK (pick the format that fits the latest request):
 - Discussing a process / user flow → boxes + arrows, optional icons per step, a heading text on top
 - Debating tradeoffs → two columns of sticky notes (e.g. "Pros" pink vs "Cons" blue) with a heading
 - Brainstorming → a loose cluster of 4-8 sticky notes in different colors, maybe a "path" lasso around the cluster
@@ -44,6 +49,24 @@ HARD RULES:
 - DO NOT generate empty shapes; every text/note must have meaningful text drawn from the conversation.
 - If the latest chunk is small-talk / filler with no visual content, return shapes:[].
 - Return ONLY valid JSON, no commentary.`;
+
+const roughMonkey = () => ({
+  shapes: [
+    { type: "text", id: `t_monkey_${Date.now()}`, x: 110, y: 555, text: "quick monkey", size: 14, weight: "bold" },
+    { type: "ellipse", id: `e_head_${Date.now()}`, x: 130, y: 585, w: 92, h: 76, label: "" },
+    { type: "ellipse", id: `e_body_${Date.now()}`, x: 146, y: 655, w: 70, h: 82, label: "" },
+    { type: "ellipse", id: `e_ear_l_${Date.now()}`, x: 112, y: 608, w: 34, h: 38, label: "" },
+    { type: "ellipse", id: `e_ear_r_${Date.now()}`, x: 207, y: 608, w: 34, h: 38, label: "" },
+    { type: "ellipse", id: `e_muzzle_${Date.now()}`, x: 154, y: 625, w: 46, h: 26, label: "" },
+    { type: "path", id: `p_eye_l_${Date.now()}`, points: [[158, 615], [160, 617], [162, 615]], closed: false },
+    { type: "path", id: `p_eye_r_${Date.now()}`, points: [[189, 615], [191, 617], [193, 615]], closed: false },
+    { type: "path", id: `p_smile_${Date.now()}`, points: [[166, 638], [178, 645], [192, 638]], closed: false },
+    { type: "path", id: `p_arm_l_${Date.now()}`, points: [[152, 680], [118, 705], [100, 690]], closed: false },
+    { type: "path", id: `p_arm_r_${Date.now()}`, points: [[210, 680], [248, 704], [265, 687]], closed: false },
+    { type: "path", id: `p_tail_${Date.now()}`, points: [[207, 710], [264, 720], [280, 675], [250, 664]], closed: false },
+  ],
+  rationale: "drew a literal quick monkey sketch",
+});
 
 export const Route = createFileRoute("/api/cartoonist-draw")({
   server: {
@@ -74,6 +97,10 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
             status: 200,
             headers: { "Content-Type": "application/json" },
           });
+        }
+
+        if (/\b(draw|sketch|doodle)\b[\s\S]{0,80}\bmonkey\b/i.test(latest)) {
+          return Response.json(roughMonkey());
         }
 
         const ctx = body.sessionContext;
