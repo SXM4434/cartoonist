@@ -1,6 +1,6 @@
 /* Editorial theming for tldraw — off-black surfaces, warm orange accent,
    square corners, borders not shadows, Inter UI / Fraunces titles. */
-@import "tldraw/tldraw.css";
+@import "@tldraw/editor/editor.css";
 
 .tl-container {
   --color-background: oklch(0.22 0 0);

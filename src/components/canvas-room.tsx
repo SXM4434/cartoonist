@@ -401,9 +401,9 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
 
       <div className="flex flex-1 overflow-hidden">
         <div className="relative flex-1 overflow-hidden">
-          {useTldraw ? (
+          {useTldraw && joined ? (
             <CanvasProvider>
-              <TldrawCanvas persistenceKey={`cartoonist-room-${roomId}`} />
+              <TldrawCanvas />
             </CanvasProvider>
           ) : (
             <SketchCanvas
