@@ -39,14 +39,39 @@ const textSize = (size?: number): "s" | "m" | "l" => {
 };
 
 const clampNoteSize = (w?: number, h?: number) => ({
-  w: Math.min(Math.max(w ?? 156, 120), 320),
-  h: Math.min(Math.max(h ?? 118, 86), 128),
+  w: Math.min(Math.max(w ?? 154, 120), 178),
+  h: Math.min(Math.max(h ?? 104, 82), 116),
 });
 
-function toTldrawShape(shape: SketchPrimitive): TLShapePartial | null {
+const sketchLine = (id: string, x1: number, y1: number, x2: number, y2: number, dashed?: boolean): TLShapePartial => ({
+  id: shapeId(id),
+  type: "arrow",
+  x: x1,
+  y: y1,
+  opacity: 1,
+  isLocked: false,
+  props: { kind: "arc", color: "black", fill: "none", dash: dashed ? "dashed" : "draw", size: "s", arrowheadStart: "none", arrowheadEnd: "none", font: "draw", labelColor: "black", start: { x: 0, y: 0 }, end: { x: x2 - x1, y: y2 - y1 }, bend: 0, richText: toRichText(""), labelPosition: 0.5, scale: 0.72, elbowMidPoint: 0.5 },
+});
+
+const pathToLines = (shape: Extract<SketchPrimitive, { type: "path" | "stroke" }>) => {
+  const points = shape.points;
+  if (points.length < 2) return [];
+  const lines = points.slice(1).map((point, index) => {
+    const prev = points[index];
+    return sketchLine(`${shape.id}-seg-${index}`, prev[0], prev[1], point[0], point[1]);
+  });
+  if (shape.type === "path" && shape.closed) {
+    const first = points[0];
+    const last = points[points.length - 1];
+    lines.push(sketchLine(`${shape.id}-seg-close`, last[0], last[1], first[0], first[1]));
+  }
+  return lines;
+};
+
+function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
   const common = { id: shapeId(shape.id), opacity: 1, isLocked: false };
   if (shape.type === "rect" || shape.type === "ellipse" || shape.type === "diamond") {
-    return {
+    return [{
       ...common,
       type: "geo",
       x: shape.x,
@@ -66,12 +91,12 @@ function toTldrawShape(shape: SketchPrimitive): TLShapePartial | null {
         labelColor: "black",
         richText: toRichText(shape.label ?? ""),
       },
-    };
+    }];
   }
   if (shape.type === "note") {
     // Render notes as filled geo rectangles so we control w/h and text size.
     const { w, h } = clampNoteSize(shape.w, shape.h);
-    return {
+    return [{
       ...common,
       type: "geo",
       x: shape.x,
@@ -81,46 +106,58 @@ function toTldrawShape(shape: SketchPrimitive): TLShapePartial | null {
         w,
         h,
         color: geoNoteColor(shape.color),
-        fill: "semi",
+        fill: "solid",
         dash: "draw",
         size: "s",
-        scale: 0.58,
+        scale: 0.64,
         font: "draw",
         align: "start",
         verticalAlign: "start",
         labelColor: "black",
         richText: toRichText(shape.text),
       },
-    };
+    },
+    sketchLine(`${shape.id}-edge-top`, shape.x - 1, shape.y + 1, shape.x + w + 1, shape.y - 1),
+    sketchLine(`${shape.id}-edge-right`, shape.x + w + 1, shape.y, shape.x + w - 1, shape.y + h + 1),
+    sketchLine(`${shape.id}-edge-bottom`, shape.x + w, shape.y + h + 1, shape.x, shape.y + h - 1),
+    sketchLine(`${shape.id}-edge-left`, shape.x - 1, shape.y + h, shape.x + 1, shape.y),
+    ];
   }
   if (shape.type === "text") {
-    return {
+    return [{
       ...common,
       type: "text",
       x: shape.x,
       y: shape.y,
-      props: { color: "black", size: textSize(shape.size), font: "draw", textAlign: shape.align === "center" ? "middle" : shape.align === "right" ? "end" : "start", w: 360, scale: 0.62, richText: toRichText(shape.text), autoSize: true },
-    };
+      props: { color: "black", size: textSize(shape.size), font: "draw", textAlign: shape.align === "center" ? "middle" : shape.align === "right" ? "end" : "start", w: 360, scale: 0.58, richText: toRichText(shape.text), autoSize: true },
+    }];
   }
   if (shape.type === "arrow") {
-    return {
+    return [{
       ...common,
       type: "arrow",
       x: shape.x1,
       y: shape.y1,
       props: { kind: "arc", color: "black", fill: "none", dash: shape.dashed ? "dashed" : "draw", size: "s", arrowheadStart: "none", arrowheadEnd: "arrow", font: "draw", labelColor: "black", start: { x: 0, y: 0 }, end: { x: shape.x2 - shape.x1, y: shape.y2 - shape.y1 }, bend: 0, richText: toRichText(shape.label ?? ""), labelPosition: 0.5, scale: 0.82, elbowMidPoint: 0.5 },
-    };
+    }];
   }
   if (shape.type === "line") {
-    return {
-      ...common,
-      type: "arrow",
-      x: shape.x1,
-      y: shape.y1,
-      props: { kind: "arc", color: "black", fill: "none", dash: shape.dashed ? "dashed" : "draw", size: "s", arrowheadStart: "none", arrowheadEnd: "none", font: "draw", labelColor: "black", start: { x: 0, y: 0 }, end: { x: shape.x2 - shape.x1, y: shape.y2 - shape.y1 }, bend: 0, richText: toRichText(""), labelPosition: 0.5, scale: 0.82, elbowMidPoint: 0.5 },
-    };
+    return [sketchLine(shape.id, shape.x1, shape.y1, shape.x2, shape.y2, shape.dashed)];
   }
-  return null;
+  if (shape.type === "path" || shape.type === "stroke") {
+    return pathToLines(shape);
+  }
+  if (shape.type === "icon") {
+    const size = shape.size ?? 52;
+    return [{
+      ...common,
+      type: "geo",
+      x: shape.x,
+      y: shape.y,
+      props: { geo: shape.kind === "cloud" || shape.kind === "heart" || shape.kind === "star" ? shape.kind : shape.kind === "user" || shape.kind === "users" ? "ellipse" : "rectangle", w: size, h: size, color: "black", fill: "none", dash: "draw", size: "s", scale: 0.7, font: "draw", align: "middle", verticalAlign: "middle", labelColor: "black", richText: toRichText(shape.label ?? shape.kind) },
+    }];
+  }
+  return [];
 }
 
 export function Canvas({
@@ -163,7 +200,7 @@ export function Canvas({
   useEffect(() => {
     const editor = editorRef.current;
     if (!mounted || !editor) return;
-    const nextShapes = shapes.map(toTldrawShape).filter((s): s is TLShapePartial => Boolean(s));
+    const nextShapes = shapes.flatMap(toTldrawShapes);
     const fresh = nextShapes.filter((shape) => !createdShapeIdsRef.current.has(String(shape.id)));
     if (!fresh.length) return;
     editor.createShapes(fresh);
