@@ -144,6 +144,7 @@ export function Canvas({
       setMounted(true);
       // Light theme to match the editorial warm-paper surface.
       editor.user.updateUserPreferences({ colorScheme: "light" });
+      editor.updateInstanceState({ isGridMode: true }, { ephemeral: true });
       editor.setCurrentTool(drawingEnabled ? "draw" : "select");
       const off = editor.store.listen(() => {
         onHasContentChange?.(editor.getCurrentPageShapeIds().size > 0);
