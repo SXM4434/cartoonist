@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "rooms update all" ON public.rooms;
