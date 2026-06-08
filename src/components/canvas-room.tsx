@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, Eraser, FileDown, Mic, MicOff, MessageSquare, Pencil, Send, Sparkles } from "lucide-react";
+import { Check, Copy, Eraser, FileDown, Mic, MicOff, MessageSquare, Pencil, Send, Sparkles, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,8 +23,10 @@ type SessionContext = {
 };
 
 export function CanvasRoom({ roomId }: { roomId: string }) {
-  const [introOpen, setIntroOpen] = useState(true);
+  const [introOpen, setIntroOpen] = useState(false);
+  const [introMode, setIntroMode] = useState<"self" | "add">("self");
   const [joined, setJoined] = useState(false);
+
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [shapes, setShapes] = useState<SketchPrimitive[]>([]);
   const [freehand, setFreehand] = useState<FreehandStroke[]>([]);
