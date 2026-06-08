@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Participant } from "@/lib/canvas-types";
 import type { FreehandStroke, SketchPrimitive } from "@/lib/sketch-types";
 import { useSpeech } from "@/lib/use-speech";
+import { useLiveDiarization } from "@/hooks/use-live-diarization";
 import { ArtifactTabs, type Artifacts } from "./artifact-tabs";
 import { IntroModal } from "./intro-modal";
 import { SketchCanvas } from "./sketch-canvas";
@@ -210,7 +211,9 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     }
   }, [roomId, speech.finals, summarizeCanvas, sessionCtx]);
 
-  // Auto-draw from speech: every ~6s if there's new committed text (voice mode only)
+  // Auto-draw from speech: every ~6s if there's new committed text (voice mode only).
+  // Note: transcript_chunks rows are written by the diarization hook below, not here,
+  // so each chunk gets a proper speaker attribution.
   useEffect(() => {
     if (inputMode === "chat") return;
     if (!speech.listening) return;
@@ -220,17 +223,16 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const newText = text.slice(lastSentLenRef.current);
       lastSentLenRef.current = text.length;
       void requestDraw(newText);
-      // Persist transcript chunk
-      void supabase.from("transcript_chunks").insert({
-        room_id: roomId,
-        text: newText,
-        source: "voice",
-        participant_id: selfPid,
-        t_offset_ms: Date.now() - startedAtRef.current,
-      } as never);
     }, 6000);
     return () => clearInterval(interval);
   }, [requestDraw, roomId, speech.finals, speech.listening, inputMode, selfPid]);
+
+  // Live diarization: rolling 8s chunks → ElevenLabs Scribe diarize → speaker_map
+  const diarization = useLiveDiarization({
+    roomId,
+    enabled: inputMode === "voice" && speech.listening,
+    startedAtMs: startedAtRef.current,
+  });
 
   // Chat → AI handler (transcript persistence happens inside ChatPanel)
   const handleChatMessage = useCallback((text: string) => {
@@ -453,6 +455,32 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         <div className="border-b border-border bg-background px-5 py-1.5">
           <span className="eyebrow text-primary">Draw error</span>{" "}
           <span className="text-foreground/80" style={{ fontSize: "var(--step-0)" }}>{drawError}</span>
+        </div>
+      )}
+
+      {diarization.pendingClusters.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted/30 px-5 py-2">
+          <span className="eyebrow text-muted-foreground shrink-0">New voice detected — who's speaking?</span>
+          {diarization.pendingClusters.map((cluster) => (
+            <div key={cluster} className="flex items-center gap-1.5 border border-border bg-background px-2 py-1">
+              <span className="eyebrow text-foreground" data-numeric>{cluster}</span>
+              {diarization.latestByCluster[cluster] && (
+                <span className="max-w-[160px] truncate text-xs italic text-muted-foreground">"{diarization.latestByCluster[cluster]}"</span>
+              )}
+              <span className="text-xs text-muted-foreground">→</span>
+              {participants.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => void diarization.assignSpeaker(cluster, p.id)}
+                  className="flex h-5 items-center gap-1 border border-border px-1.5 text-xs text-foreground transition hover:bg-foreground hover:text-background"
+                >
+                  <span className="h-2 w-2" style={{ backgroundColor: p.color }} />
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          ))}
         </div>
       )}
 

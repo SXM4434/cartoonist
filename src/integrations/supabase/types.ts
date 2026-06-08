@@ -186,6 +186,30 @@ export type Database = {
         }
         Relationships: []
       }
+      speaker_map: {
+        Row: {
+          cluster_label: string
+          created_at: string
+          id: string
+          participant_id: string
+          room_id: string
+        }
+        Insert: {
+          cluster_label: string
+          created_at?: string
+          id?: string
+          participant_id: string
+          room_id: string
+        }
+        Update: {
+          cluster_label?: string
+          created_at?: string
+          id?: string
+          participant_id?: string
+          room_id?: string
+        }
+        Relationships: []
+      }
       transcript_chunks: {
         Row: {
           created_at: string

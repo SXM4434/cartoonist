@@ -15,6 +15,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as SessionsNewRouteImport } from './routes/sessions.new'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions.$sessionId'
 import { Route as RRoomIdRouteImport } from './routes/r.$roomId'
+import { Route as ApiTranscribeSampleRouteImport } from './routes/api/transcribe-sample'
+import { Route as ApiTranscribeChunkRouteImport } from './routes/api/transcribe-chunk'
 import { Route as ApiParseIntroRouteImport } from './routes/api/parse-intro'
 import { Route as ApiLiveblocksAuthRouteImport } from './routes/api/liveblocks-auth'
 import { Route as ApiGenerateArtifactsRouteImport } from './routes/api/generate-artifacts'
@@ -50,6 +52,16 @@ const SessionsSessionIdRoute = SessionsSessionIdRouteImport.update({
 const RRoomIdRoute = RRoomIdRouteImport.update({
   id: '/r/$roomId',
   path: '/r/$roomId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTranscribeSampleRoute = ApiTranscribeSampleRouteImport.update({
+  id: '/api/transcribe-sample',
+  path: '/api/transcribe-sample',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTranscribeChunkRoute = ApiTranscribeChunkRouteImport.update({
+  id: '/api/transcribe-chunk',
+  path: '/api/transcribe-chunk',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiParseIntroRoute = ApiParseIntroRouteImport.update({
@@ -93,6 +105,8 @@ export interface FileRoutesByFullPath {
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
   '/api/parse-intro': typeof ApiParseIntroRoute
+  '/api/transcribe-chunk': typeof ApiTranscribeChunkRoute
+  '/api/transcribe-sample': typeof ApiTranscribeSampleRoute
   '/r/$roomId': typeof RRoomIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/sessions/new': typeof SessionsNewRoute
@@ -107,6 +121,8 @@ export interface FileRoutesByTo {
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
   '/api/parse-intro': typeof ApiParseIntroRoute
+  '/api/transcribe-chunk': typeof ApiTranscribeChunkRoute
+  '/api/transcribe-sample': typeof ApiTranscribeSampleRoute
   '/r/$roomId': typeof RRoomIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/sessions/new': typeof SessionsNewRoute
@@ -122,6 +138,8 @@ export interface FileRoutesById {
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
   '/api/parse-intro': typeof ApiParseIntroRoute
+  '/api/transcribe-chunk': typeof ApiTranscribeChunkRoute
+  '/api/transcribe-sample': typeof ApiTranscribeSampleRoute
   '/r/$roomId': typeof RRoomIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/sessions/new': typeof SessionsNewRoute
@@ -138,6 +156,8 @@ export interface FileRouteTypes {
     | '/api/generate-artifacts'
     | '/api/liveblocks-auth'
     | '/api/parse-intro'
+    | '/api/transcribe-chunk'
+    | '/api/transcribe-sample'
     | '/r/$roomId'
     | '/sessions/$sessionId'
     | '/sessions/new'
@@ -152,6 +172,8 @@ export interface FileRouteTypes {
     | '/api/generate-artifacts'
     | '/api/liveblocks-auth'
     | '/api/parse-intro'
+    | '/api/transcribe-chunk'
+    | '/api/transcribe-sample'
     | '/r/$roomId'
     | '/sessions/$sessionId'
     | '/sessions/new'
@@ -166,6 +188,8 @@ export interface FileRouteTypes {
     | '/api/generate-artifacts'
     | '/api/liveblocks-auth'
     | '/api/parse-intro'
+    | '/api/transcribe-chunk'
+    | '/api/transcribe-sample'
     | '/r/$roomId'
     | '/sessions/$sessionId'
     | '/sessions/new'
@@ -181,6 +205,8 @@ export interface RootRouteChildren {
   ApiGenerateArtifactsRoute: typeof ApiGenerateArtifactsRoute
   ApiLiveblocksAuthRoute: typeof ApiLiveblocksAuthRoute
   ApiParseIntroRoute: typeof ApiParseIntroRoute
+  ApiTranscribeChunkRoute: typeof ApiTranscribeChunkRoute
+  ApiTranscribeSampleRoute: typeof ApiTranscribeSampleRoute
   RRoomIdRoute: typeof RRoomIdRoute
   SessionsSessionIdRoute: typeof SessionsSessionIdRoute
   SessionsNewRoute: typeof SessionsNewRoute
@@ -229,6 +255,20 @@ declare module '@tanstack/react-router' {
       path: '/r/$roomId'
       fullPath: '/r/$roomId'
       preLoaderRoute: typeof RRoomIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/transcribe-sample': {
+      id: '/api/transcribe-sample'
+      path: '/api/transcribe-sample'
+      fullPath: '/api/transcribe-sample'
+      preLoaderRoute: typeof ApiTranscribeSampleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/transcribe-chunk': {
+      id: '/api/transcribe-chunk'
+      path: '/api/transcribe-chunk'
+      fullPath: '/api/transcribe-chunk'
+      preLoaderRoute: typeof ApiTranscribeChunkRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/parse-intro': {
@@ -285,6 +325,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiGenerateArtifactsRoute: ApiGenerateArtifactsRoute,
   ApiLiveblocksAuthRoute: ApiLiveblocksAuthRoute,
   ApiParseIntroRoute: ApiParseIntroRoute,
+  ApiTranscribeChunkRoute: ApiTranscribeChunkRoute,
+  ApiTranscribeSampleRoute: ApiTranscribeSampleRoute,
   RRoomIdRoute: RRoomIdRoute,
   SessionsSessionIdRoute: SessionsSessionIdRoute,
   SessionsNewRoute: SessionsNewRoute,
