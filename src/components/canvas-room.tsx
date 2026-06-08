@@ -492,7 +492,13 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
         )}
       </div>
 
-      {!joined && <IntroModal open={introOpen} onClose={() => setIntroOpen(false)} onSubmit={handleIntroSubmit} />}
+      <IntroModal
+        open={introOpen}
+        mode={introMode}
+        onClose={() => { setIntroOpen(false); setIntroMode("self"); }}
+        onSubmit={handleIntroSubmit}
+      />
+
     </div>
   );
 }
