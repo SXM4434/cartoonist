@@ -53,7 +53,7 @@ function toTldrawShape(shape: SketchPrimitive): TLShapePartial | null {
       type: "note",
       x: shape.x,
       y: shape.y,
-      props: { w: shape.w ?? 160, h: shape.h ?? 140, color: noteColor(shape.color), richText: toRichText(shape.text) },
+      props: { color: noteColor(shape.color), labelColor: "black", size: "m", font: "draw", richText: toRichText(shape.text) },
     };
   }
   if (shape.type === "text") {
