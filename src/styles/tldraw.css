@@ -5,6 +5,19 @@
    stop looking like generic SaaS yellow cards. */
 
 .tl-container {
+  --tl-color-background: oklch(0.965 0.008 85);
+  --tl-color-grid: color-mix(in oklab, oklch(0.22 0.012 60) 12%, transparent);
+  --tl-color-text: oklch(0.22 0.012 60);
+  --tl-color-text-0: oklch(0.22 0.012 60);
+  --tl-color-text-1: oklch(0.22 0.012 60);
+  --tl-color-selection-stroke: oklch(0.62 0.18 42);
+  --tl-color-selection-fill: color-mix(in oklab, oklch(0.62 0.18 42) 9%, transparent);
+  --tl-shadow-1: none;
+  --tl-shadow-2: none;
+  --tl-shadow-3: none;
+  --tl-shadow-4: none;
+  --tl-font-draw: "tldraw_draw", "Inter", system-ui, sans-serif;
+
   --color-background: oklch(0.965 0.008 85);
   --color-low: oklch(0.945 0.008 85);
   --color-panel: oklch(0.98 0.006 85);
@@ -51,6 +64,14 @@
   background: oklch(0.965 0.008 85) !important;
 }
 
+.tl-container .tl-background {
+  background-color: oklch(0.965 0.008 85) !important;
+}
+
+.tl-container .tl-grid-dot {
+  fill: color-mix(in oklab, oklch(0.22 0.012 60) 12%, transparent) !important;
+}
+
 /* Borders, never shadows — kill tldraw's default elevation on any UI we
    don't fully hide. */
 .tl-container .tlui-button,
@@ -83,6 +104,18 @@
 .tl-container .tl-text-content,
 .tl-container .tl-rich-text {
   font-feature-settings: "ss01", "cv11";
+  letter-spacing: 0 !important;
+  line-height: 1.12 !important;
+}
+
+.tl-container .tl-text-label__inner {
+  padding: 8px 10px !important;
+}
+
+.tl-container .tl-shape[data-shape-type="geo"] svg path,
+.tl-container .tl-shape[data-shape-type="geo"] svg rect,
+.tl-container .tl-shape[data-shape-type="arrow"] svg path {
+  stroke-width: 1.1px !important;
 }
 
 /* Hide all remaining tldraw chrome — we're headless. */
