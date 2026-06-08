@@ -50,6 +50,24 @@ HARD RULES:
 - If the latest chunk is small-talk / filler with no visual content, return shapes:[].
 - Return ONLY valid JSON, no commentary.`;
 
+const roughMonkey = () => ({
+  shapes: [
+    { type: "text", id: `t_monkey_${Date.now()}`, x: 110, y: 555, text: "quick monkey", size: 14, weight: "bold" },
+    { type: "ellipse", id: `e_head_${Date.now()}`, x: 130, y: 585, w: 92, h: 76, label: "" },
+    { type: "ellipse", id: `e_body_${Date.now()}`, x: 146, y: 655, w: 70, h: 82, label: "" },
+    { type: "ellipse", id: `e_ear_l_${Date.now()}`, x: 112, y: 608, w: 34, h: 38, label: "" },
+    { type: "ellipse", id: `e_ear_r_${Date.now()}`, x: 207, y: 608, w: 34, h: 38, label: "" },
+    { type: "ellipse", id: `e_muzzle_${Date.now()}`, x: 154, y: 625, w: 46, h: 26, label: "" },
+    { type: "path", id: `p_eye_l_${Date.now()}`, points: [[158, 615], [160, 617], [162, 615]], closed: false },
+    { type: "path", id: `p_eye_r_${Date.now()}`, points: [[189, 615], [191, 617], [193, 615]], closed: false },
+    { type: "path", id: `p_smile_${Date.now()}`, points: [[166, 638], [178, 645], [192, 638]], closed: false },
+    { type: "path", id: `p_arm_l_${Date.now()}`, points: [[152, 680], [118, 705], [100, 690]], closed: false },
+    { type: "path", id: `p_arm_r_${Date.now()}`, points: [[210, 680], [248, 704], [265, 687]], closed: false },
+    { type: "path", id: `p_tail_${Date.now()}`, points: [[207, 710], [264, 720], [280, 675], [250, 664]], closed: false },
+  ],
+  rationale: "drew a literal quick monkey sketch",
+});
+
 export const Route = createFileRoute("/api/cartoonist-draw")({
   server: {
     handlers: {
@@ -79,6 +97,10 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
             status: 200,
             headers: { "Content-Type": "application/json" },
           });
+        }
+
+        if (/\b(draw|sketch|doodle)\b[\s\S]{0,80}\bmonkey\b/i.test(latest)) {
+          return Response.json(roughMonkey());
         }
 
         const ctx = body.sessionContext;
