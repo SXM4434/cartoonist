@@ -9,6 +9,8 @@ import { useSpeech } from "@/lib/use-speech";
 import { ArtifactTabs, type Artifacts } from "./artifact-tabs";
 import { IntroModal } from "./intro-modal";
 import { SketchCanvas } from "./sketch-canvas";
+import { Canvas as TldrawCanvas } from "./canvas/Canvas";
+import { CanvasProvider } from "./canvas/canvas-context";
 import { ChatPanel } from "./chat-panel";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
@@ -38,6 +40,17 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
   const [inputMode, setInputMode] = useState<"voice" | "chat">("voice");
   const [selfPid, setSelfPid] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(true);
+
+  // Feature flag — tldraw canvas. Enable via ?canvas=tldraw or
+  // localStorage.cartoonist_canvas = "tldraw". Default off during Phase 1
+  // chunk A so legacy rooms keep rendering unchanged.
+  const useTldraw = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("canvas") === "tldraw") return true;
+    if (params.get("canvas") === "legacy") return false;
+    return window.localStorage.getItem("cartoonist_canvas") === "tldraw";
+  }, []);
 
   const speech = useSpeech();
   const startedAtRef = useRef(Date.now());
@@ -388,12 +401,18 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
 
       <div className="flex flex-1 overflow-hidden">
         <div className="relative flex-1 overflow-hidden">
-          <SketchCanvas
-            shapes={shapes}
-            freehand={freehand}
-            drawingEnabled={drawing}
-            onFreehandComplete={(stroke) => setFreehand((current) => [...current, stroke])}
-          />
+          {useTldraw ? (
+            <CanvasProvider>
+              <TldrawCanvas persistenceKey={`cartoonist-room-${roomId}`} />
+            </CanvasProvider>
+          ) : (
+            <SketchCanvas
+              shapes={shapes}
+              freehand={freehand}
+              drawingEnabled={drawing}
+              onFreehandComplete={(stroke) => setFreehand((current) => [...current, stroke])}
+            />
+          )}
 
           {shapes.length === 0 && freehand.length === 0 && (
             <div className="pointer-events-none absolute left-8 top-8 max-w-md border border-border bg-background p-5">
