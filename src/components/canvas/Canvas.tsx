@@ -17,11 +17,7 @@ export function Canvas({ persistenceKey }: { persistenceKey?: string }) {
 
   return (
     <div className="absolute inset-0">
-      <Tldraw
-        persistenceKey={persistenceKey}
-        onMount={handleMount}
-        inferDarkMode
-      />
+      <Tldraw persistenceKey={persistenceKey} onMount={handleMount} />
     </div>
   );
 }
