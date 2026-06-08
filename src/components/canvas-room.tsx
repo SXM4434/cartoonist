@@ -9,6 +9,8 @@ import { useSpeech } from "@/lib/use-speech";
 import { ArtifactTabs, type Artifacts } from "./artifact-tabs";
 import { IntroModal } from "./intro-modal";
 import { SketchCanvas } from "./sketch-canvas";
+import { Canvas as TldrawCanvas } from "./canvas/Canvas";
+import { CanvasProvider } from "./canvas/canvas-context";
 import { ChatPanel } from "./chat-panel";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
@@ -388,12 +390,18 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
 
       <div className="flex flex-1 overflow-hidden">
         <div className="relative flex-1 overflow-hidden">
-          <SketchCanvas
-            shapes={shapes}
-            freehand={freehand}
-            drawingEnabled={drawing}
-            onFreehandComplete={(stroke) => setFreehand((current) => [...current, stroke])}
-          />
+          {useTldraw ? (
+            <CanvasProvider>
+              <TldrawCanvas persistenceKey={`cartoonist-room-${roomId}`} />
+            </CanvasProvider>
+          ) : (
+            <SketchCanvas
+              shapes={shapes}
+              freehand={freehand}
+              drawingEnabled={drawing}
+              onFreehandComplete={(stroke) => setFreehand((current) => [...current, stroke])}
+            />
+          )}
 
           {shapes.length === 0 && freehand.length === 0 && (
             <div className="pointer-events-none absolute left-8 top-8 max-w-md border border-border bg-background p-5">
