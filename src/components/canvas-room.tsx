@@ -22,7 +22,15 @@ type SessionContext = {
   hostRole: string;
 };
 
-export function CanvasRoom({ roomId }: { roomId: string }) {
+export function CanvasRoom(props: { roomId: string }) {
+  return (
+    <CanvasProvider>
+      <CanvasRoomInner {...props} />
+    </CanvasProvider>
+  );
+}
+
+function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [introOpen, setIntroOpen] = useState(false);
   const [introMode, setIntroMode] = useState<"self" | "add">("self");
   const [joined, setJoined] = useState(false);
