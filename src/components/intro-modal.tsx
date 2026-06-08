@@ -13,6 +13,7 @@ export function IntroModal({
   open,
   onClose,
   onSubmit,
+  mode = "self",
 }: {
   open: boolean;
   onClose: () => void;
@@ -22,7 +23,9 @@ export function IntroModal({
     personality: string;
     color: string;
   }) => Promise<void>;
+  mode?: "self" | "add";
 }) {
+
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [personality, setPersonality] = useState("");
@@ -86,8 +89,11 @@ export function IntroModal({
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-serif text-2xl">Introduce yourself</DialogTitle>
+          <DialogTitle className="font-serif text-2xl">
+            {mode === "add" ? "Add someone on this device" : "Introduce yourself"}
+          </DialogTitle>
         </DialogHeader>
+
 
         <div className="space-y-4 pt-2">
           <Button
@@ -151,8 +157,9 @@ export function IntroModal({
             disabled={submitting}
             className="w-full bg-foreground text-background hover:bg-foreground/90"
           >
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Join meeting"}
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : mode === "add" ? "Add to room" : "Join meeting"}
           </Button>
+
         </div>
       </DialogContent>
     </Dialog>
