@@ -457,10 +457,8 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
       <div className="flex flex-1 overflow-hidden">
         <div className="relative flex-1 overflow-hidden">
-          {useTldraw && joined ? (
-            <CanvasProvider>
-              <TldrawCanvas />
-            </CanvasProvider>
+          {useTldraw ? (
+            <TldrawCanvas />
           ) : (
             <SketchCanvas
               shapes={shapes}
