@@ -403,7 +403,7 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
         <div className="relative flex-1 overflow-hidden">
           {useTldraw ? (
             <CanvasProvider>
-              <TldrawCanvas persistenceKey={`cartoonist-room-${roomId}`} />
+              <TldrawCanvas />
             </CanvasProvider>
           ) : (
             <SketchCanvas
