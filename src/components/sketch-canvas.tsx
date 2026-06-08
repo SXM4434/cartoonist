@@ -403,7 +403,7 @@ export function SketchCanvas({
 
   return (
     <div
-      className="relative h-full w-full overflow-hidden"
+      className="relative h-full w-full overflow-hidden bg-background"
       style={{
         backgroundImage:
           "radial-gradient(circle, hsl(var(--foreground) / 0.10) 1px, transparent 1px)",
