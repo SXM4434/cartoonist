@@ -211,7 +211,9 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     }
   }, [roomId, speech.finals, summarizeCanvas, sessionCtx]);
 
-  // Auto-draw from speech: every ~6s if there's new committed text (voice mode only)
+  // Auto-draw from speech: every ~6s if there's new committed text (voice mode only).
+  // Note: transcript_chunks rows are written by the diarization hook below, not here,
+  // so each chunk gets a proper speaker attribution.
   useEffect(() => {
     if (inputMode === "chat") return;
     if (!speech.listening) return;
@@ -221,17 +223,16 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const newText = text.slice(lastSentLenRef.current);
       lastSentLenRef.current = text.length;
       void requestDraw(newText);
-      // Persist transcript chunk
-      void supabase.from("transcript_chunks").insert({
-        room_id: roomId,
-        text: newText,
-        source: "voice",
-        participant_id: selfPid,
-        t_offset_ms: Date.now() - startedAtRef.current,
-      } as never);
     }, 6000);
     return () => clearInterval(interval);
   }, [requestDraw, roomId, speech.finals, speech.listening, inputMode, selfPid]);
+
+  // Live diarization: rolling 8s chunks → ElevenLabs Scribe diarize → speaker_map
+  const diarization = useLiveDiarization({
+    roomId,
+    enabled: inputMode === "voice" && speech.listening,
+    startedAtMs: startedAtRef.current,
+  });
 
   // Chat → AI handler (transcript persistence happens inside ChatPanel)
   const handleChatMessage = useCallback((text: string) => {
