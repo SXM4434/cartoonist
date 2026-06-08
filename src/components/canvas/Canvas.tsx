@@ -16,11 +16,26 @@ const toRichText = (text: string): RichText => ({
 });
 
 const shapeId = (id: string) => `shape:cartoonist-${id.replace(/[^a-zA-Z0-9_-]/g, "-")}` as TLShapePartial["id"];
-const noteColor = (color?: "yellow" | "pink" | "blue" | "green") => {
+
+// Map a SketchCanvas "note" color to a tldraw geo fill color. We use geo
+// rectangles (not tldraw notes) so we can honor the w/h the AI sends and
+// keep text from auto-scaling to jumbo. Colors are deliberately the pale
+// variants from our CSS — yellow/blue/green/red light tones.
+const geoNoteColor = (color?: "yellow" | "pink" | "blue" | "green") => {
   if (color === "pink") return "light-red";
   if (color === "blue") return "light-blue";
   if (color === "green") return "light-green";
-  return "yellow";
+  return "yellow"; // we re-map this in CSS to a soft warm cream
+};
+
+// Cap text shape size to our ladder. tldraw only exposes s/m/l/xl tokens —
+// "xl" is jumbo and breaks layout. Use "l" for true headings, "m" for
+// subheads, "s" for body/captions.
+const textSize = (size?: number): "s" | "m" | "l" => {
+  if (!size) return "s";
+  if (size >= 28) return "l";
+  if (size >= 18) return "m";
+  return "s";
 };
 
 function toTldrawShape(shape: SketchPrimitive): TLShapePartial | null {
@@ -38,7 +53,7 @@ function toTldrawShape(shape: SketchPrimitive): TLShapePartial | null {
         color: "black",
         fill: shape.fill ? "semi" : "none",
         dash: "draw",
-        size: "m",
+        size: "s",
         font: "draw",
         align: "middle",
         verticalAlign: "middle",
@@ -48,12 +63,28 @@ function toTldrawShape(shape: SketchPrimitive): TLShapePartial | null {
     };
   }
   if (shape.type === "note") {
+    // Render notes as filled geo rectangles so we control w/h and text size.
+    const w = shape.w ?? 180;
+    const h = shape.h ?? 130;
     return {
       ...common,
-      type: "note",
+      type: "geo",
       x: shape.x,
       y: shape.y,
-      props: { color: noteColor(shape.color), labelColor: "black", size: "m", font: "draw", richText: toRichText(shape.text) },
+      props: {
+        geo: "rectangle",
+        w,
+        h,
+        color: geoNoteColor(shape.color),
+        fill: "semi",
+        dash: "draw",
+        size: "s",
+        font: "draw",
+        align: "middle",
+        verticalAlign: "middle",
+        labelColor: "black",
+        richText: toRichText(shape.text),
+      },
     };
   }
   if (shape.type === "text") {
@@ -62,7 +93,7 @@ function toTldrawShape(shape: SketchPrimitive): TLShapePartial | null {
       type: "text",
       x: shape.x,
       y: shape.y,
-      props: { color: "black", size: shape.size && shape.size >= 22 ? "xl" : "m", font: "draw", textAlign: shape.align === "center" ? "middle" : shape.align === "right" ? "end" : "start", w: 420, richText: toRichText(shape.text), autoSize: true },
+      props: { color: "black", size: textSize(shape.size), font: "draw", textAlign: shape.align === "center" ? "middle" : shape.align === "right" ? "end" : "start", w: 420, richText: toRichText(shape.text), autoSize: true },
     };
   }
   if (shape.type === "arrow") {
