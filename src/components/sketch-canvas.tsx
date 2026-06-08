@@ -406,7 +406,7 @@ export function SketchCanvas({
       className="relative h-full w-full overflow-hidden bg-background"
       style={{
         backgroundImage:
-          "radial-gradient(circle, hsl(var(--foreground) / 0.10) 1px, transparent 1px)",
+          "radial-gradient(circle, color-mix(in oklab, var(--foreground) 10%, transparent) 1px, transparent 1px)",
         backgroundSize: "28px 28px",
       }}
     >
