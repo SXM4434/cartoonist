@@ -222,8 +222,9 @@ export function IntroModal({
           {/* Voice enrollment */}
           <div className="space-y-2 border-t border-border pt-3">
             <Label>
-              Voice sample <span className="text-muted-foreground">(required — say your name and a sentence)</span>
+              Voice sample <span className="text-muted-foreground">(say your name, role, and how you like to work — we'll auto-fill the form)</span>
             </Label>
+            {parsing && <p className="text-xs text-muted-foreground">Filling in what you said…</p>}
 
             {sampleBlob ? (
               <div className="flex items-center gap-2">
