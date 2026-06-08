@@ -10,7 +10,7 @@ import { ArtifactTabs, type Artifacts } from "./artifact-tabs";
 import { IntroModal } from "./intro-modal";
 import { SketchCanvas } from "./sketch-canvas";
 import { Canvas as TldrawCanvas } from "./canvas/Canvas";
-import { CanvasProvider } from "./canvas/canvas-context";
+import { CanvasProvider, useCanvas } from "./canvas/canvas-context";
 import { ChatPanel } from "./chat-panel";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
@@ -22,7 +22,15 @@ type SessionContext = {
   hostRole: string;
 };
 
-export function CanvasRoom({ roomId }: { roomId: string }) {
+export function CanvasRoom(props: { roomId: string }) {
+  return (
+    <CanvasProvider>
+      <CanvasRoomInner {...props} />
+    </CanvasProvider>
+  );
+}
+
+function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [introOpen, setIntroOpen] = useState(false);
   const [introMode, setIntroMode] = useState<"self" | "add">("self");
   const [joined, setJoined] = useState(false);
@@ -43,15 +51,14 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
   const [selfPid, setSelfPid] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(true);
 
-  // Feature flag — tldraw canvas. Enable via ?canvas=tldraw or
-  // localStorage.cartoonist_canvas = "tldraw". Default off during Phase 1
-  // chunk A so legacy rooms keep rendering unchanged.
+  // Canvas engine: tldraw by default (rendered with hideUi — we drive tools
+  // from our own header). Use ?canvas=legacy to fall back to SketchCanvas.
   const useTldraw = useMemo(() => {
-    if (typeof window === "undefined") return false;
+    if (typeof window === "undefined") return true;
     const params = new URLSearchParams(window.location.search);
-    if (params.get("canvas") === "tldraw") return true;
     if (params.get("canvas") === "legacy") return false;
-    return window.localStorage.getItem("cartoonist_canvas") === "tldraw";
+    if (params.get("canvas") === "tldraw") return true;
+    return window.localStorage.getItem("cartoonist_canvas") !== "legacy";
   }, []);
 
   const speech = useSpeech();
@@ -236,11 +243,25 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
     await requestDraw(text);
   }, [askText, requestDraw]);
 
+  const { editor: tldrawEditor } = useCanvas();
+
   const clearCanvas = useCallback(() => {
     setShapes([]);
     setFreehand([]);
     lastSentLenRef.current = speech.finals.join(" ").length;
-  }, [speech.finals]);
+    if (tldrawEditor) {
+      const ids = Array.from(tldrawEditor.getCurrentPageShapeIds());
+      if (ids.length) tldrawEditor.deleteShapes(ids);
+    }
+  }, [speech.finals, tldrawEditor]);
+
+  const toggleDraw = useCallback(() => {
+    setDrawing((d) => {
+      const next = !d;
+      if (tldrawEditor) tldrawEditor.setCurrentTool(next ? "draw" : "select");
+      return next;
+    });
+  }, [tldrawEditor]);
 
   const copyLink = useCallback(async () => {
     await navigator.clipboard.writeText(window.location.href);
@@ -347,7 +368,7 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
 
 
         <div className="flex items-center justify-end gap-1.5">
-          <Button size="sm" variant="outline" onClick={() => setDrawing((d) => !d)} className={`h-8 gap-1.5 rounded-none border-border ${drawing ? "bg-foreground text-background" : ""}`}>
+          <Button size="sm" variant="outline" onClick={toggleDraw} className={`h-8 gap-1.5 rounded-none border-border ${drawing ? "bg-foreground text-background" : ""}`}>
             <Pencil className="h-3.5 w-3.5" /><span className="eyebrow">Draw</span>
           </Button>
           <Button size="sm" variant="outline" onClick={clearCanvas} className="h-8 gap-1.5 rounded-none border-border">
@@ -436,10 +457,8 @@ export function CanvasRoom({ roomId }: { roomId: string }) {
 
       <div className="flex flex-1 overflow-hidden">
         <div className="relative flex-1 overflow-hidden">
-          {useTldraw && joined ? (
-            <CanvasProvider>
-              <TldrawCanvas />
-            </CanvasProvider>
+          {useTldraw ? (
+            <TldrawCanvas />
           ) : (
             <SketchCanvas
               shapes={shapes}
