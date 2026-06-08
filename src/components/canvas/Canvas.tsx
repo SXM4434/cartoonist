@@ -39,8 +39,8 @@ const textSize = (size?: number): "s" | "m" | "l" => {
 };
 
 const clampNoteSize = (w?: number, h?: number) => ({
-  w: Math.min(Math.max(w ?? 150, 120), 260),
-  h: Math.min(Math.max(h ?? 108, 86), 128),
+  w: Math.min(Math.max(w ?? 156, 120), 320),
+  h: Math.min(Math.max(h ?? 118, 86), 128),
 });
 
 function toTldrawShape(shape: SketchPrimitive): TLShapePartial | null {
@@ -61,8 +61,8 @@ function toTldrawShape(shape: SketchPrimitive): TLShapePartial | null {
         size: "s",
         scale: 0.72,
         font: "draw",
-        align: "middle",
-        verticalAlign: "middle",
+        align: "start",
+        verticalAlign: "start",
         labelColor: "black",
         richText: toRichText(shape.label ?? ""),
       },
