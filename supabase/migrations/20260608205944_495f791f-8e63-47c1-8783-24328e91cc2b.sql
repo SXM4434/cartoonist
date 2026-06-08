@@ -1,0 +1,2 @@
+CREATE POLICY "voice samples insert" ON storage.objects FOR INSERT TO anon, authenticated WITH CHECK (bucket_id = 'voice-samples');
+CREATE POLICY "voice samples read" ON storage.objects FOR SELECT TO anon, authenticated USING (bucket_id = 'voice-samples');
