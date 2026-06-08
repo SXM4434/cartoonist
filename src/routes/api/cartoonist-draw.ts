@@ -9,7 +9,7 @@ You receive:
 
 Return STRICT JSON: { "shapes": [...], "rationale": "<one short sentence>" }.
 
-Canvas: 1600x1000, origin top-left. Standard box w=180 h=80. Sticky note w=160 h=140. Leave ~60-80px gutters. Arrows touch box EDGES. Group related shapes spatially. Use the empty regions of the canvas — don't pile new shapes on top of old ones.
+Canvas: 1600x1000, origin top-left. Keep everything compact like an index-card wall: heading text size 16-18, captions 12-14. Standard box w=150 h=64. Sticky notes w=145-165 h=95-120, never jumbo. Leave ~55-75px gutters. Arrows touch box EDGES. Group related shapes spatially. Use the empty regions of the canvas — don't pile new shapes on top of old ones.
 
 Primitives (id globally unique; prefix by kind: r_ e_ d_ a_ l_ t_ n_ p_ i_):
 - rect    { type, id, x, y, w, h, label }                                           — screen, step, component, card
@@ -17,7 +17,7 @@ Primitives (id globally unique; prefix by kind: r_ e_ d_ a_ l_ t_ n_ p_ i_):
 - diamond { type, id, x, y, w, h, label }                                           — decision
 - arrow   { type, id, x1, y1, x2, y2, label?, dashed? }                             — flow, dependency, causation
 - line    { type, id, x1, y1, x2, y2, dashed? }                                     — divider, axis, connector
-- text    { type, id, x, y, text, size?, weight?, italic?, align? }                 — heading (size 26-32), caption (14-16), question, quote
+- text    { type, id, x, y, text, size?, weight?, italic?, align? }                 — heading (size 16-18), caption (12-14), question, quote
 - note    { type, id, x, y, w, h, text, color: yellow|pink|blue|green }             — sticky note; brainstorm idea, observation, risk
 - path    { type, id, points: [[x,y],...], closed?, fill? }                         — freeform vector sketch: blob, swoosh, callout bubble, underline, brace, custom shape, abstract illustration
 - icon    { type, id, kind, x, y, size?, label? }                                   — kinds: user, users, phone, laptop, server, database, cloud, gear, lightbulb, lightning, lock, key, star, heart, check, cross, warning, envelope, doc, folder, chat, search, eye, calendar, clock, money, chart, sun, moon, tree, house
