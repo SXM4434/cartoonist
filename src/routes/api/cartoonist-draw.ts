@@ -143,7 +143,7 @@ const cleanDiagram = () => {
   return { shapes, rationale: "drew a clean system diagram" };
 };
 
-const isLiteralDraw = (text: string) => /\b(draw|sketch|doodle)\b[\s\S]{0,80}\b(?!wireframe|flow|diagram|map|screen|mockup)\w+/i.test(text);
+const isLiteralDraw = (text: string) => /\b(draw|sketch|doodle)\b/i.test(text) && !/\b(wireframe|mockup|ui sketch|screen layout|app screen|user flow|journey|flowchart|flow chart|diagram|architecture|system map|map out)\b/i.test(text);
 const isWireframeRequest = (text: string) => /\b(wireframe|mockup|ui sketch|screen layout|app screen)\b/i.test(text);
 const isUserFlowRequest = (text: string) => /\b(user flow|journey|flowchart|flow chart)\b/i.test(text) || /\bflow\b/i.test(text);
 const isDiagramRequest = (text: string) => !isLiteralDraw(text) && /\b(diagram|architecture|system map|map out)\b/i.test(text);
