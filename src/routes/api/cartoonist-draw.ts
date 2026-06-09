@@ -172,9 +172,11 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
           });
         }
 
-        if (/\b(draw|sketch|doodle)\b[\s\S]{0,80}\bmonkey\b/i.test(latest)) {
-          return Response.json(roughMonkey());
+        if (isLiteralDraw(latest)) {
+          const tpl = matchSketchTemplate(latest);
+          if (tpl) return Response.json(tpl);
         }
+
         if (isWireframeRequest(latest)) return Response.json(cleanWireframe(latest));
         if (isUserFlowRequest(latest)) return Response.json(cleanUserFlow(latest));
         if (isDiagramRequest(latest)) return Response.json(cleanDiagram());
