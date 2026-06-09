@@ -116,25 +116,29 @@ ${transcript}
 # Latest chunk to react to
 ${latest || transcript}`;
 
-        const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-pro",
-            response_format: { type: "json_object" },
-            messages: [
-              { role: "system", content: SYSTEM_PROMPT },
-              { role: "user", content: userMsg },
-            ],
-          }),
-        });
+        let res: Response;
+        try {
+          res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-pro",
+              response_format: { type: "json_object" },
+              messages: [
+                { role: "system", content: SYSTEM_PROMPT },
+                { role: "user", content: userMsg },
+              ],
+            }),
+          });
+        } catch (error) {
+          console.error("AI draw request failed", error);
+          return json({ error: "AI draw is temporarily unavailable — try again in a moment.", shapes: [] });
+        }
 
         if (!res.ok) {
           const text = await res.text();
-          return new Response(JSON.stringify({ error: "AI call failed", detail: text, shapes: [] }), {
-            status: 502,
-            headers: { "Content-Type": "application/json" },
-          });
+          console.error("AI draw gateway error", res.status, text);
+          return json({ error: aiDrawErrorMessage(res.status, text), shapes: [] });
         }
 
         const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
@@ -146,10 +150,7 @@ ${latest || transcript}`;
           parsed = { shapes: [] };
         }
 
-        return new Response(JSON.stringify(parsed), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
+        return json(parsed);
       },
     },
   },
