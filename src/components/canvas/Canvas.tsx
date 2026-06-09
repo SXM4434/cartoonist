@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { compressLegacySegments, Tldraw, type Editor, type TLShapePartial } from "tldraw";
+import { compressLegacySegments, getIndices, Tldraw, type Editor, type TLShapePartial } from "tldraw";
 import "tldraw/tldraw.css";
 import { useCanvas } from "./canvas-context";
 import type { SketchPrimitive } from "@/lib/sketch-types";
@@ -53,13 +53,34 @@ const sketchLine = (id: string, x1: number, y1: number, x2: number, y2: number, 
   props: { kind: "arc", color: "black", fill: "none", dash: dashed ? "dashed" : "draw", size: "s", arrowheadStart: "none", arrowheadEnd: "none", font: "draw", labelColor: "black", start: { x: 0, y: 0 }, end: { x: x2 - x1, y: y2 - y1 }, bend: 0, richText: toRichText(""), labelPosition: 0.5, scale: 0.72, elbowMidPoint: 0.5 },
 });
 
-const pathToDraw = (shape: Extract<SketchPrimitive, { type: "path" | "stroke" }>): TLShapePartial[] => {
+const pathToLine = (shape: Extract<SketchPrimitive, { type: "path" }>): TLShapePartial[] => {
   const rawPoints = shape.points.filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
   if (rawPoints.length < 2) return [];
   const closedPoints = shape.type === "path" && shape.closed ? [...rawPoints, rawPoints[0]] : rawPoints;
   const minX = Math.min(...closedPoints.map(([x]) => x));
   const minY = Math.min(...closedPoints.map(([, y]) => y));
-  const points = closedPoints.map(([x, y]) => ({ x: x - minX, y: y - minY, z: 0.5 }));
+  const indices = getIndices(closedPoints.length);
+  const points = Object.fromEntries(closedPoints.map(([x, y], i) => {
+    const index = indices[i];
+    return [index, { id: index, index, x: x - minX, y: y - minY }];
+  }));
+  return [{
+    id: shapeId(shape.id),
+    type: "line",
+    x: minX,
+    y: minY,
+    opacity: 1,
+    isLocked: false,
+    props: { color: "black", dash: "draw", size: "s", spline: "cubic", points, scale: 1 },
+  }];
+};
+
+const strokeToDraw = (shape: Extract<SketchPrimitive, { type: "stroke" }>): TLShapePartial[] => {
+  const rawPoints = shape.points.filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
+  if (rawPoints.length < 2) return [];
+  const minX = Math.min(...rawPoints.map(([x]) => x));
+  const minY = Math.min(...rawPoints.map(([, y]) => y));
+  const points = rawPoints.map(([x, y]) => ({ x: x - minX, y: y - minY, z: 0.5 }));
   return [{
     id: shapeId(shape.id),
     type: "draw",
@@ -74,7 +95,7 @@ const pathToDraw = (shape: Extract<SketchPrimitive, { type: "path" | "stroke" }>
       size: "s",
       segments: compressLegacySegments([{ type: "free", points }]),
       isComplete: true,
-      isClosed: shape.type === "path" && !!shape.closed,
+      isClosed: false,
       isPen: false,
       scale: 1,
       scaleX: 1,
@@ -181,8 +202,11 @@ function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
   if (shape.type === "line") {
     return [sketchLine(shape.id, shape.x1, shape.y1, shape.x2, shape.y2, shape.dashed)];
   }
-  if (shape.type === "path" || shape.type === "stroke") {
-    return pathToDraw(shape);
+  if (shape.type === "path") {
+    return pathToLine(shape);
+  }
+  if (shape.type === "stroke") {
+    return strokeToDraw(shape);
   }
   if (shape.type === "icon") {
     const size = shape.size ?? 52;
