@@ -1,17 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import type { SketchPrimitive } from "@/lib/sketch-types";
-
 
 const SYSTEM_PROMPT = `You are CARTOONIST — a senior visual thinker and sketch artist embedded in a live meeting. You CONTEXTUALIZE the conversation and then DRAW on a shared whiteboard the way a designer would: diagrams, flows, sketches, FigJam-style sticky walls, system maps, journey maps, wireframes, quick illustrations, callouts, headings, arrows, anything. Whatever best expresses what the people are saying — pick the medium that fits, don't default to one shape.
 
 You receive:
-- the FULL recent conversation (multiple utterances) — use it for meeting context ONLY when the latest request is not a direct drawing command
-- the LATEST chunk — this is the source of truth for what to draw next
-- a summary of what's already on the canvas — avoid overlap/repetition, but do not let it override a direct user request
+- the FULL recent conversation (multiple utterances) — use it to understand the THEME and INTENT, not just the last sentence
+- the LATEST chunk — what the speaker just added; this is usually what to draw next
+- a summary of what's already on the canvas — NEVER repeat it; build on it, extend it, annotate it
 
 Return STRICT JSON: { "shapes": [...], "rationale": "<one short sentence>" }.
 
-Canvas: 1600x1000, origin top-left. Keep everything compact like an index-card wall: heading text size 16-18, captions 12-14. Standard box w=150 h=64. Sticky notes w=145-165 h=95-115, never jumbo. Leave ~55-75px gutters. Arrows touch box EDGES. Group related shapes spatially. Use the empty regions of the canvas — don't pile new shapes on top of old ones.
+Canvas: 1600x1000, origin top-left. Standard box w=180 h=80. Sticky note w=160 h=140. Leave ~60-80px gutters. Arrows touch box EDGES. Group related shapes spatially. Use the empty regions of the canvas — don't pile new shapes on top of old ones.
 
 Primitives (id globally unique; prefix by kind: r_ e_ d_ a_ l_ t_ n_ p_ i_):
 - rect    { type, id, x, y, w, h, label }                                           — screen, step, component, card
@@ -19,29 +17,12 @@ Primitives (id globally unique; prefix by kind: r_ e_ d_ a_ l_ t_ n_ p_ i_):
 - diamond { type, id, x, y, w, h, label }                                           — decision
 - arrow   { type, id, x1, y1, x2, y2, label?, dashed? }                             — flow, dependency, causation
 - line    { type, id, x1, y1, x2, y2, dashed? }                                     — divider, axis, connector
-- text    { type, id, x, y, text, size?, weight?, italic?, align? }                 — heading (size 16-18), caption (12-14), question, quote
+- text    { type, id, x, y, text, size?, weight?, italic?, align? }                 — heading (size 26-32), caption (14-16), question, quote
 - note    { type, id, x, y, w, h, text, color: yellow|pink|blue|green }             — sticky note; brainstorm idea, observation, risk
 - path    { type, id, points: [[x,y],...], closed?, fill? }                         — freeform vector sketch: blob, swoosh, callout bubble, underline, brace, custom shape, abstract illustration
 - icon    { type, id, kind, x, y, size?, label? }                                   — kinds: user, users, phone, laptop, server, database, cloud, gear, lightbulb, lightning, lock, key, star, heart, check, cross, warning, envelope, doc, folder, chat, search, eye, calendar, clock, money, chart, sun, moon, tree, house
 
-DIRECT DRAW COMMANDS ARE LITERAL:
-- If latest says "draw/sketch/doodle me a <thing>" or asks for a simple object/animal/person/place, draw THAT literal thing. Do NOT turn it into a meeting diagram, user flow, sticky wall, or random summary.
-- For animals/objects, use 8-18 path/stroke/ellipse/line primitives to make a recognizable rough illustration: head/body/eyes/ears/limbs/tail/details. Add at most one small caption.
-- Example: "draw me a monkey" → rough monkey with round head, ears, eyes, muzzle, body, arms, tail, maybe banana. No product-flow boxes unless the user explicitly says user flow/wireframe/diagram.
-
-WIREFRAMES (when user asks for "wireframe" / "mockup" / "screen" / "ui sketch"):
-- Draw ONE phone or browser frame, not a row of disconnected boxes.
-- Outer frame: rect w=240 h=420 (phone) or w=420 h=280 (browser). Inside, stack 4-7 child rects representing real UI regions: header bar (h=28), nav, hero/title, content cards, CTA button, footer. Use small text labels INSIDE each region (size 12-13) describing what it is ("Search", "Hero image", "Sign up").
-- Add one short text caption above the frame naming the screen ("Onboarding — step 1").
-- Never use sticky notes for wireframe regions. Wireframe = rects + text only.
-
-USER FLOWS (when user asks for "user flow" / "flow" / "journey"):
-- A horizontal sequence of 3-6 rects (w=130 h=56) connected by arrows touching edges.
-- Each rect labeled with the step verb ("Sign up" → "Verify email" → "Pick plan" → "Dashboard").
-- One heading text above, optional diamond for a branching decision.
-- No sticky notes inside a user flow.
-
-HOW TO THINK (pick the format that fits the latest request):
+HOW TO THINK (pick the format that fits the conversation):
 - Discussing a process / user flow → boxes + arrows, optional icons per step, a heading text on top
 - Debating tradeoffs → two columns of sticky notes (e.g. "Pros" pink vs "Cons" blue) with a heading
 - Brainstorming → a loose cluster of 4-8 sticky notes in different colors, maybe a "path" lasso around the cluster
@@ -53,7 +34,7 @@ HOW TO THINK (pick the format that fits the latest request):
 - Annotation on existing shapes → text + arrow + path (squiggly underline, circle around important thing)
 
 OUTPUT BUDGET:
-- 5 to 12 shapes per call. Mix primitives for brainstorms/maps/illustrations. For wireframes and flows, clean rects + arrows + labels are BETTER than decorative variety.
+- 5 to 12 shapes per call. Mix primitives. Don't return all rects, don't return all notes — combine.
 - Always include at least one text heading or label if you're starting a new diagram, so the viewer knows what they're looking at.
 - Use color stickies meaningfully (yellow=idea, pink=problem/risk, blue=question, green=decision/agreement).
 - Use "path" liberally for hand-drawn touches: a swoosh under a heading, a circle around a key idea, a thought bubble.
@@ -64,78 +45,18 @@ HARD RULES:
 - If the latest chunk is small-talk / filler with no visual content, return shapes:[].
 - Return ONLY valid JSON, no commentary.`;
 
-
-const idFactory = () => {
-  let i = 0;
-  const stamp = Date.now().toString(36);
-  return (prefix: string) => `${prefix}_${stamp}_${i++}`;
-};
-
-const pickFlowSteps = (latest: string) => {
-  const text = latest.toLowerCase();
-  if (/checkout|payment|buy|purchase/.test(text)) return ["Browse", "Add to cart", "Checkout", "Pay", "Receipt"];
-  if (/login|sign in|auth|onboard/.test(text)) return ["Sign up", "Verify", "Set profile", "First action", "Dashboard"];
-  if (/support|ticket|help/.test(text)) return ["Ask", "Triage", "Assign", "Resolve", "Follow up"];
-  return ["Discover", "Choose", "Create", "Review", "Share"];
-};
-
-const cleanWireframe = (latest: string) => {
-  const id = idFactory();
-  const title = /mobile|phone|app/i.test(latest) ? "Mobile wireframe" : "Screen wireframe";
-  const shapes: SketchPrimitive[] = [
-    { type: "text", id: id("t_wire"), x: 120, y: 138, text: title, size: 16, weight: "bold" },
-    { type: "rect", id: id("r_frame"), x: 120, y: 176, w: 420, h: 284, label: "" },
-    { type: "rect", id: id("r_nav"), x: 136, y: 194, w: 388, h: 28, label: "Nav" },
-    { type: "rect", id: id("r_hero"), x: 136, y: 238, w: 388, h: 58, label: "Title + context" },
-    { type: "rect", id: id("r_input"), x: 156, y: 314, w: 250, h: 30, label: "Primary input" },
-    { type: "rect", id: id("r_cta"), x: 418, y: 314, w: 86, h: 30, label: "CTA" },
-    { type: "rect", id: id("r_card_a"), x: 136, y: 362, w: 116, h: 70, label: "Card" },
-    { type: "rect", id: id("r_card_b"), x: 272, y: 362, w: 116, h: 70, label: "Card" },
-    { type: "rect", id: id("r_card_c"), x: 408, y: 362, w: 116, h: 70, label: "Card" },
-  ];
-  return { shapes, rationale: "drew a clean compact wireframe" };
-};
-
-const cleanUserFlow = (latest: string) => {
-  const id = idFactory();
-  const steps = pickFlowSteps(latest);
-  const startX = 112;
-  const y = 248;
-  const shapes: SketchPrimitive[] = [{ type: "text", id: id("t_flow"), x: startX, y: 196, text: "User flow", size: 16, weight: "bold" }];
-  steps.forEach((step, index) => {
-    const x = startX + index * 184;
-    shapes.push({ type: "rect", id: id("r_step"), x, y, w: 130, h: 56, label: step });
-    if (index < steps.length - 1) {
-      shapes.push({ type: "arrow", id: id("a_step"), x1: x + 130, y1: y + 28, x2: x + 184, y2: y + 28 });
-    }
-  });
-  return { shapes, rationale: "drew a clean horizontal user flow" };
-};
-
-const cleanDiagram = () => {
-  const id = idFactory();
-  const shapes: SketchPrimitive[] = [
-    { type: "text", id: id("t_diagram"), x: 116, y: 164, text: "System diagram", size: 16, weight: "bold" },
-    { type: "ellipse", id: id("e_user"), x: 116, y: 242, w: 104, h: 60, label: "User" },
-    { type: "rect", id: id("r_app"), x: 304, y: 236, w: 150, h: 72, label: "App" },
-    { type: "rect", id: id("r_api"), x: 538, y: 236, w: 150, h: 72, label: "API" },
-    { type: "rect", id: id("r_data"), x: 772, y: 236, w: 150, h: 72, label: "Database" },
-    { type: "arrow", id: id("a_user_app"), x1: 220, y1: 272, x2: 304, y2: 272 },
-    { type: "arrow", id: id("a_app_api"), x1: 454, y1: 272, x2: 538, y2: 272 },
-    { type: "arrow", id: id("a_api_data"), x1: 688, y1: 272, x2: 772, y2: 272 },
-  ];
-  return { shapes, rationale: "drew a clean system diagram" };
-};
-
-const isLiteralDraw = (text: string) => /\b(draw|sketch|doodle)\b/i.test(text) && !/\b(wireframe|mockup|ui sketch|screen layout|app screen|user flow|journey|flowchart|flow chart|diagram|architecture|system map|map out)\b/i.test(text);
-const isWireframeRequest = (text: string) => /\b(wireframe|mockup|ui sketch|screen layout|app screen)\b/i.test(text);
-const isUserFlowRequest = (text: string) => /\b(user flow|journey|flowchart|flow chart)\b/i.test(text) || /\bflow\b/i.test(text);
-const isDiagramRequest = (text: string) => !isLiteralDraw(text) && /\b(diagram|architecture|system map|map out)\b/i.test(text);
-
 export const Route = createFileRoute("/api/cartoonist-draw")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const apiKey = process.env.LOVABLE_API_KEY;
+        if (!apiKey) {
+          return new Response(JSON.stringify({ error: "LOVABLE_API_KEY missing" }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
         let body: { transcript?: string; latest?: string; existing?: string; sessionContext?: { name?: string; goal?: string; outputs?: string[]; facilitation?: string; hostRole?: string } | null };
         try {
           body = await request.json();
@@ -151,23 +72,6 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
         if ((latest || transcript).length < 12) {
           return new Response(JSON.stringify({ shapes: [], rationale: "not enough transcript" }), {
             status: 200,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-
-        // No template library — every drawing is generated by the AI in a
-        // sketchy hand-drawn style. The templates were making it feel like
-        // a clip-art lookup; we want it to actually sketch what was said.
-
-
-        if (isWireframeRequest(latest)) return Response.json(cleanWireframe(latest));
-        if (isUserFlowRequest(latest)) return Response.json(cleanUserFlow(latest));
-        if (isDiagramRequest(latest)) return Response.json(cleanDiagram());
-
-        const apiKey = process.env.LOVABLE_API_KEY;
-        if (!apiKey) {
-          return new Response(JSON.stringify({ error: "LOVABLE_API_KEY missing", shapes: [] }), {
-            status: 500,
             headers: { "Content-Type": "application/json" },
           });
         }
