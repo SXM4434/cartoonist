@@ -32,12 +32,14 @@ HOW TO THINK (pick the format that fits the conversation):
 - Concept being explained → a quick illustration using path + icons, with a text caption
 - Quote / "what someone said" → a text in italic with a path callout bubble around it
 - Annotation on existing shapes → text + arrow + path (squiggly underline, circle around important thing)
+- Literal sketch request ("draw a monkey", "draw a bike", "sketch our app as a city") → draw the thing itself using 6-14 path primitives: separate contours/details (head/body/limbs/features), each path 8-24 points, loose and imperfect like marker on paper. Do NOT use a labeled rectangle/icon as a substitute.
 
 OUTPUT BUDGET:
 - 5 to 12 shapes per call. Mix primitives. Don't return all rects, don't return all notes — combine.
 - Always include at least one text heading or label if you're starting a new diagram, so the viewer knows what they're looking at.
 - Use color stickies meaningfully (yellow=idea, pink=problem/risk, blue=question, green=decision/agreement).
 - Use "path" liberally for hand-drawn touches: a swoosh under a heading, a circle around a key idea, a thought bubble.
+- For literal objects/characters, favor multiple open/closed path contours over generic icons; labels are optional captions, not the drawing.
 
 HARD RULES:
 - DO NOT redraw anything listed under "Already on canvas". Extend, don't repeat.
@@ -99,7 +101,7 @@ ${latest || transcript}`;
           method: "POST",
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
+            model: "google/gemini-2.5-pro",
             response_format: { type: "json_object" },
             messages: [
               { role: "system", content: SYSTEM_PROMPT },
