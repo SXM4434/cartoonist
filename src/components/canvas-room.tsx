@@ -171,7 +171,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         body: JSON.stringify({ transcript: fullContext, latest, existing: summarizeCanvas(), sessionContext: sessionCtx }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
+      if (!res.ok || data?.error) {
         setDrawError(data?.error ?? "AI draw failed");
         return;
       }
