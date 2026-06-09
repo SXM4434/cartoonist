@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import type { SketchPrimitive } from "@/lib/sketch-types";
 
 const SYSTEM_PROMPT = `You are CARTOONIST — a senior visual thinker and sketch artist embedded in a live meeting. You CONTEXTUALIZE the conversation and then DRAW on a shared whiteboard the way a designer would: diagrams, flows, sketches, FigJam-style sticky walls, system maps, journey maps, wireframes, quick illustrations, callouts, headings, arrows, anything. Whatever best expresses what the people are saying — pick the medium that fits, don't default to one shape.
 
@@ -51,7 +52,7 @@ HOW TO THINK (pick the format that fits the latest request):
 - Annotation on existing shapes → text + arrow + path (squiggly underline, circle around important thing)
 
 OUTPUT BUDGET:
-- 5 to 12 shapes per call. Mix primitives. Don't return all rects, don't return all notes — combine.
+- 5 to 12 shapes per call. Mix primitives for brainstorms/maps/illustrations. For wireframes and flows, clean rects + arrows + labels are BETTER than decorative variety.
 - Always include at least one text heading or label if you're starting a new diagram, so the viewer knows what they're looking at.
 - Use color stickies meaningfully (yellow=idea, pink=problem/risk, blue=question, green=decision/agreement).
 - Use "path" liberally for hand-drawn touches: a swoosh under a heading, a circle around a key idea, a thought bubble.
@@ -80,18 +81,77 @@ const roughMonkey = () => ({
   rationale: "drew a literal quick monkey sketch",
 });
 
+const idFactory = () => {
+  let i = 0;
+  const stamp = Date.now().toString(36);
+  return (prefix: string) => `${prefix}_${stamp}_${i++}`;
+};
+
+const pickFlowSteps = (latest: string) => {
+  const text = latest.toLowerCase();
+  if (/checkout|payment|buy|purchase/.test(text)) return ["Browse", "Add to cart", "Checkout", "Pay", "Receipt"];
+  if (/login|sign in|auth|onboard/.test(text)) return ["Sign up", "Verify", "Set profile", "First action", "Dashboard"];
+  if (/support|ticket|help/.test(text)) return ["Ask", "Triage", "Assign", "Resolve", "Follow up"];
+  return ["Discover", "Choose", "Create", "Review", "Share"];
+};
+
+const cleanWireframe = (latest: string) => {
+  const id = idFactory();
+  const title = /mobile|phone|app/i.test(latest) ? "Mobile wireframe" : "Screen wireframe";
+  const shapes: SketchPrimitive[] = [
+    { type: "text", id: id("t_wire"), x: 120, y: 138, text: title, size: 16, weight: "bold" },
+    { type: "rect", id: id("r_frame"), x: 120, y: 176, w: 420, h: 284, label: "" },
+    { type: "rect", id: id("r_nav"), x: 136, y: 194, w: 388, h: 28, label: "Nav" },
+    { type: "rect", id: id("r_hero"), x: 136, y: 238, w: 388, h: 58, label: "Title + context" },
+    { type: "rect", id: id("r_input"), x: 156, y: 314, w: 250, h: 30, label: "Primary input" },
+    { type: "rect", id: id("r_cta"), x: 418, y: 314, w: 86, h: 30, label: "CTA" },
+    { type: "rect", id: id("r_card_a"), x: 136, y: 362, w: 116, h: 70, label: "Card" },
+    { type: "rect", id: id("r_card_b"), x: 272, y: 362, w: 116, h: 70, label: "Card" },
+    { type: "rect", id: id("r_card_c"), x: 408, y: 362, w: 116, h: 70, label: "Card" },
+  ];
+  return { shapes, rationale: "drew a clean compact wireframe" };
+};
+
+const cleanUserFlow = (latest: string) => {
+  const id = idFactory();
+  const steps = pickFlowSteps(latest);
+  const startX = 112;
+  const y = 248;
+  const shapes: SketchPrimitive[] = [{ type: "text", id: id("t_flow"), x: startX, y: 196, text: "User flow", size: 16, weight: "bold" }];
+  steps.forEach((step, index) => {
+    const x = startX + index * 184;
+    shapes.push({ type: "rect", id: id("r_step"), x, y, w: 130, h: 56, label: step });
+    if (index < steps.length - 1) {
+      shapes.push({ type: "arrow", id: id("a_step"), x1: x + 130, y1: y + 28, x2: x + 184, y2: y + 28 });
+    }
+  });
+  return { shapes, rationale: "drew a clean horizontal user flow" };
+};
+
+const cleanDiagram = () => {
+  const id = idFactory();
+  const shapes: SketchPrimitive[] = [
+    { type: "text", id: id("t_diagram"), x: 116, y: 164, text: "System diagram", size: 16, weight: "bold" },
+    { type: "ellipse", id: id("e_user"), x: 116, y: 242, w: 104, h: 60, label: "User" },
+    { type: "rect", id: id("r_app"), x: 304, y: 236, w: 150, h: 72, label: "App" },
+    { type: "rect", id: id("r_api"), x: 538, y: 236, w: 150, h: 72, label: "API" },
+    { type: "rect", id: id("r_data"), x: 772, y: 236, w: 150, h: 72, label: "Database" },
+    { type: "arrow", id: id("a_user_app"), x1: 220, y1: 272, x2: 304, y2: 272 },
+    { type: "arrow", id: id("a_app_api"), x1: 454, y1: 272, x2: 538, y2: 272 },
+    { type: "arrow", id: id("a_api_data"), x1: 688, y1: 272, x2: 772, y2: 272 },
+  ];
+  return { shapes, rationale: "drew a clean system diagram" };
+};
+
+const isLiteralDraw = (text: string) => /\b(draw|sketch|doodle)\b/i.test(text) && !/\b(wireframe|mockup|ui sketch|screen layout|app screen|user flow|journey|flowchart|flow chart|diagram|architecture|system map|map out)\b/i.test(text);
+const isWireframeRequest = (text: string) => /\b(wireframe|mockup|ui sketch|screen layout|app screen)\b/i.test(text);
+const isUserFlowRequest = (text: string) => /\b(user flow|journey|flowchart|flow chart)\b/i.test(text) || /\bflow\b/i.test(text);
+const isDiagramRequest = (text: string) => !isLiteralDraw(text) && /\b(diagram|architecture|system map|map out)\b/i.test(text);
+
 export const Route = createFileRoute("/api/cartoonist-draw")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apiKey = process.env.LOVABLE_API_KEY;
-        if (!apiKey) {
-          return new Response(JSON.stringify({ error: "LOVABLE_API_KEY missing" }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-
         let body: { transcript?: string; latest?: string; existing?: string; sessionContext?: { name?: string; goal?: string; outputs?: string[]; facilitation?: string; hostRole?: string } | null };
         try {
           body = await request.json();
@@ -113,6 +173,17 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
 
         if (/\b(draw|sketch|doodle)\b[\s\S]{0,80}\bmonkey\b/i.test(latest)) {
           return Response.json(roughMonkey());
+        }
+        if (isWireframeRequest(latest)) return Response.json(cleanWireframe(latest));
+        if (isUserFlowRequest(latest)) return Response.json(cleanUserFlow(latest));
+        if (isDiagramRequest(latest)) return Response.json(cleanDiagram());
+
+        const apiKey = process.env.LOVABLE_API_KEY;
+        if (!apiKey) {
+          return new Response(JSON.stringify({ error: "LOVABLE_API_KEY missing", shapes: [] }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          });
         }
 
         const ctx = body.sessionContext;
