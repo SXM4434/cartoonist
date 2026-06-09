@@ -47,35 +47,54 @@ HARD RULES:
 - If the latest chunk is small-talk / filler with no visual content, return shapes:[].
 - Return ONLY valid JSON, no commentary.`;
 
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+
+const compactText = (value: string | undefined, max: number) => {
+  const text = (value ?? "").replace(/\s+/g, " ").trim();
+  if (text.length <= max) return text;
+  const head = Math.floor(max * 0.35);
+  const tail = max - head;
+  return `${text.slice(0, head)} … ${text.slice(-tail)}`;
+};
+
+const aiDrawErrorMessage = (status: number, detail: string) => {
+  const lower = detail.toLowerCase();
+  if (status === 402 || lower.includes("payment_required") || lower.includes("not enough credits")) {
+    return "Out of AI credits — add credits in workspace settings, then try drawing again.";
+  }
+  if (status === 429 || lower.includes("rate limit")) {
+    return "Rate limit hit — wait a moment and try drawing again.";
+  }
+  if (status === 504 || lower.includes("timeout")) {
+    return "The sketch model timed out — try a shorter prompt.";
+  }
+  return "AI draw is temporarily unavailable — try again in a moment.";
+};
+
 export const Route = createFileRoute("/api/cartoonist-draw")({
   server: {
     handlers: {
       POST: async ({ request }) => {
         const apiKey = process.env.LOVABLE_API_KEY;
         if (!apiKey) {
-          return new Response(JSON.stringify({ error: "LOVABLE_API_KEY missing" }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          });
+          return json({ error: "AI draw is not configured yet.", shapes: [] });
         }
 
         let body: { transcript?: string; latest?: string; existing?: string; sessionContext?: { name?: string; goal?: string; outputs?: string[]; facilitation?: string; hostRole?: string } | null };
         try {
           body = await request.json();
         } catch {
-          return new Response(JSON.stringify({ error: "Invalid JSON" }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
+          return json({ error: "Invalid draw request", shapes: [] }, 400);
         }
 
-        const transcript = (body.transcript ?? "").trim();
-        const latest = (body.latest ?? "").trim();
+        const transcript = compactText(body.transcript, 3200);
+        const latest = compactText(body.latest, 1200);
         if ((latest || transcript).length < 12) {
-          return new Response(JSON.stringify({ shapes: [], rationale: "not enough transcript" }), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          });
+          return json({ shapes: [], rationale: "not enough transcript" });
         }
 
         const ctx = body.sessionContext;
@@ -89,7 +108,7 @@ Your mode: ${ctx.facilitation || "scribe"} — ${ctx.facilitation === "facilitat
 ` : "";
 
         const userMsg = `${ctxBlock}# Already on canvas (do NOT repeat any of these)
-${body.existing || "(empty)"}
+${compactText(body.existing, 1800) || "(empty)"}
 
 # Full recent conversation
 ${transcript}
