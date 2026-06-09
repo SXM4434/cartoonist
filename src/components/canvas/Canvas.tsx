@@ -202,8 +202,11 @@ function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
   if (shape.type === "line") {
     return [sketchLine(shape.id, shape.x1, shape.y1, shape.x2, shape.y2, shape.dashed)];
   }
-  if (shape.type === "path" || shape.type === "stroke") {
-    return pathToDraw(shape);
+  if (shape.type === "path") {
+    return pathToLine(shape);
+  }
+  if (shape.type === "stroke") {
+    return strokeToDraw(shape);
   }
   if (shape.type === "icon") {
     const size = shape.size ?? 52;
