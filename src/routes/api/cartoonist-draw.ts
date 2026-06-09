@@ -152,14 +152,6 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apiKey = process.env.LOVABLE_API_KEY;
-        if (!apiKey) {
-          return new Response(JSON.stringify({ error: "LOVABLE_API_KEY missing" }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-
         let body: { transcript?: string; latest?: string; existing?: string; sessionContext?: { name?: string; goal?: string; outputs?: string[]; facilitation?: string; hostRole?: string } | null };
         try {
           body = await request.json();
@@ -185,6 +177,14 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
         if (isWireframeRequest(latest)) return Response.json(cleanWireframe(latest));
         if (isUserFlowRequest(latest)) return Response.json(cleanUserFlow(latest));
         if (isDiagramRequest(latest)) return Response.json(cleanDiagram());
+
+        const apiKey = process.env.LOVABLE_API_KEY;
+        if (!apiKey) {
+          return new Response(JSON.stringify({ error: "LOVABLE_API_KEY missing", shapes: [] }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
 
         const ctx = body.sessionContext;
         const ctxBlock = ctx && (ctx.goal || ctx.name) ? `# Session setup (use this as the through-line for everything you draw)
