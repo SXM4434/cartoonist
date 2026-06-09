@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type { SketchPrimitive } from "@/lib/sketch-types";
-import { matchSketchTemplate } from "@/lib/sketch-templates";
+
 
 const SYSTEM_PROMPT = `You are CARTOONIST — a senior visual thinker and sketch artist embedded in a live meeting. You CONTEXTUALIZE the conversation and then DRAW on a shared whiteboard the way a designer would: diagrams, flows, sketches, FigJam-style sticky walls, system maps, journey maps, wireframes, quick illustrations, callouts, headings, arrows, anything. Whatever best expresses what the people are saying — pick the medium that fits, don't default to one shape.
 
