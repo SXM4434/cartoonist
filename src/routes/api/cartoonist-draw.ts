@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type { SketchPrimitive } from "@/lib/sketch-types";
+import { matchSketchTemplate } from "@/lib/sketch-templates";
 
 const SYSTEM_PROMPT = `You are CARTOONIST — a senior visual thinker and sketch artist embedded in a live meeting. You CONTEXTUALIZE the conversation and then DRAW on a shared whiteboard the way a designer would: diagrams, flows, sketches, FigJam-style sticky walls, system maps, journey maps, wireframes, quick illustrations, callouts, headings, arrows, anything. Whatever best expresses what the people are saying — pick the medium that fits, don't default to one shape.
 
@@ -63,23 +64,6 @@ HARD RULES:
 - If the latest chunk is small-talk / filler with no visual content, return shapes:[].
 - Return ONLY valid JSON, no commentary.`;
 
-const roughMonkey = () => ({
-  shapes: [
-    { type: "text", id: `t_monkey_${Date.now()}`, x: 110, y: 555, text: "quick monkey", size: 14, weight: "bold" },
-    { type: "ellipse", id: `e_head_${Date.now()}`, x: 130, y: 585, w: 92, h: 76, label: "" },
-    { type: "ellipse", id: `e_body_${Date.now()}`, x: 146, y: 655, w: 70, h: 82, label: "" },
-    { type: "ellipse", id: `e_ear_l_${Date.now()}`, x: 112, y: 608, w: 34, h: 38, label: "" },
-    { type: "ellipse", id: `e_ear_r_${Date.now()}`, x: 207, y: 608, w: 34, h: 38, label: "" },
-    { type: "ellipse", id: `e_muzzle_${Date.now()}`, x: 154, y: 625, w: 46, h: 26, label: "" },
-    { type: "path", id: `p_eye_l_${Date.now()}`, points: [[158, 615], [160, 617], [162, 615]], closed: false },
-    { type: "path", id: `p_eye_r_${Date.now()}`, points: [[189, 615], [191, 617], [193, 615]], closed: false },
-    { type: "path", id: `p_smile_${Date.now()}`, points: [[166, 638], [178, 645], [192, 638]], closed: false },
-    { type: "path", id: `p_arm_l_${Date.now()}`, points: [[152, 680], [118, 705], [100, 690]], closed: false },
-    { type: "path", id: `p_arm_r_${Date.now()}`, points: [[210, 680], [248, 704], [265, 687]], closed: false },
-    { type: "path", id: `p_tail_${Date.now()}`, points: [[207, 710], [264, 720], [280, 675], [250, 664]], closed: false },
-  ],
-  rationale: "drew a literal quick monkey sketch",
-});
 
 const idFactory = () => {
   let i = 0;
@@ -171,9 +155,11 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
           });
         }
 
-        if (/\b(draw|sketch|doodle)\b[\s\S]{0,80}\bmonkey\b/i.test(latest)) {
-          return Response.json(roughMonkey());
+        if (isLiteralDraw(latest)) {
+          const tpl = matchSketchTemplate(latest);
+          if (tpl) return Response.json(tpl);
         }
+
         if (isWireframeRequest(latest)) return Response.json(cleanWireframe(latest));
         if (isUserFlowRequest(latest)) return Response.json(cleanUserFlow(latest));
         if (isDiagramRequest(latest)) return Response.json(cleanDiagram());
