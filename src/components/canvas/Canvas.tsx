@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Tldraw, type Editor, type TLShapePartial } from "tldraw";
+import { compressLegacySegments, Tldraw, type Editor, type TLShapePartial } from "tldraw";
 import "tldraw/tldraw.css";
 import { useCanvas } from "./canvas-context";
 import type { SketchPrimitive } from "@/lib/sketch-types";
@@ -53,19 +53,34 @@ const sketchLine = (id: string, x1: number, y1: number, x2: number, y2: number, 
   props: { kind: "arc", color: "black", fill: "none", dash: dashed ? "dashed" : "draw", size: "s", arrowheadStart: "none", arrowheadEnd: "none", font: "draw", labelColor: "black", start: { x: 0, y: 0 }, end: { x: x2 - x1, y: y2 - y1 }, bend: 0, richText: toRichText(""), labelPosition: 0.5, scale: 0.72, elbowMidPoint: 0.5 },
 });
 
-const pathToLines = (shape: Extract<SketchPrimitive, { type: "path" | "stroke" }>) => {
-  const points = shape.points;
-  if (points.length < 2) return [];
-  const lines = points.slice(1).map((point, index) => {
-    const prev = points[index];
-    return sketchLine(`${shape.id}-seg-${index}`, prev[0], prev[1], point[0], point[1]);
-  });
-  if (shape.type === "path" && shape.closed) {
-    const first = points[0];
-    const last = points[points.length - 1];
-    lines.push(sketchLine(`${shape.id}-seg-close`, last[0], last[1], first[0], first[1]));
-  }
-  return lines;
+const pathToDraw = (shape: Extract<SketchPrimitive, { type: "path" | "stroke" }>): TLShapePartial[] => {
+  const rawPoints = shape.points.filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
+  if (rawPoints.length < 2) return [];
+  const closedPoints = shape.type === "path" && shape.closed ? [...rawPoints, rawPoints[0]] : rawPoints;
+  const minX = Math.min(...closedPoints.map(([x]) => x));
+  const minY = Math.min(...closedPoints.map(([, y]) => y));
+  const points = closedPoints.map(([x, y]) => ({ x: x - minX, y: y - minY, z: 0.5 }));
+  return [{
+    id: shapeId(shape.id),
+    type: "draw",
+    x: minX,
+    y: minY,
+    opacity: 1,
+    isLocked: false,
+    props: {
+      color: "black",
+      fill: "none",
+      dash: "draw",
+      size: "s",
+      segments: compressLegacySegments([{ type: "free", points }]),
+      isComplete: true,
+      isClosed: shape.type === "path" && !!shape.closed,
+      isPen: false,
+      scale: 1,
+      scaleX: 1,
+      scaleY: 1,
+    },
+  }];
 };
 
 function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
@@ -167,7 +182,7 @@ function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
     return [sketchLine(shape.id, shape.x1, shape.y1, shape.x2, shape.y2, shape.dashed)];
   }
   if (shape.type === "path" || shape.type === "stroke") {
-    return pathToLines(shape);
+    return pathToDraw(shape);
   }
   if (shape.type === "icon") {
     const size = shape.size ?? 52;
