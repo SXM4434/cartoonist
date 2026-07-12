@@ -61,6 +61,22 @@ function rowToParticipant(p: ParticipantRow): ParticipantWithHumanLayer {
   };
 }
 
+function participantForPrompt(p: ParticipantWithHumanLayer) {
+  return {
+    name: p.name,
+    role: p.role,
+    role_today: p.role_today,
+    strengths: p.strengths,
+    feedback_style: p.feedback_style,
+    contribution_modes: p.contribution_modes,
+    needs_today: p.needs_today,
+    blockers: p.blockers,
+    can_help_with: p.can_help_with,
+    share_blockers: p.share_blockers,
+    share_needs: p.share_needs,
+  };
+}
+
 export function CanvasRoom(props: { roomId: string }) {
   return <CanvasRoomInner {...props} />;
 }
