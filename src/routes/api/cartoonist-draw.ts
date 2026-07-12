@@ -201,15 +201,32 @@ ${latest || transcript}`;
 
         const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
         const content = data.choices?.[0]?.message?.content ?? "{}";
-        let parsed: { shapes?: unknown; edits?: unknown; removes?: unknown; rationale?: unknown } = {};
+        let parsed: { shapes?: unknown; edits?: unknown; removes?: unknown; rationale?: unknown; modality?: unknown } = {};
         try {
           parsed = JSON.parse(content);
         } catch {
           parsed = {};
         }
 
+        // v2.P1.5 anti-fabrication guard: strip fetch_card shapes whose
+        // caption URL never appeared verbatim in the transcript. Model is
+        // told never to invent URLs, but a belt on the suspenders.
+        const modality = typeof parsed.modality === "string" ? parsed.modality : "";
+        const rawShapes = Array.isArray(parsed.shapes) ? parsed.shapes : [];
+        const transcriptForCheck = `${transcript}\n${latest}`;
+        const cleanShapes = rawShapes.filter((s: unknown) => {
+          if (modality !== "fetch_card") return true;
+          if (!s || typeof s !== "object") return true;
+          const shape = s as Record<string, unknown>;
+          const text = typeof shape.text === "string" ? shape.text : typeof shape.label === "string" ? shape.label : "";
+          const urlMatch = text.match(/https?:\/\/\S+/i);
+          if (!urlMatch) return true;
+          return transcriptForCheck.includes(urlMatch[0]);
+        });
+
         return json({
-          shapes: Array.isArray(parsed.shapes) ? parsed.shapes : [],
+          modality,
+          shapes: cleanShapes,
           edits: Array.isArray(parsed.edits) ? parsed.edits : [],
           removes: Array.isArray(parsed.removes) ? parsed.removes : [],
           rationale: typeof parsed.rationale === "string" ? parsed.rationale : "",
