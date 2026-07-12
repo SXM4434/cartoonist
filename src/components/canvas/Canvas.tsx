@@ -261,11 +261,30 @@ export function Canvas({
   useEffect(() => {
     const editor = editorRef.current;
     if (!mounted || !editor) return;
-    const nextShapes = shapes.flatMap(toTldrawShapes);
-    const fresh = nextShapes.filter((shape) => !createdShapeIdsRef.current.has(String(shape.id)));
-    if (!fresh.length) return;
-    editor.createShapes(fresh);
-    fresh.forEach((shape) => createdShapeIdsRef.current.add(String(shape.id)));
+    const desired = shapes.flatMap(toTldrawShapes);
+    const desiredById = new Map(desired.map((s) => [String(s.id), s]));
+    // Current AI-authored shapes on the page (anything we created before).
+    const currentAiIds = new Set<string>();
+    for (const id of editor.getCurrentPageShapeIds()) {
+      if (String(id).startsWith("shape:cartoonist-")) currentAiIds.add(String(id));
+    }
+    const toCreate: TLShapePartial[] = [];
+    const toUpdate: TLShapePartial[] = [];
+    for (const [id, shape] of desiredById) {
+      if (currentAiIds.has(id)) toUpdate.push(shape);
+      else toCreate.push(shape);
+    }
+    const toDelete: string[] = [];
+    for (const id of currentAiIds) {
+      if (!desiredById.has(id)) toDelete.push(id);
+    }
+    if (!toCreate.length && !toUpdate.length && !toDelete.length) return;
+    editor.run(() => {
+      if (toDelete.length) editor.deleteShapes(toDelete as Parameters<Editor["deleteShapes"]>[0]);
+      if (toUpdate.length) editor.updateShapes(toUpdate);
+      if (toCreate.length) editor.createShapes(toCreate);
+      toCreate.forEach((s) => createdShapeIdsRef.current.add(String(s.id)));
+    }, { history: "record" });
     onHasContentChange?.(editor.getCurrentPageShapeIds().size > 0);
   }, [mounted, onHasContentChange, shapes]);
 
