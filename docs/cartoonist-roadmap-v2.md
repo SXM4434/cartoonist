@@ -17,6 +17,7 @@ v2 is not a new product. Anything that would turn Cartoonist into an HR tool, mo
 ## v2.P1 — Human Layer check-in + Team Desk (right rail)
 
 **Slots after:** v1 Phase 2 (long-context renderer + custom shape library).
+**Status:** shipped 2026-07-12. `participants` gained `strengths / feedback_style / contribution_modes / role_today / blockers / needs_today / can_help_with / share_blockers / share_needs / human_layer_complete`. `TeamDesk` right rail (hotkey T) + `ParticipantCard` + `ModeDot` mounted. `CheckIn` modal opens after self-intro with 15s voice-fill via Web Speech + manual entry + privacy toggles. Participant block now flows into the `cartoonist-draw` mediator prompt so it references stated preferences by first name.
 **Est:** ~2 days build.
 **Spec:** `feature-human-layer.md`, `feature-team-desk.md`.
 
