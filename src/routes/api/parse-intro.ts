@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-// Two modes:
+// Three modes:
 //   kind=profile  → extract { displayName, role } from a short self-intro
-//   kind=goal     → extract { name, goal, outputs[], hostRole, facilitation } from a session brief
+//   kind=goal     → extract session brief
+//   kind=checkin  → extract v2.P1 Human Layer fields from a 15-30s spoken check-in
 const SYSTEM_PROFILE = `You extract fields from a short spoken self-introduction.
 Return STRICT JSON: { "displayName": "", "role": "" }
 - displayName: first name only if given, else ""
@@ -20,17 +21,36 @@ Return STRICT JSON:
 }
 Return JSON only — no commentary, no markdown.`;
 
+const SYSTEM_CHECKIN = `You extract a lightweight per-session "human layer" profile from a short spoken check-in (~15-30s).
+The speaker will describe their role today, how they like to work, what they need from this meeting, and possibly a worry or something they can help with.
+
+Return STRICT JSON with these keys — empty string / empty array when not stated:
+{
+  "role_today": "",                    // short, e.g. "Design lead", "PM on ops", "Founder driving GTM"
+  "strengths": [],                     // 1-3 short chips, e.g. ["scope","visual thinking"]
+  "contribution_modes": [],            // subset of ["voice","chat","whiteboard","async"] — only include modes they explicitly prefer / opt into
+  "feedback_style": "",                // one of "direct","gentle","ask-first","written-only" — or ""
+  "needs_today": "",                   // one clear sentence: what they want out of this meeting
+  "blockers": "",                      // worry / risk / thing that's stuck — short, 1 line, or ""
+  "can_help_with": ""                  // short: "diagrams · pricing math" style, or ""
+}
+Rules:
+- Never fabricate. If they didn't say it, leave it "".
+- Do NOT infer personality. Only literal signals.
+- "direct/gentle/ask-first/written-only" ONLY when they literally describe feedback preference.
+Return JSON only — no commentary, no markdown.`;
+
 export const Route = createFileRoute("/api/parse-intro")({
   server: {
     handlers: {
       POST: async ({ request }) => {
         const apiKey = process.env.LOVABLE_API_KEY;
         if (!apiKey) return Response.json({ error: "LOVABLE_API_KEY missing" }, { status: 500 });
-        const { transcript, kind } = (await request.json().catch(() => ({}))) as { transcript?: string; kind?: "profile" | "goal" };
+        const { transcript, kind } = (await request.json().catch(() => ({}))) as { transcript?: string; kind?: "profile" | "goal" | "checkin" };
         if (!transcript || transcript.trim().length < 4)
           return Response.json({ error: "empty transcript" }, { status: 400 });
 
-        const system = kind === "goal" ? SYSTEM_GOAL : SYSTEM_PROFILE;
+        const system = kind === "goal" ? SYSTEM_GOAL : kind === "checkin" ? SYSTEM_CHECKIN : SYSTEM_PROFILE;
 
         const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
