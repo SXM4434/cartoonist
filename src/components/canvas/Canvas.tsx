@@ -280,7 +280,7 @@ export function Canvas({
     }
     if (!toCreate.length && !toUpdate.length && !toDelete.length) return;
     editor.run(() => {
-      if (toDelete.length) editor.deleteShapes(toDelete as Parameters<Editor["deleteShapes"]>[0]);
+      if (toDelete.length) editor.deleteShapes(toDelete as unknown as Parameters<Editor["deleteShapes"]>[0]);
       if (toUpdate.length) editor.updateShapes(toUpdate);
       if (toCreate.length) editor.createShapes(toCreate);
       toCreate.forEach((s) => createdShapeIdsRef.current.add(String(s.id)));
