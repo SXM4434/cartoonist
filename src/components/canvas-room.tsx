@@ -3,7 +3,7 @@ import { Check, Copy, Eraser, FileDown, Mic, MicOff, MessageSquare, Pencil, Send
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import type { Participant, ParticipantWithHumanLayer } from "@/lib/canvas-types";
+import type { ParticipantWithHumanLayer } from "@/lib/canvas-types";
 import type { FreehandStroke, SketchPrimitive } from "@/lib/sketch-types";
 import { EMPTY_HUMAN_LAYER, type HumanLayer } from "@/lib/human-layer";
 import { useSpeech } from "@/lib/use-speech";
