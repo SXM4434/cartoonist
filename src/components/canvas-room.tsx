@@ -3,8 +3,9 @@ import { Check, Copy, Eraser, FileDown, Mic, MicOff, MessageSquare, Pencil, Send
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import type { Participant } from "@/lib/canvas-types";
+import type { Participant, ParticipantWithHumanLayer } from "@/lib/canvas-types";
 import type { FreehandStroke, SketchPrimitive } from "@/lib/sketch-types";
+import { EMPTY_HUMAN_LAYER, type HumanLayer } from "@/lib/human-layer";
 import { useSpeech } from "@/lib/use-speech";
 import { useLiveDiarization } from "@/hooks/use-live-diarization";
 import { ArtifactTabs, type Artifacts } from "./artifact-tabs";
@@ -12,6 +13,8 @@ import { IntroModal } from "./intro-modal";
 import { Canvas } from "./canvas/Canvas";
 import { CanvasProvider } from "./canvas/canvas-context";
 import { ChatPanel } from "./chat-panel";
+import { CheckIn } from "./team-desk/CheckIn";
+import { TeamDesk } from "./team-desk/TeamDesk";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 type SessionContext = {
