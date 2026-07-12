@@ -648,6 +648,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         selfPid={selfPid}
         selfSpeaking={speech.listening}
         selfTyping={false}
+        onInferredStates={(s) => { inferredStatesRef.current = s; }}
         onEditProfile={() => {
           const me = participants.find((p) => p.id === selfPid);
           setCheckInInitial(me ? {
