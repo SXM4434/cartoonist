@@ -164,10 +164,10 @@ feature-canvas-memory.md             ← spec, owned by v2.P6
 
 ---
 
-## v2.P-Next — AI self-edit (revise, don't pile)
+## v2.P-Next — AI self-edit (revise, don't pile) ✅ SHIPPED
 
 **Slots after:** v2.P1.5 (contextual drawing).
-**Est:** ~1 day.
+**Status:** shipped 2026-07-12. Server response now includes `edits`/`removes`; client applies them in one state update; tldraw reconciles diffs (delete/update/create) inside `editor.run` for one undo step. Revise-intent regex biases the prompt when the latest utterance signals dissatisfaction. AI never touches non-`shape:cartoonist-*` ids (guarded by prefix filter both server-summarize and client-apply).
 
 Problem: today every AI draw call **appends** new shapes. When the user says "nah, that's bad, redo it" or "make the user flow simpler", we just add another diagram next to the broken one and the canvas turns into a graveyard.
 
