@@ -15,6 +15,7 @@ import { CanvasProvider } from "./canvas/canvas-context";
 import { ChatPanel } from "./chat-panel";
 import { CheckIn } from "./team-desk/CheckIn";
 import { TeamDesk } from "./team-desk/TeamDesk";
+import type { InferredState } from "./team-desk/use-inferred-state";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 type SessionContext = {
