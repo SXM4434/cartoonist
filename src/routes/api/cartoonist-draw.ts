@@ -165,6 +165,29 @@ ${parts.map((p) => {
 `
           : "";
 
+        // v2.P2 — live state deltas the facilitator watch emitted. Only
+        // non-trivial states (quiet-too-long / repeated-ask / unresolved-thread)
+        // arrive here. Mediator may surface these at natural pauses, but must
+        // not derail an in-flight thread.
+        const states = (body.liveStates ?? []).slice(0, 10);
+        const liveStatesBlock = states.length
+          ? `# Live state (facilitator watch — surface at natural pauses only, don't derail an active thread)
+${states.map((s) => {
+  const mins = s.last_ms != null ? Math.round(s.last_ms / 60000) : null;
+  const age = mins != null ? `${mins}m since last utterance` : "no utterances yet";
+  if (s.focus === "unresolved-thread" && s.unresolved_point) {
+    return `- ${s.name}: UNRESOLVED — "${s.unresolved_point}" (raised, no response yet)`;
+  }
+  if (s.focus === "quiet-too-long") return `- ${s.name}: quiet ${age} — worth a light check-in`;
+  if (s.focus === "repeated-ask") return `- ${s.name}: carrying the thread alone — others haven't responded`;
+  return `- ${s.name}: ${s.focus}`;
+}).join("\n")}
+When ready, an 'annotation' anchored on the relevant shape (or a small 'typed_note' near it) is usually the right move to surface an unresolved point. If nothing on canvas maps, prefer 'skip' over inventing a diagram.
+
+`
+          : "";
+
+
         const reviseIntent = REVISE_INTENT.test(latest || "");
         const existingBlock = compactText(body.existing, 2400) || "(empty)";
         const canvasHeader = reviseIntent
