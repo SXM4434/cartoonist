@@ -116,6 +116,12 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
             share_blockers?: boolean | null;
             share_needs?: boolean | null;
           }> | null;
+          liveStates?: Array<{
+            name: string;
+            focus: "quiet-too-long" | "repeated-ask" | "unresolved-thread";
+            last_ms: number | null;
+            unresolved_point?: string;
+          }> | null;
         };
         try {
           body = await request.json();
