@@ -112,6 +112,7 @@ export function TeamDesk({
             key={p.id}
             p={p}
             mode={modeFor(p.id)}
+            inferred={inferred[p.id]}
             isSelf={p.id === selfPid}
           />
         ))}
