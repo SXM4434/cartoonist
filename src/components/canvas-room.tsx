@@ -25,6 +25,42 @@ type SessionContext = {
   hostRole: string;
 };
 
+type ParticipantRow = {
+  id: string;
+  display_name: string;
+  color: string | null;
+  role: string | null;
+  role_today: string | null;
+  strengths: string[] | null;
+  contribution_modes: string[] | null;
+  feedback_style: string | null;
+  blockers: string | null;
+  needs_today: string | null;
+  can_help_with: string | null;
+  share_blockers: boolean | null;
+  share_needs: boolean | null;
+  human_layer_complete: boolean | null;
+};
+
+function rowToParticipant(p: ParticipantRow): ParticipantWithHumanLayer {
+  return {
+    id: p.id,
+    name: p.display_name,
+    role: p.role ?? undefined,
+    color: p.color ?? "#E07A3E",
+    role_today: p.role_today,
+    strengths: p.strengths,
+    contribution_modes: p.contribution_modes,
+    feedback_style: p.feedback_style,
+    blockers: p.blockers,
+    needs_today: p.needs_today,
+    can_help_with: p.can_help_with,
+    share_blockers: p.share_blockers,
+    share_needs: p.share_needs,
+    human_layer_complete: p.human_layer_complete,
+  };
+}
+
 export function CanvasRoom(props: { roomId: string }) {
   return <CanvasRoomInner {...props} />;
 }
