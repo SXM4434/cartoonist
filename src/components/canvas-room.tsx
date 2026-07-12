@@ -378,8 +378,31 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       if (ins?.id) window.localStorage.setItem(`cartoonist_participant_${roomId}`, ins.id);
       setSelfPid(pid);
       setParticipants([{ id: pid, name: data.name, role: data.role, color: data.color }]);
+      // v2.P1 — right after they finish self-intro, prompt the human-layer check-in.
+      setCheckInInitial(EMPTY_HUMAN_LAYER);
+      setCheckInOpen(true);
     }
   }, [roomId, inputMode, introMode]);
+
+  const handleCheckInSave = useCallback(async (hl: HumanLayer) => {
+    if (!selfPid) { setCheckInOpen(false); return; }
+    const patch = {
+      role_today: hl.role_today || null,
+      strengths: hl.strengths.length ? hl.strengths : null,
+      contribution_modes: hl.contribution_modes.length ? hl.contribution_modes : null,
+      feedback_style: hl.feedback_style || null,
+      needs_today: hl.needs_today || null,
+      blockers: hl.blockers || null,
+      can_help_with: hl.can_help_with || null,
+      share_blockers: hl.share_blockers,
+      share_needs: hl.share_needs,
+      human_layer_complete: true,
+    };
+    await supabase.from("participants").update(patch).eq("id", selfPid);
+    setParticipants((prev) => prev.map((p) => p.id === selfPid ? { ...p, ...patch } : p));
+    setCheckInOpen(false);
+    toast.success("Checked in");
+  }, [selfPid]);
 
   const openAddPerson = useCallback(() => {
     setIntroMode("add");
