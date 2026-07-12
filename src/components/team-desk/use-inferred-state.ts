@@ -49,6 +49,8 @@ const UNRESOLVED_GAP = 5; // chunks from others without touching topic
 
 const STOPWORDS = new Set([
   "the","a","an","and","or","but","if","then","of","to","in","on","for","is","are","was","were","be","been","being","it","this","that","these","those","i","you","we","they","he","she","them","us","our","your","my","me","him","her","his","hers","its","as","at","by","with","from","so","just","really","kind","sort","like","yeah","ok","okay","um","uh","hmm","right","well","think","thing","things","stuff",
+  // modal verbs / generic asks — too weak to count as topical overlap
+  "should","would","could","might","must","will","shall","can","cant","cannot","need","want","have","has","had","does","did","done","gonna","wanna","maybe","also","about","anyway","really",
 ]);
 
 function keywords(text: string): string[] {
