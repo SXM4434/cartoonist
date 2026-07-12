@@ -15,6 +15,7 @@ import { CanvasProvider } from "./canvas/canvas-context";
 import { ChatPanel } from "./chat-panel";
 import { CheckIn } from "./team-desk/CheckIn";
 import { TeamDesk } from "./team-desk/TeamDesk";
+import type { InferredState } from "./team-desk/use-inferred-state";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 type SessionContext = {
@@ -103,6 +104,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [inputMode, setInputMode] = useState<"voice" | "chat">("voice");
   const [selfPid, setSelfPid] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(true);
+  const inferredStatesRef = useRef<Record<string, InferredState>>({});
 
   const speech = useSpeech();
   const startedAtRef = useRef(Date.now());
@@ -223,10 +225,26 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       // Send rolling context: last 12 final utterances + the latest delta.
       const recent = speech.finals.slice(-12).join(" ");
       const fullContext = recent ? `${recent}\n---LATEST---\n${latest}` : latest;
+      // v2.P2 — pass live inferred state per participant so mediator can
+      // surface unresolved threads / quiet-too-long at natural pauses. Only
+      // share flagged fields — respects per-participant privacy.
+      const states = inferredStatesRef.current;
+      const liveStates = participants
+        .map((p) => {
+          const s = states[p.id];
+          if (!s || s.focus === "idle" || s.focus === "engaged") return null;
+          return {
+            name: p.name,
+            focus: s.focus,
+            last_ms: Number.isFinite(s.last_ms) ? s.last_ms : null,
+            unresolved_point: s.unresolved_point,
+          };
+        })
+        .filter(Boolean);
       const res = await fetch("/api/cartoonist-draw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript: fullContext, latest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt) }),
+        body: JSON.stringify({ transcript: fullContext, latest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.error) {
@@ -630,6 +648,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         selfPid={selfPid}
         selfSpeaking={speech.listening}
         selfTyping={false}
+        onInferredStates={(s) => { inferredStatesRef.current = s; }}
         onEditProfile={() => {
           const me = participants.find((p) => p.id === selfPid);
           setCheckInInitial(me ? {
