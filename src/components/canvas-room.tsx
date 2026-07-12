@@ -92,9 +92,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           hostRole: (room as { host_role: string | null }).host_role ?? "",
         });
       }
-      const { data: parts } = await supabase.from("participants").select("id,display_name,color").eq("room_id", roomId);
+      const { data: parts } = await supabase
+        .from("participants")
+        .select("id,display_name,color,role,role_today,strengths,contribution_modes,feedback_style,blockers,needs_today,can_help_with,share_blockers,share_needs,human_layer_complete")
+        .eq("room_id", roomId);
       if (parts && parts.length) {
-        setParticipants(parts.map((p) => ({ id: p.id, name: p.display_name, color: p.color ?? "#E07A3E" })));
+        setParticipants(parts.map((p) => rowToParticipant(p as never)));
       }
     })();
   }, [roomId]);
