@@ -161,8 +161,6 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     setDrawError(null);
     try {
       // Send rolling context: last 12 final utterances + the latest delta.
-      // This is what lets Cartoonist "follow" the conversation instead of
-      // reacting to a single fragment.
       const recent = speech.finals.slice(-12).join(" ");
       const fullContext = recent ? `${recent}\n---LATEST---\n${latest}` : latest;
       const res = await fetch("/api/cartoonist-draw", {
@@ -176,19 +174,42 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         return;
       }
       const incoming = Array.isArray(data.shapes) ? (data.shapes as SketchPrimitive[]) : [];
-      if (incoming.length === 0) return;
+      const edits = Array.isArray(data.edits) ? (data.edits as Array<{ id: string; patch: Record<string, unknown> }>) : [];
+      const removes = Array.isArray(data.removes) ? (data.removes as string[]) : [];
+      if (incoming.length === 0 && edits.length === 0 && removes.length === 0) return;
       setShapes((current) => {
-        const known = new Set(current.map((s) => s.id));
-        const fresh = incoming.filter((s) => s && s.id && !known.has(s.id));
-        if (fresh.length === 0) return current;
-        for (const shape of fresh) {
-          void supabase.from("canvas_events").insert({
-            room_id: roomId,
-            op: JSON.parse(JSON.stringify(shape)),
-            t_offset_ms: Date.now() - startedAtRef.current,
-          });
+        const byId = new Map(current.map((s) => [s.id, s]));
+        // 1) removes (only touch AI-authored shapes already in state)
+        for (const id of removes) {
+          if (byId.has(id)) byId.delete(id);
         }
-        return [...current, ...fresh];
+        // 2) edits (partial-merge; drop unknown ids)
+        for (const { id, patch } of edits) {
+          const prev = byId.get(id);
+          if (!prev || !patch || typeof patch !== "object") continue;
+          const merged = { ...prev, ...patch, id: prev.id, type: prev.type } as SketchPrimitive;
+          byId.set(id, merged);
+        }
+        // 3) new shapes (skip ids we already know)
+        const fresh: SketchPrimitive[] = [];
+        for (const s of incoming) {
+          if (!s || !s.id || byId.has(s.id)) continue;
+          byId.set(s.id, s);
+          fresh.push(s);
+        }
+        // Mirror to canvas_events
+        const stamp = Date.now() - startedAtRef.current;
+        for (const shape of fresh) {
+          void supabase.from("canvas_events").insert({ room_id: roomId, op: JSON.parse(JSON.stringify(shape)), t_offset_ms: stamp });
+        }
+        for (const { id, patch } of edits) {
+          if (!byId.has(id)) continue;
+          void supabase.from("canvas_events").insert({ room_id: roomId, op: JSON.parse(JSON.stringify({ kind: "edit", id, patch })), t_offset_ms: stamp });
+        }
+        for (const id of removes) {
+          void supabase.from("canvas_events").insert({ room_id: roomId, op: { kind: "remove", id } as unknown as Record<string, string>, t_offset_ms: stamp });
+        }
+        return Array.from(byId.values());
       });
     } catch (e) {
       setDrawError(e instanceof Error ? e.message : "Network error");

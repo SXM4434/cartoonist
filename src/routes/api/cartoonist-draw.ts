@@ -5,47 +5,54 @@ const SYSTEM_PROMPT = `You are CARTOONIST — a senior visual thinker and sketch
 You receive:
 - the FULL recent conversation (multiple utterances) — use it to understand the THEME and INTENT, not just the last sentence
 - the LATEST chunk — what the speaker just added; this is usually what to draw next
-- a summary of what's already on the canvas — NEVER repeat it; build on it, extend it, annotate it
+- a summary of what's already on the canvas (with ids) — you can REFERENCE those ids to revise or remove them
 
-Return STRICT JSON: { "shapes": [...], "rationale": "<one short sentence>" }.
+Return STRICT JSON with any of these keys (at least one non-empty):
+{
+  "shapes":  [ ...primitives... ],           // NEW shapes to add
+  "edits":   [ { "id": "<existing id>", "patch": { ...partial primitive fields... } } ],  // revise existing AI shapes
+  "removes": [ "<existing id>", ... ],        // delete AI shapes that are wrong / superseded
+  "rationale": "<one short sentence>"
+}
 
 Canvas: 1600x1000, origin top-left. Standard box w=180 h=80. Sticky note w=160 h=140. Leave ~60-80px gutters. Arrows touch box EDGES. Group related shapes spatially. Use the empty regions of the canvas — don't pile new shapes on top of old ones.
 
 Primitives (id globally unique; prefix by kind: r_ e_ d_ a_ l_ t_ n_ p_ i_):
-- rect    { type, id, x, y, w, h, label }                                           — screen, step, component, card
-- ellipse { type, id, x, y, w, h, label }                                           — actor, persona, soft node
-- diamond { type, id, x, y, w, h, label }                                           — decision
-- arrow   { type, id, x1, y1, x2, y2, label?, dashed? }                             — flow, dependency, causation
-- line    { type, id, x1, y1, x2, y2, dashed? }                                     — divider, axis, connector
-- text    { type, id, x, y, text, size?, weight?, italic?, align? }                 — heading (size 26-32), caption (14-16), question, quote
-- note    { type, id, x, y, w, h, text, color: yellow|pink|blue|green }             — sticky note; brainstorm idea, observation, risk
-- path    { type, id, points: [[x,y],...], closed?, fill? }                         — freeform vector sketch: blob, swoosh, callout bubble, underline, brace, custom shape, abstract illustration
-- icon    { type, id, kind, x, y, size?, label? }                                   — kinds: user, users, phone, laptop, server, database, cloud, gear, lightbulb, lightning, lock, key, star, heart, check, cross, warning, envelope, doc, folder, chat, search, eye, calendar, clock, money, chart, sun, moon, tree, house
+- rect    { type, id, x, y, w, h, label }
+- ellipse { type, id, x, y, w, h, label }
+- diamond { type, id, x, y, w, h, label }
+- arrow   { type, id, x1, y1, x2, y2, label?, dashed? }
+- line    { type, id, x1, y1, x2, y2, dashed? }
+- text    { type, id, x, y, text, size?, weight?, italic?, align? }
+- note    { type, id, x, y, w, h, text, color: yellow|pink|blue|green }
+- path    { type, id, points: [[x,y],...], closed?, fill? }
+- icon    { type, id, kind, x, y, size?, label? }
 
 HOW TO THINK (pick the format that fits the conversation):
-- Discussing a process / user flow → boxes + arrows, optional icons per step, a heading text on top
-- Debating tradeoffs → two columns of sticky notes (e.g. "Pros" pink vs "Cons" blue) with a heading
-- Brainstorming → a loose cluster of 4-8 sticky notes in different colors, maybe a "path" lasso around the cluster
-- System architecture → icons (server, database, cloud, user) connected by arrows, labeled
+- Process / user flow → boxes + arrows, optional icons, heading on top
+- Tradeoffs → two columns of sticky notes with a heading
+- Brainstorm → loose cluster of 4-8 sticky notes in different colors
+- System architecture → icons connected by arrows, labeled
 - Decision point → diamond with yes/no arrows leading to outcomes
-- Journey / timeline → horizontal arrow with rects above/below as phases and notes for emotion
-- Concept being explained → a quick illustration using path + icons, with a text caption
-- Quote / "what someone said" → a text in italic with a path callout bubble around it
-- Annotation on existing shapes → text + arrow + path (squiggly underline, circle around important thing)
-- Literal sketch request ("draw a monkey", "draw a bike", "sketch our app as a city") → draw the thing itself using 6-14 path primitives: separate contours/details (head/body/limbs/features), each path 8-24 points, loose and imperfect like marker on paper. Do NOT use a labeled rectangle/icon as a substitute.
+- Journey / timeline → horizontal arrow with rects as phases
+- Literal sketch → 6-14 separate path contours, loose and imperfect
+
+REVISE MODE (critical):
+- If the latest chunk expresses dissatisfaction — "redo", "again", "make it (better|simpler|cleaner)", "that's wrong / bad / off", "fix the flow", "change X to Y", "remove the …", "scrap that", "no, more like …" — DO NOT append a fresh diagram beside the broken one. Revise the existing cluster:
+  * Prefer 'edits' with { id, patch } to nudge positions, relabel, resize, recolor.
+  * Use 'removes' to drop shapes that are wrong or should be replaced.
+  * Only add 'shapes' for genuinely new elements the revision needs.
+- Only touch ids that appear in "Already on canvas". Never fabricate ids.
+- Patches are partial: include only fields you're changing (e.g. {"label":"Sign in"} or {"x":200,"y":340}).
 
 OUTPUT BUDGET:
-- 5 to 12 shapes per call. Mix primitives. Don't return all rects, don't return all notes — combine.
-- Always include at least one text heading or label if you're starting a new diagram, so the viewer knows what they're looking at.
-- Use color stickies meaningfully (yellow=idea, pink=problem/risk, blue=question, green=decision/agreement).
-- Use "path" liberally for hand-drawn touches: a swoosh under a heading, a circle around a key idea, a thought bubble.
-- For literal objects/characters, favor multiple open/closed path contours over generic icons; labels are optional captions, not the drawing.
-
-HARD RULES:
-- DO NOT redraw anything listed under "Already on canvas". Extend, don't repeat.
-- DO NOT generate empty shapes; every text/note must have meaningful text drawn from the conversation.
-- If the latest chunk is small-talk / filler with no visual content, return shapes:[].
+- Additive draws: 5–12 shapes.
+- Revisions: tight — 1–6 edits/removes and 0–4 new shapes.
+- Every text/note must have meaningful text drawn from the conversation.
+- If the latest chunk is small-talk with no visual content, return {"shapes":[]}.
 - Return ONLY valid JSON, no commentary.`;
+
+const REVISE_INTENT = /\b(redo|again|do[-\s]?over|make it (better|simpler|cleaner|smaller|bigger|nicer)|that('?s| is) (wrong|bad|off|ugly|terrible|awful)|fix (the )?(flow|diagram|drawing|sketch|layout)|change .+ to .+|remove (the )?|scrap (that|it)|no,? (more like|not like|try)|not what i (meant|wanted)|wrong|broken|garbage)\b/i;
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -81,20 +88,20 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
       POST: async ({ request }) => {
         const apiKey = process.env.LOVABLE_API_KEY;
         if (!apiKey) {
-          return json({ error: "AI draw is not configured yet.", shapes: [] });
+          return json({ error: "AI draw is not configured yet.", shapes: [], edits: [], removes: [] });
         }
 
         let body: { transcript?: string; latest?: string; existing?: string; sessionContext?: { name?: string; goal?: string; outputs?: string[]; facilitation?: string; hostRole?: string } | null };
         try {
           body = await request.json();
         } catch {
-          return json({ error: "Invalid draw request", shapes: [] }, 400);
+          return json({ error: "Invalid draw request", shapes: [], edits: [], removes: [] }, 400);
         }
 
         const transcript = compactText(body.transcript, 3200);
         const latest = compactText(body.latest, 1200);
         if ((latest || transcript).length < 12) {
-          return json({ shapes: [], rationale: "not enough transcript" });
+          return json({ shapes: [], edits: [], removes: [], rationale: "not enough transcript" });
         }
 
         const ctx = body.sessionContext;
@@ -107,8 +114,14 @@ Your mode: ${ctx.facilitation || "scribe"} — ${ctx.facilitation === "facilitat
 
 ` : "";
 
-        const userMsg = `${ctxBlock}# Already on canvas (do NOT repeat any of these)
-${compactText(body.existing, 1800) || "(empty)"}
+        const reviseIntent = REVISE_INTENT.test(latest || "");
+        const existingBlock = compactText(body.existing, 2400) || "(empty)";
+        const canvasHeader = reviseIntent
+          ? `# Already on canvas (REVISE MODE — the user is unhappy, prefer edits/removes on these ids over adding new shapes)`
+          : `# Already on canvas (extend, don't repeat; you may reference these ids in edits/removes if the user asks to change them)`;
+
+        const userMsg = `${ctxBlock}${canvasHeader}
+${existingBlock}
 
 # Full recent conversation
 ${transcript}
@@ -132,25 +145,30 @@ ${latest || transcript}`;
           });
         } catch (error) {
           console.error("AI draw request failed", error);
-          return json({ error: "AI draw is temporarily unavailable — try again in a moment.", shapes: [] });
+          return json({ error: "AI draw is temporarily unavailable — try again in a moment.", shapes: [], edits: [], removes: [] });
         }
 
         if (!res.ok) {
           const text = await res.text();
           console.error("AI draw gateway error", res.status, text);
-          return json({ error: aiDrawErrorMessage(res.status, text), shapes: [] });
+          return json({ error: aiDrawErrorMessage(res.status, text), shapes: [], edits: [], removes: [] });
         }
 
         const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
         const content = data.choices?.[0]?.message?.content ?? "{}";
-        let parsed: { shapes?: unknown } = {};
+        let parsed: { shapes?: unknown; edits?: unknown; removes?: unknown; rationale?: unknown } = {};
         try {
           parsed = JSON.parse(content);
         } catch {
-          parsed = { shapes: [] };
+          parsed = {};
         }
 
-        return json(parsed);
+        return json({
+          shapes: Array.isArray(parsed.shapes) ? parsed.shapes : [],
+          edits: Array.isArray(parsed.edits) ? parsed.edits : [],
+          removes: Array.isArray(parsed.removes) ? parsed.removes : [],
+          rationale: typeof parsed.rationale === "string" ? parsed.rationale : "",
+        });
       },
     },
   },
