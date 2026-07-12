@@ -61,6 +61,7 @@ Out of v2.P1.5: workspace memory hits (stubbed; lights up in v2.P6), pre-fetchin
 
 **Slots after:** v2.P1.
 **Est:** ~3 days.
+**Status:** shipped 2026-07-12. `use-inferred-state` derives per-participant focus (`engaged / quiet-too-long / repeated-ask / unresolved-thread / idle`) client-side from a rolling 15-min transcript_chunks window; realtime INSERTs keep it live and a 5s tick re-evaluates time-based labels. Heuristic — no LLM, no persistence, replay rebuilds from events. `ParticipantCard` shows a focus chip (unresolved question surfaced verbatim; hover for full text). `TeamDesk` publishes the state map upward via `onInferredStates`; `canvas-room` funnels non-idle deltas into `cartoonist-draw` as a `# Live state` block, and the mediator prompt is instructed to surface unresolved points via `annotation` on the relevant shape at natural pauses (or `skip` when nothing maps).
 
 Scope:
 - Facilitator agent watches transcript + canvas events, infers per-participant state every ~15s: `engaged | quiet-too-long | repeated-ask | unresolved-thread`.
