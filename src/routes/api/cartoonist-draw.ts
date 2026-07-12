@@ -194,7 +194,7 @@ When ready, an 'annotation' anchored on the relevant shape (or a small 'typed_no
           ? `# Already on canvas (REVISE MODE — the user is unhappy, prefer edits/removes on these ids over adding new shapes)`
           : `# Already on canvas (extend, don't repeat; you may reference these ids in edits/removes if the user asks to change them)`;
 
-        const userMsg = `${ctxBlock}${participantsBlock}${canvasHeader}
+        const userMsg = `${ctxBlock}${participantsBlock}${liveStatesBlock}${canvasHeader}
 ${existingBlock}
 
 # Full recent conversation
