@@ -624,6 +624,33 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       />
 
 
+      <TeamDesk
+        roomId={roomId}
+        participants={participants}
+        selfId={selfPid}
+        onEditSelf={() => {
+          const me = participants.find((p) => p.id === selfPid);
+          setCheckInInitial(me ? {
+            role_today: me.role_today ?? "",
+            strengths: me.strengths ?? [],
+            contribution_modes: me.contribution_modes ?? [],
+            feedback_style: me.feedback_style ?? "",
+            needs_today: me.needs_today ?? "",
+            blockers: me.blockers ?? "",
+            can_help_with: me.can_help_with ?? "",
+            share_blockers: me.share_blockers ?? false,
+            share_needs: me.share_needs ?? true,
+          } : EMPTY_HUMAN_LAYER);
+          setCheckInOpen(true);
+        }}
+      />
+
+      <CheckIn
+        open={checkInOpen}
+        initial={checkInInitial}
+        onClose={() => setCheckInOpen(false)}
+        onSave={handleCheckInSave}
+      />
     </div>
   );
 }
