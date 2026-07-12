@@ -57,7 +57,7 @@ export function ParticipantCard({
           {p.strengths && p.strengths.length > 0 && (
             <Field label="Strong">
               <div className="flex flex-wrap gap-1">
-                {p.strengths.map((s) => (
+                {p.strengths.map((s: string) => (
                   <span key={s} className="border border-border px-1.5 py-0.5" style={{ fontSize: "var(--step-0)" }}>{s}</span>
                 ))}
               </div>
