@@ -1,0 +1,128 @@
+import { useState } from "react";
+import { ChevronRight, Lock } from "lucide-react";
+import { ModeDot } from "./ModeDot";
+import type { ParticipantMode } from "./use-participant-state";
+import type { ParticipantWithHumanLayer } from "@/lib/canvas-types";
+
+/**
+ * ParticipantCard — right-rail card per person.
+ * Collapsed: mode dot + name + role + one-line context.
+ * Expanded (click): profile fields, respecting per-field share flags.
+ */
+export function ParticipantCard({
+  p,
+  mode,
+  isSelf,
+}: {
+  p: ParticipantWithHumanLayer;
+  mode: ParticipantMode;
+  isSelf: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const role = p.role_today || p.role || "";
+  const context = pickContext(p, mode);
+
+  return (
+    <div className="border border-border bg-background">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-start gap-2.5 px-2.5 py-2 text-left transition hover:bg-muted/40"
+      >
+        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center border border-border font-medium uppercase text-background" style={{ backgroundColor: p.color, fontSize: "var(--step-0)" }}>
+          {p.name.slice(0, 1)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <ModeDot mode={mode} color={p.color} />
+            <span className="truncate font-medium text-foreground" style={{ fontSize: "var(--step-1)" }}>
+              {p.name}
+              {isSelf && <span className="ml-1 text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>· you</span>}
+            </span>
+          </div>
+          {role && (
+            <p className="eyebrow mt-0.5 truncate text-muted-foreground">{role}</p>
+          )}
+          {context && (
+            <p className="mt-1 line-clamp-2 text-foreground/70" style={{ fontSize: "var(--step-0)" }}>{context}</p>
+          )}
+        </div>
+        <ChevronRight
+          className={`mt-1 h-3 w-3 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`}
+        />
+      </button>
+
+      {open && (
+        <div className="border-t border-border bg-muted/20 px-2.5 py-2.5 space-y-2">
+          {p.strengths && p.strengths.length > 0 && (
+            <Field label="Strong">
+              <div className="flex flex-wrap gap-1">
+                {p.strengths.map((s) => (
+                  <span key={s} className="border border-border px-1.5 py-0.5" style={{ fontSize: "var(--step-0)" }}>{s}</span>
+                ))}
+              </div>
+            </Field>
+          )}
+          {p.feedback_style && <Field label="Feedback"><span className="text-foreground" style={{ fontSize: "var(--step-0)" }}>{p.feedback_style}</span></Field>}
+          {p.contribution_modes && p.contribution_modes.length > 0 && (
+            <Field label="Prefers">
+              <span className="text-foreground" style={{ fontSize: "var(--step-0)" }}>{p.contribution_modes.join(" · ")}</span>
+            </Field>
+          )}
+          {p.can_help_with && <Field label="Can help"><span className="text-foreground" style={{ fontSize: "var(--step-0)" }}>{p.can_help_with}</span></Field>}
+          {p.needs_today && (p.share_needs || isSelf) && (
+            <Field label="Needs today"><span className="text-foreground" style={{ fontSize: "var(--step-0)" }}>{p.needs_today}</span></Field>
+          )}
+          {p.needs_today && !p.share_needs && !isSelf && (
+            <Field label="Needs today"><PrivateSlot /></Field>
+          )}
+          {p.blockers && (p.share_blockers || isSelf) && (
+            <Field label="Blocker"><span className="text-foreground" style={{ fontSize: "var(--step-0)" }}>{p.blockers}</span></Field>
+          )}
+          {p.blockers && !p.share_blockers && !isSelf && (
+            <Field label="Blocker"><PrivateSlot /></Field>
+          )}
+          {!hasAnyHumanLayer(p) && (
+            <p className="italic text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
+              No check-in yet.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="eyebrow text-muted-foreground">{label}</div>
+      <div className="mt-0.5">{children}</div>
+    </div>
+  );
+}
+
+function PrivateSlot() {
+  return (
+    <span className="inline-flex items-center gap-1 italic text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
+      <Lock className="h-3 w-3" /> private to mediator
+    </span>
+  );
+}
+
+function hasAnyHumanLayer(p: ParticipantWithHumanLayer): boolean {
+  return !!(
+    p.role_today || (p.strengths && p.strengths.length) || p.feedback_style ||
+    (p.contribution_modes && p.contribution_modes.length) ||
+    p.blockers || p.needs_today || p.can_help_with
+  );
+}
+
+function pickContext(p: ParticipantWithHumanLayer, mode: ParticipantMode): string {
+  if (mode === "speaking") return "speaking now";
+  if (mode === "sketching") return "sketching";
+  if (mode === "typing") return "typing";
+  if (p.share_needs && p.needs_today) return `wants: ${p.needs_today}`;
+  if (p.can_help_with) return `can help: ${p.can_help_with}`;
+  return "";
+}
