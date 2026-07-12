@@ -104,6 +104,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [inputMode, setInputMode] = useState<"voice" | "chat">("voice");
   const [selfPid, setSelfPid] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(true);
+  const inferredStatesRef = useRef<Record<string, InferredState>>({});
 
   const speech = useSpeech();
   const startedAtRef = useRef(Date.now());
