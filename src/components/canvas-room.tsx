@@ -204,10 +204,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         }
         for (const { id, patch } of edits) {
           if (!byId.has(id)) continue;
-          void supabase.from("canvas_events").insert({ room_id: roomId, op: { kind: "edit", id, patch }, t_offset_ms: stamp });
+          void supabase.from("canvas_events").insert({ room_id: roomId, op: JSON.parse(JSON.stringify({ kind: "edit", id, patch })), t_offset_ms: stamp });
         }
         for (const id of removes) {
-          void supabase.from("canvas_events").insert({ room_id: roomId, op: { kind: "remove", id }, t_offset_ms: stamp });
+          void supabase.from("canvas_events").insert({ room_id: roomId, op: { kind: "remove", id } as unknown as Record<string, string>, t_offset_ms: stamp });
         }
         return Array.from(byId.values());
       });
