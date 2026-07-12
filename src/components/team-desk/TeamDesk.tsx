@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PanelRightClose, PanelRightOpen, ClipboardEdit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ParticipantWithHumanLayer } from "@/lib/canvas-types";
 import { ParticipantCard } from "./ParticipantCard";
 import { useParticipantState } from "./use-participant-state";
+import { useInferredState, type InferredState } from "./use-inferred-state";
 
 /**
  * TeamDesk — right rail that keeps the humans visible while the work happens.
@@ -16,6 +17,7 @@ export function TeamDesk({
   selfSpeaking,
   selfTyping,
   onEditProfile,
+  onInferredStates,
 }: {
   roomId: string;
   participants: ParticipantWithHumanLayer[];
@@ -23,9 +25,16 @@ export function TeamDesk({
   selfSpeaking: boolean;
   selfTyping: boolean;
   onEditProfile: () => void;
+  onInferredStates?: (states: Record<string, InferredState>) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const { modeFor } = useParticipantState({ roomId, selfPid, selfSpeaking, selfTyping });
+  const participantIds = useMemo(() => participants.map((p) => p.id), [participants]);
+  const inferred = useInferredState({ roomId, participantIds });
+
+  useEffect(() => {
+    onInferredStates?.(inferred);
+  }, [inferred, onInferredStates]);
 
   // Hotkey: T toggles Team Desk.
   useEffect(() => {
