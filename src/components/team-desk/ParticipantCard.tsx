@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { ChevronRight, Lock } from "lucide-react";
+import { ChevronRight, Lock, AlertCircle, Clock, MessageCircle } from "lucide-react";
 import { ModeDot } from "./ModeDot";
 import type { ParticipantMode } from "./use-participant-state";
+import type { InferredState } from "./use-inferred-state";
 import type { ParticipantWithHumanLayer } from "@/lib/canvas-types";
 
 /**
@@ -12,15 +13,18 @@ import type { ParticipantWithHumanLayer } from "@/lib/canvas-types";
 export function ParticipantCard({
   p,
   mode,
+  inferred,
   isSelf,
 }: {
   p: ParticipantWithHumanLayer;
   mode: ParticipantMode;
+  inferred?: InferredState;
   isSelf: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const role = p.role_today || p.role || "";
   const context = pickContext(p, mode);
+  const focusChip = pickFocusChip(inferred);
 
   return (
     <div className="border border-border bg-background">
