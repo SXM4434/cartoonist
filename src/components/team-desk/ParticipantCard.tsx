@@ -136,3 +136,21 @@ function pickContext(p: ParticipantWithHumanLayer, mode: ParticipantMode): strin
   if (p.can_help_with) return `can help: ${p.can_help_with}`;
   return "";
 }
+
+function pickFocusChip(inferred?: InferredState): { label: string; icon: React.ReactNode; tone: string } | null {
+  if (!inferred) return null;
+  switch (inferred.focus) {
+    case "unresolved-thread":
+      return {
+        label: inferred.unresolved_point ? `unresolved: "${inferred.unresolved_point.slice(0, 60)}${inferred.unresolved_point.length > 60 ? "…" : ""}"` : "unresolved ask",
+        icon: <AlertCircle className="h-3 w-3" />,
+        tone: "border-[color:var(--accent)] text-[color:var(--accent)]",
+      };
+    case "quiet-too-long":
+      return { label: "quiet a while", icon: <Clock className="h-3 w-3" />, tone: "border-border text-muted-foreground" };
+    case "repeated-ask":
+      return { label: "carrying the thread", icon: <MessageCircle className="h-3 w-3" />, tone: "border-border text-muted-foreground" };
+    default:
+      return null;
+  }
+}
