@@ -50,6 +50,12 @@ export function ParticipantCard({
           {context && (
             <p className="mt-1 line-clamp-2 text-foreground/70" style={{ fontSize: "var(--step-0)" }}>{context}</p>
           )}
+          {focusChip && (
+            <div className={`mt-1 inline-flex items-center gap-1 border px-1.5 py-0.5 ${focusChip.tone}`} style={{ fontSize: "var(--step-0)" }} title={inferred?.unresolved_point ?? undefined}>
+              {focusChip.icon}
+              <span className="truncate">{focusChip.label}</span>
+            </div>
+          )}
         </div>
         <ChevronRight
           className={`mt-1 h-3 w-3 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`}
