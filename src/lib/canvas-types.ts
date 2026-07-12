@@ -35,3 +35,17 @@ export type Participant = {
   role?: string;
   color: string;
 };
+
+// v2.P1 — full row shape for Team Desk cards + mediator context.
+export type ParticipantWithHumanLayer = Participant & {
+  role_today?: string | null;
+  strengths?: string[] | null;
+  contribution_modes?: string[] | null;
+  feedback_style?: string | null;
+  blockers?: string | null;
+  needs_today?: string | null;
+  can_help_with?: string | null;
+  share_blockers?: boolean | null;
+  share_needs?: boolean | null;
+  human_layer_complete?: boolean | null;
+};

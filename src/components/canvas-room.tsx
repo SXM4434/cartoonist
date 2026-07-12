@@ -3,8 +3,9 @@ import { Check, Copy, Eraser, FileDown, Mic, MicOff, MessageSquare, Pencil, Send
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import type { Participant } from "@/lib/canvas-types";
+import type { ParticipantWithHumanLayer } from "@/lib/canvas-types";
 import type { FreehandStroke, SketchPrimitive } from "@/lib/sketch-types";
+import { EMPTY_HUMAN_LAYER, type HumanLayer } from "@/lib/human-layer";
 import { useSpeech } from "@/lib/use-speech";
 import { useLiveDiarization } from "@/hooks/use-live-diarization";
 import { ArtifactTabs, type Artifacts } from "./artifact-tabs";
@@ -12,6 +13,8 @@ import { IntroModal } from "./intro-modal";
 import { Canvas } from "./canvas/Canvas";
 import { CanvasProvider } from "./canvas/canvas-context";
 import { ChatPanel } from "./chat-panel";
+import { CheckIn } from "./team-desk/CheckIn";
+import { TeamDesk } from "./team-desk/TeamDesk";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 type SessionContext = {
@@ -22,6 +25,58 @@ type SessionContext = {
   hostRole: string;
 };
 
+type ParticipantRow = {
+  id: string;
+  display_name: string;
+  color: string | null;
+  role: string | null;
+  role_today: string | null;
+  strengths: string[] | null;
+  contribution_modes: string[] | null;
+  feedback_style: string | null;
+  blockers: string | null;
+  needs_today: string | null;
+  can_help_with: string | null;
+  share_blockers: boolean | null;
+  share_needs: boolean | null;
+  human_layer_complete: boolean | null;
+};
+
+function rowToParticipant(p: ParticipantRow): ParticipantWithHumanLayer {
+  return {
+    id: p.id,
+    name: p.display_name,
+    role: p.role ?? undefined,
+    color: p.color ?? "#E07A3E",
+    role_today: p.role_today,
+    strengths: p.strengths,
+    contribution_modes: p.contribution_modes,
+    feedback_style: p.feedback_style,
+    blockers: p.blockers,
+    needs_today: p.needs_today,
+    can_help_with: p.can_help_with,
+    share_blockers: p.share_blockers,
+    share_needs: p.share_needs,
+    human_layer_complete: p.human_layer_complete,
+  };
+}
+
+function participantForPrompt(p: ParticipantWithHumanLayer) {
+  return {
+    name: p.name,
+    role: p.role,
+    role_today: p.role_today,
+    strengths: p.strengths,
+    feedback_style: p.feedback_style,
+    contribution_modes: p.contribution_modes,
+    needs_today: p.needs_today,
+    blockers: p.blockers,
+    can_help_with: p.can_help_with,
+    share_blockers: p.share_blockers,
+    share_needs: p.share_needs,
+  };
+}
+
 export function CanvasRoom(props: { roomId: string }) {
   return <CanvasRoomInner {...props} />;
 }
@@ -31,7 +86,9 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [introMode, setIntroMode] = useState<"self" | "add">("self");
   const [joined, setJoined] = useState(false);
 
-  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [participants, setParticipants] = useState<ParticipantWithHumanLayer[]>([]);
+  const [checkInOpen, setCheckInOpen] = useState(false);
+  const [checkInInitial, setCheckInInitial] = useState<HumanLayer>(EMPTY_HUMAN_LAYER);
   const [shapes, setShapes] = useState<SketchPrimitive[]>([]);
   const [freehand, setFreehand] = useState<FreehandStroke[]>([]);
   const [drawing, setDrawing] = useState(false);
@@ -87,9 +144,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           hostRole: (room as { host_role: string | null }).host_role ?? "",
         });
       }
-      const { data: parts } = await supabase.from("participants").select("id,display_name,color").eq("room_id", roomId);
+      const { data: parts } = await supabase
+        .from("participants")
+        .select("id,display_name,color,role,role_today,strengths,contribution_modes,feedback_style,blockers,needs_today,can_help_with,share_blockers,share_needs,human_layer_complete")
+        .eq("room_id", roomId);
       if (parts && parts.length) {
-        setParticipants(parts.map((p) => ({ id: p.id, name: p.display_name, color: p.color ?? "#E07A3E" })));
+        setParticipants(parts.map((p) => rowToParticipant(p as never)));
       }
     })();
   }, [roomId]);
@@ -166,7 +226,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const res = await fetch("/api/cartoonist-draw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript: fullContext, latest, existing: summarizeCanvas(), sessionContext: sessionCtx }),
+        body: JSON.stringify({ transcript: fullContext, latest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt) }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.error) {
@@ -216,7 +276,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     } finally {
       setThinking(false);
     }
-  }, [roomId, speech.finals, summarizeCanvas, sessionCtx]);
+  }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants]);
 
   // Auto-draw from speech: every ~6s if there's new committed text (voice mode only).
   // Note: transcript_chunks rows are written by the diarization hook below, not here,
@@ -318,8 +378,31 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       if (ins?.id) window.localStorage.setItem(`cartoonist_participant_${roomId}`, ins.id);
       setSelfPid(pid);
       setParticipants([{ id: pid, name: data.name, role: data.role, color: data.color }]);
+      // v2.P1 — right after they finish self-intro, prompt the human-layer check-in.
+      setCheckInInitial(EMPTY_HUMAN_LAYER);
+      setCheckInOpen(true);
     }
   }, [roomId, inputMode, introMode]);
+
+  const handleCheckInSave = useCallback(async (hl: HumanLayer) => {
+    if (!selfPid) { setCheckInOpen(false); return; }
+    const patch = {
+      role_today: hl.role_today || null,
+      strengths: hl.strengths.length ? hl.strengths : null,
+      contribution_modes: hl.contribution_modes.length ? hl.contribution_modes : null,
+      feedback_style: hl.feedback_style || null,
+      needs_today: hl.needs_today || null,
+      blockers: hl.blockers || null,
+      can_help_with: hl.can_help_with || null,
+      share_blockers: hl.share_blockers,
+      share_needs: hl.share_needs,
+      human_layer_complete: true,
+    };
+    await supabase.from("participants").update(patch).eq("id", selfPid);
+    setParticipants((prev) => prev.map((p) => p.id === selfPid ? { ...p, ...patch } : p));
+    setCheckInOpen(false);
+    toast.success("Checked in");
+  }, [selfPid]);
 
   const openAddPerson = useCallback(() => {
     setIntroMode("add");
@@ -541,6 +624,36 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       />
 
 
+      <TeamDesk
+        roomId={roomId}
+        participants={participants}
+        selfPid={selfPid}
+        selfSpeaking={speech.listening}
+        selfTyping={false}
+        onEditProfile={() => {
+          const me = participants.find((p) => p.id === selfPid);
+          setCheckInInitial(me ? {
+            role_today: me.role_today ?? "",
+            strengths: me.strengths ?? [],
+            contribution_modes: (me.contribution_modes ?? []).filter((m): m is "voice" | "chat" | "whiteboard" | "async" => ["voice","chat","whiteboard","async"].includes(m as string)),
+            feedback_style: (["direct","gentle","ask-first","written-only"].includes((me.feedback_style ?? "") as string) ? me.feedback_style : "") as HumanLayer["feedback_style"],
+            needs_today: me.needs_today ?? "",
+            blockers: me.blockers ?? "",
+            can_help_with: me.can_help_with ?? "",
+            share_blockers: me.share_blockers ?? false,
+            share_needs: me.share_needs ?? true,
+            human_layer_complete: me.human_layer_complete ?? false,
+          } : EMPTY_HUMAN_LAYER);
+          setCheckInOpen(true);
+        }}
+      />
+
+      <CheckIn
+        open={checkInOpen}
+        initial={checkInInitial}
+        onSubmit={handleCheckInSave}
+        onSkip={() => setCheckInOpen(false)}
+      />
     </div>
   );
 }

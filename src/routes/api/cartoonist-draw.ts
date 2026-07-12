@@ -91,7 +91,25 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
           return json({ error: "AI draw is not configured yet.", shapes: [], edits: [], removes: [] });
         }
 
-        let body: { transcript?: string; latest?: string; existing?: string; sessionContext?: { name?: string; goal?: string; outputs?: string[]; facilitation?: string; hostRole?: string } | null };
+        let body: {
+          transcript?: string;
+          latest?: string;
+          existing?: string;
+          sessionContext?: { name?: string; goal?: string; outputs?: string[]; facilitation?: string; hostRole?: string } | null;
+          participants?: Array<{
+            name: string;
+            role?: string | null;
+            role_today?: string | null;
+            strengths?: string[] | null;
+            feedback_style?: string | null;
+            contribution_modes?: string[] | null;
+            needs_today?: string | null;
+            blockers?: string | null;
+            can_help_with?: string | null;
+            share_blockers?: boolean | null;
+            share_needs?: boolean | null;
+          }> | null;
+        };
         try {
           body = await request.json();
         } catch {
@@ -114,13 +132,33 @@ Your mode: ${ctx.facilitation || "scribe"} — ${ctx.facilitation === "facilitat
 
 ` : "";
 
+        // v2.P1 — compact participant block. Mediator uses stated preferences
+        // to route the right question to the right person and calibrate tone.
+        const parts = (body.participants ?? []).slice(0, 10);
+        const participantsBlock = parts.length
+          ? `# Participants in the room (route questions and calibrate tone using these — reference by first name when it helps)
+${parts.map((p) => {
+  const role = (p.role_today || p.role || "").toString().trim();
+  const strengths = (p.strengths ?? []).slice(0, 2).filter(Boolean).join(", ");
+  const style = p.feedback_style ? `${p.feedback_style} feedback` : "";
+  const modes = (p.contribution_modes ?? []).filter(Boolean).join("/");
+  const need = p.share_needs && p.needs_today ? `need: ${p.needs_today}` : "";
+  const blk = p.share_blockers && p.blockers ? `worry: ${p.blockers}` : "";
+  const help = p.can_help_with ? `help: ${p.can_help_with}` : "";
+  const bits = [role, strengths && `strong: ${strengths}`, style, modes && `prefers ${modes}`, need, blk, help].filter(Boolean).join(" · ");
+  return `- ${p.name}${bits ? ` (${bits})` : ""}`;
+}).join("\n")}
+
+`
+          : "";
+
         const reviseIntent = REVISE_INTENT.test(latest || "");
         const existingBlock = compactText(body.existing, 2400) || "(empty)";
         const canvasHeader = reviseIntent
           ? `# Already on canvas (REVISE MODE — the user is unhappy, prefer edits/removes on these ids over adding new shapes)`
           : `# Already on canvas (extend, don't repeat; you may reference these ids in edits/removes if the user asks to change them)`;
 
-        const userMsg = `${ctxBlock}${canvasHeader}
+        const userMsg = `${ctxBlock}${participantsBlock}${canvasHeader}
 ${existingBlock}
 
 # Full recent conversation

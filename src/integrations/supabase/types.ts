@@ -80,43 +80,73 @@ export type Database = {
       }
       participants: {
         Row: {
+          blockers: string | null
+          can_help_with: string | null
           color: string | null
+          contribution_modes: string[] | null
           display_name: string
+          feedback_style: string | null
+          human_layer_complete: boolean
           id: string
           input_mode: string
           joined_at: string
           linked_participant_id: string | null
+          needs_today: string | null
           personality: string | null
           role: string | null
+          role_today: string | null
           room_id: string
+          share_blockers: boolean
+          share_needs: boolean
+          strengths: string[] | null
           user_id: string | null
           voice_sample_path: string | null
           voice_sample_transcript: string | null
         }
         Insert: {
+          blockers?: string | null
+          can_help_with?: string | null
           color?: string | null
+          contribution_modes?: string[] | null
           display_name: string
+          feedback_style?: string | null
+          human_layer_complete?: boolean
           id?: string
           input_mode?: string
           joined_at?: string
           linked_participant_id?: string | null
+          needs_today?: string | null
           personality?: string | null
           role?: string | null
+          role_today?: string | null
           room_id: string
+          share_blockers?: boolean
+          share_needs?: boolean
+          strengths?: string[] | null
           user_id?: string | null
           voice_sample_path?: string | null
           voice_sample_transcript?: string | null
         }
         Update: {
+          blockers?: string | null
+          can_help_with?: string | null
           color?: string | null
+          contribution_modes?: string[] | null
           display_name?: string
+          feedback_style?: string | null
+          human_layer_complete?: boolean
           id?: string
           input_mode?: string
           joined_at?: string
           linked_participant_id?: string | null
+          needs_today?: string | null
           personality?: string | null
           role?: string | null
+          role_today?: string | null
           room_id?: string
+          share_blockers?: boolean
+          share_needs?: boolean
+          strengths?: string[] | null
           user_id?: string | null
           voice_sample_path?: string | null
           voice_sample_transcript?: string | null
