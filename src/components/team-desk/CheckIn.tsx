@@ -30,11 +30,15 @@ export function CheckIn({
   initial,
   onSubmit,
   onSkip,
+  subjectName,
+  kioskRemaining,
 }: {
   open: boolean;
   initial: HumanLayer;
   onSubmit: (data: HumanLayer) => void;
   onSkip: () => void;
+  subjectName?: string | null;
+  kioskRemaining?: number;
 }) {
   const [state, setState] = useState<HumanLayer>(initial);
   const [recording, setRecording] = useState(false);
