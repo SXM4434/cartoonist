@@ -132,6 +132,7 @@ export function TeamDesk({
             mode={modeFor(p.id)}
             inferred={inferred[p.id]}
             isSelf={p.id === selfPid}
+            onCheckInAs={onCheckInAs ? () => onCheckInAs(p.id) : undefined}
           />
         ))}
       </div>
