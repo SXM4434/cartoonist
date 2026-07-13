@@ -91,6 +91,9 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [participants, setParticipants] = useState<ParticipantWithHumanLayer[]>([]);
   const [checkInOpen, setCheckInOpen] = useState(false);
   const [checkInInitial, setCheckInInitial] = useState<HumanLayer>(EMPTY_HUMAN_LAYER);
+  const [checkInPid, setCheckInPid] = useState<string | null>(null);
+  const [checkInName, setCheckInName] = useState<string | null>(null);
+  const [kioskQueue, setKioskQueue] = useState<string[]>([]);
   const [shapes, setShapes] = useState<SketchPrimitive[]>([]);
   const [freehand, setFreehand] = useState<FreehandStroke[]>([]);
   const [drawing, setDrawing] = useState(false);
