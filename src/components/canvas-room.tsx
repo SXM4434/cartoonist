@@ -760,7 +760,9 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         open={checkInOpen}
         initial={checkInInitial}
         onSubmit={handleCheckInSave}
-        onSkip={() => setCheckInOpen(false)}
+        onSkip={handleCheckInSkip}
+        subjectName={checkInName}
+        kioskRemaining={kioskQueue.length}
       />
     </div>
   );
