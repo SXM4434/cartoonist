@@ -99,6 +99,7 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
         }
 
         let body: {
+          roomId?: string;
           transcript?: string;
           latest?: string;
           existing?: string;
