@@ -15,11 +15,13 @@ export function ParticipantCard({
   mode,
   inferred,
   isSelf,
+  onCheckInAs,
 }: {
   p: ParticipantWithHumanLayer;
   mode: ParticipantMode;
   inferred?: InferredState;
   isSelf: boolean;
+  onCheckInAs?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const role = p.role_today || p.role || "";
