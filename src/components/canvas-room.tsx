@@ -181,10 +181,17 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       });
     });
     setShapes(seeded);
+    // v2.P6 groundwork — provenance at the write boundary.
+    // Seed shapes are authored by the session brief, not by a participant.
+    const seedThread = `thread_seed_${crypto.randomUUID().slice(0, 8)}`;
     for (const shape of seeded) {
       void supabase.from("canvas_events").insert({
         room_id: roomId, op: JSON.parse(JSON.stringify(shape)),
         t_offset_ms: Date.now() - startedAtRef.current,
+        source: "seed",
+        transcript_span: { origin: "session_brief", goal: sessionCtx.goal ?? null },
+        confidence: 1,
+        thread_id: seedThread,
       });
     }
   }, [sessionCtx, shapes.length, roomId]);
@@ -275,17 +282,34 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           byId.set(s.id, s);
           fresh.push(s);
         }
-        // Mirror to canvas_events
+        // Mirror to canvas_events with provenance (v2.P6 groundwork).
+        // One thread_id per draw batch so shapes born of the same utterance
+        // group together; span carries the utterance that triggered them.
         const stamp = Date.now() - startedAtRef.current;
+        const threadId = `thread_${crypto.randomUUID().slice(0, 8)}`;
+        const span = {
+          origin: "utterance" as const,
+          latest: latest.slice(0, 240),
+          modality: typeof (data as { modality?: unknown }).modality === "string" ? (data as { modality: string }).modality : null,
+        };
         for (const shape of fresh) {
-          void supabase.from("canvas_events").insert({ room_id: roomId, op: JSON.parse(JSON.stringify(shape)), t_offset_ms: stamp });
+          void supabase.from("canvas_events").insert({
+            room_id: roomId, op: JSON.parse(JSON.stringify(shape)), t_offset_ms: stamp,
+            source: "mediator", transcript_span: span, confidence: 0.8, thread_id: threadId,
+          });
         }
         for (const { id, patch } of edits) {
           if (!byId.has(id)) continue;
-          void supabase.from("canvas_events").insert({ room_id: roomId, op: JSON.parse(JSON.stringify({ kind: "edit", id, patch })), t_offset_ms: stamp });
+          void supabase.from("canvas_events").insert({
+            room_id: roomId, op: JSON.parse(JSON.stringify({ kind: "edit", id, patch })), t_offset_ms: stamp,
+            source: "mediator", transcript_span: span, confidence: 0.9, thread_id: threadId,
+          });
         }
         for (const id of removes) {
-          void supabase.from("canvas_events").insert({ room_id: roomId, op: { kind: "remove", id } as unknown as Record<string, string>, t_offset_ms: stamp });
+          void supabase.from("canvas_events").insert({
+            room_id: roomId, op: { kind: "remove", id } as unknown as Record<string, string>, t_offset_ms: stamp,
+            source: "mediator", transcript_span: span, confidence: 0.9, thread_id: threadId,
+          });
         }
         return Array.from(byId.values());
       });
