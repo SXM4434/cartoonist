@@ -63,6 +63,21 @@ function rowToParticipant(p: ParticipantRow): ParticipantWithHumanLayer {
   };
 }
 
+function humanLayerFromParticipant(me: ParticipantWithHumanLayer): HumanLayer {
+  return {
+    role_today: me.role_today ?? "",
+    strengths: me.strengths ?? [],
+    contribution_modes: (me.contribution_modes ?? []).filter((m): m is "voice" | "chat" | "whiteboard" | "async" => ["voice","chat","whiteboard","async"].includes(m as string)),
+    feedback_style: (["direct","gentle","ask-first","written-only"].includes((me.feedback_style ?? "") as string) ? me.feedback_style : "") as HumanLayer["feedback_style"],
+    needs_today: me.needs_today ?? "",
+    blockers: me.blockers ?? "",
+    can_help_with: me.can_help_with ?? "",
+    share_blockers: me.share_blockers ?? false,
+    share_needs: me.share_needs ?? true,
+    human_layer_complete: me.human_layer_complete ?? false,
+  };
+}
+
 function participantForPrompt(p: ParticipantWithHumanLayer) {
   return {
     name: p.name,
