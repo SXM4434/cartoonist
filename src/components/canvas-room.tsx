@@ -13,6 +13,7 @@ import { IntroModal } from "./intro-modal";
 import { Canvas } from "./canvas/Canvas";
 import { CanvasProvider } from "./canvas/canvas-context";
 import { ChatPanel } from "./chat-panel";
+import { CostMeter } from "./cost-meter";
 import { CheckIn } from "./team-desk/CheckIn";
 import { TeamDesk } from "./team-desk/TeamDesk";
 import type { InferredState } from "./team-desk/use-inferred-state";
