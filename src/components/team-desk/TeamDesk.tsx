@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { PanelRightClose, PanelRightOpen, ClipboardEdit } from "lucide-react";
+import { PanelRightClose, PanelRightOpen, ClipboardEdit, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ParticipantWithHumanLayer } from "@/lib/canvas-types";
 import { ParticipantCard } from "./ParticipantCard";
