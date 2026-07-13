@@ -48,25 +48,37 @@ export type Database = {
       }
       canvas_events: {
         Row: {
+          confidence: number | null
           created_at: string
           id: string
           op: Json
           room_id: string
+          source: string | null
           t_offset_ms: number
+          thread_id: string | null
+          transcript_span: Json | null
         }
         Insert: {
+          confidence?: number | null
           created_at?: string
           id?: string
           op: Json
           room_id: string
+          source?: string | null
           t_offset_ms?: number
+          thread_id?: string | null
+          transcript_span?: Json | null
         }
         Update: {
+          confidence?: number | null
           created_at?: string
           id?: string
           op?: Json
           room_id?: string
+          source?: string | null
           t_offset_ms?: number
+          thread_id?: string | null
+          transcript_span?: Json | null
         }
         Relationships: [
           {
