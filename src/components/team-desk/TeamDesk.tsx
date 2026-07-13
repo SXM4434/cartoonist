@@ -18,6 +18,9 @@ export function TeamDesk({
   selfTyping,
   onEditProfile,
   onInferredStates,
+  onCheckInAs,
+  onStartKiosk,
+  kioskActive,
 }: {
   roomId: string;
   participants: ParticipantWithHumanLayer[];
@@ -26,6 +29,9 @@ export function TeamDesk({
   selfTyping: boolean;
   onEditProfile: () => void;
   onInferredStates?: (states: Record<string, InferredState>) => void;
+  onCheckInAs?: (pid: string) => void;
+  onStartKiosk?: () => void;
+  kioskActive?: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const { modeFor } = useParticipantState({ roomId, selfPid, selfSpeaking, selfTyping });
