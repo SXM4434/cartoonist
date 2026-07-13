@@ -648,17 +648,43 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         </div>
 
 
-        {chatOpen && (
-          <div className="w-[320px] shrink-0">
-            <ChatPanel
-              roomId={roomId}
-              selfParticipantId={selfPid}
-              selfName={participants[0]?.name ?? "You"}
-              selfColor={participants[0]?.color ?? "#E07A3E"}
-              onChatMessage={handleChatMessage}
-            />
-          </div>
-        )}
+        <div className="flex w-[320px] shrink-0 flex-col border-l border-border">
+          <TeamDesk
+            roomId={roomId}
+            participants={participants}
+            selfPid={selfPid}
+            selfSpeaking={speech.listening}
+            selfTyping={false}
+            onInferredStates={(s) => { inferredStatesRef.current = s; }}
+            onEditProfile={() => {
+              const me = participants.find((p) => p.id === selfPid);
+              setCheckInInitial(me ? {
+                role_today: me.role_today ?? "",
+                strengths: me.strengths ?? [],
+                contribution_modes: (me.contribution_modes ?? []).filter((m): m is "voice" | "chat" | "whiteboard" | "async" => ["voice","chat","whiteboard","async"].includes(m as string)),
+                feedback_style: (["direct","gentle","ask-first","written-only"].includes((me.feedback_style ?? "") as string) ? me.feedback_style : "") as HumanLayer["feedback_style"],
+                needs_today: me.needs_today ?? "",
+                blockers: me.blockers ?? "",
+                can_help_with: me.can_help_with ?? "",
+                share_blockers: me.share_blockers ?? false,
+                share_needs: me.share_needs ?? true,
+                human_layer_complete: me.human_layer_complete ?? false,
+              } : EMPTY_HUMAN_LAYER);
+              setCheckInOpen(true);
+            }}
+          />
+          {chatOpen && (
+            <div className="min-h-0 flex-1 border-t border-border">
+              <ChatPanel
+                roomId={roomId}
+                selfParticipantId={selfPid}
+                selfName={participants[0]?.name ?? "You"}
+                selfColor={participants[0]?.color ?? "#E07A3E"}
+                onChatMessage={handleChatMessage}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       <IntroModal
@@ -669,31 +695,6 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         onSubmit={handleIntroSubmit}
       />
 
-
-      <TeamDesk
-        roomId={roomId}
-        participants={participants}
-        selfPid={selfPid}
-        selfSpeaking={speech.listening}
-        selfTyping={false}
-        onInferredStates={(s) => { inferredStatesRef.current = s; }}
-        onEditProfile={() => {
-          const me = participants.find((p) => p.id === selfPid);
-          setCheckInInitial(me ? {
-            role_today: me.role_today ?? "",
-            strengths: me.strengths ?? [],
-            contribution_modes: (me.contribution_modes ?? []).filter((m): m is "voice" | "chat" | "whiteboard" | "async" => ["voice","chat","whiteboard","async"].includes(m as string)),
-            feedback_style: (["direct","gentle","ask-first","written-only"].includes((me.feedback_style ?? "") as string) ? me.feedback_style : "") as HumanLayer["feedback_style"],
-            needs_today: me.needs_today ?? "",
-            blockers: me.blockers ?? "",
-            can_help_with: me.can_help_with ?? "",
-            share_blockers: me.share_blockers ?? false,
-            share_needs: me.share_needs ?? true,
-            human_layer_complete: me.human_layer_complete ?? false,
-          } : EMPTY_HUMAN_LAYER);
-          setCheckInOpen(true);
-        }}
-      />
 
       <CheckIn
         open={checkInOpen}
