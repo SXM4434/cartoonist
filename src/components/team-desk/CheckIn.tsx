@@ -130,10 +130,16 @@ export function CheckIn({
     <Dialog open={open} onOpenChange={(o) => { if (!o) onSkip(); }}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[560px]">
         <DialogHeader>
-          <span className="eyebrow text-primary">60 seconds — check-in</span>
-          <DialogTitle className="font-serif" style={{ fontSize: "var(--step-4)" }}>Say hi to the room</DialogTitle>
+          <span className="eyebrow text-primary">
+            {kioskRemaining && kioskRemaining > 0 ? `Kiosk · ${kioskRemaining} more after this` : "60 seconds — check-in"}
+          </span>
+          <DialogTitle className="font-serif" style={{ fontSize: "var(--step-4)" }}>
+            {subjectName ? `${subjectName} — say hi to the room` : "Say hi to the room"}
+          </DialogTitle>
           <DialogDescription>
-            Helps Cartoonist facilitate for the human, not the generic meeting. Every field is optional. Skip anytime.
+            {subjectName
+              ? `Pass the laptop to ${subjectName}. Every field is optional. Skip anytime.`
+              : "Helps Cartoonist facilitate for the human, not the generic meeting. Every field is optional. Skip anytime."}
           </DialogDescription>
         </DialogHeader>
 
