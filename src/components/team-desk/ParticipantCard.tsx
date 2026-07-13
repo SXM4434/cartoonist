@@ -99,6 +99,18 @@ export function ParticipantCard({
               No check-in yet.
             </p>
           )}
+          {onCheckInAs && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onCheckInAs(); }}
+              className="mt-1 flex w-full items-center justify-center gap-1 border border-border px-2 py-1 text-foreground transition hover:bg-foreground hover:text-background"
+              style={{ fontSize: "var(--step-0)" }}
+              title="Fill this person's check-in on this device"
+            >
+              <UserCheck className="h-3 w-3" />
+              <span className="eyebrow">{isSelf ? "Edit my check-in" : `I'm ${p.name} — check in`}</span>
+            </button>
+          )}
         </div>
       )}
     </div>
