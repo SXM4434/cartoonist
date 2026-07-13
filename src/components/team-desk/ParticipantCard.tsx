@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRight, Lock, AlertCircle, Clock, MessageCircle } from "lucide-react";
+import { ChevronRight, Lock, AlertCircle, Clock, MessageCircle, UserCheck } from "lucide-react";
 import { ModeDot } from "./ModeDot";
 import type { ParticipantMode } from "./use-participant-state";
 import type { InferredState } from "./use-inferred-state";
