@@ -728,22 +728,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
             selfSpeaking={speech.listening}
             selfTyping={false}
             onInferredStates={(s) => { inferredStatesRef.current = s; }}
-            onEditProfile={() => {
-              const me = participants.find((p) => p.id === selfPid);
-              setCheckInInitial(me ? {
-                role_today: me.role_today ?? "",
-                strengths: me.strengths ?? [],
-                contribution_modes: (me.contribution_modes ?? []).filter((m): m is "voice" | "chat" | "whiteboard" | "async" => ["voice","chat","whiteboard","async"].includes(m as string)),
-                feedback_style: (["direct","gentle","ask-first","written-only"].includes((me.feedback_style ?? "") as string) ? me.feedback_style : "") as HumanLayer["feedback_style"],
-                needs_today: me.needs_today ?? "",
-                blockers: me.blockers ?? "",
-                can_help_with: me.can_help_with ?? "",
-                share_blockers: me.share_blockers ?? false,
-                share_needs: me.share_needs ?? true,
-                human_layer_complete: me.human_layer_complete ?? false,
-              } : EMPTY_HUMAN_LAYER);
-              setCheckInOpen(true);
-            }}
+            onEditProfile={() => { if (selfPid) openCheckInFor(selfPid); }}
+            onCheckInAs={openCheckInFor}
+            onStartKiosk={startKiosk}
+            kioskActive={kioskQueue.length > 0}
           />
           {chatOpen && (
             <div className="min-h-0 flex-1 border-t border-border">
