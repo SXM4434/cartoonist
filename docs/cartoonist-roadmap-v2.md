@@ -123,9 +123,10 @@ Verification gate: every inferred fact has a "where did this come from" link to 
 **Slots after:** v1 Phase 3 (replay needs provenance), v1 Phase 5 (workspace memory tables), and v2.P1.5 (planner writes provenance and reads `workspace_references`).
 **Est:** ~6 days. Biggest v2 phase.
 **Spec:** `feature-canvas-memory.md`.
+**Groundwork shipped 2026-07-13:** provenance columns `{source, transcript_span, confidence, thread_id}` added to `public.canvas_events`; every write path in `canvas-room.tsx` (seed + mediator new/edit/remove) now stamps them. `source ∈ {seed, mediator}`, one `thread_id` per draw batch, `transcript_span` carries the triggering utterance + modality. User-authored shapes (SketchCanvas strokes) still to instrument. Thread linking, cross-session relations, `workspace_*` tables remain owned by full v2.P6.
 
 Scope:
-- Provenance doctrine enforced at the `canvas_events` write boundary. Every shape carries `{source, transcript_span, confidence, thread_id}`. PRD Principle 8.
+- Provenance doctrine enforced at the `canvas_events` write boundary. Every shape carries `{source, transcript_span, confidence, thread_id}`. PRD Principle 8. **[substrate live]**
 - Threads replace storyboard frames as the organizing unit. Linear remains the default render; non-linear behavior kicks in when an utterance re-opens an older thread.
 - `canvas_relations` table with typed edges (`extends | contradicts | references | resolves`), within and across sessions.
 - Minimal cross-time UI: ↗ chip + peek panel + accent-color glow on related shapes (cross-session = ghost glow in workspace sidebar) + short low-volume audio cue when surfaced live.
