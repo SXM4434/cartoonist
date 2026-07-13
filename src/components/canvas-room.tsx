@@ -426,12 +426,36 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       setParticipants([{ id: pid, name: data.name, role: data.role, color: data.color }]);
       // v2.P1 — right after they finish self-intro, prompt the human-layer check-in.
       setCheckInInitial(EMPTY_HUMAN_LAYER);
+      setCheckInPid(pid);
+      setCheckInName(data.name);
       setCheckInOpen(true);
     }
   }, [roomId, inputMode, introMode]);
 
+  const advanceKiosk = useCallback((remaining: string[]) => {
+    if (remaining.length === 0) {
+      setKioskQueue([]);
+      setCheckInPid(null);
+      setCheckInName(null);
+      setCheckInOpen(false);
+      toast.success("Check-ins done");
+      return;
+    }
+    const [next, ...rest] = remaining;
+    setParticipants((prev) => {
+      const p = prev.find((x) => x.id === next);
+      setCheckInName(p?.name ?? null);
+      setCheckInInitial(p ? humanLayerFromParticipant(p) : EMPTY_HUMAN_LAYER);
+      return prev;
+    });
+    setCheckInPid(next);
+    setKioskQueue(rest);
+    setCheckInOpen(true);
+  }, []);
+
   const handleCheckInSave = useCallback(async (hl: HumanLayer) => {
-    if (!selfPid) { setCheckInOpen(false); return; }
+    const pid = checkInPid ?? selfPid;
+    if (!pid) { setCheckInOpen(false); return; }
     const patch = {
       role_today: hl.role_today || null,
       strengths: hl.strengths.length ? hl.strengths : null,
@@ -444,11 +468,41 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       share_needs: hl.share_needs,
       human_layer_complete: true,
     };
-    await supabase.from("participants").update(patch).eq("id", selfPid);
-    setParticipants((prev) => prev.map((p) => p.id === selfPid ? { ...p, ...patch } : p));
-    setCheckInOpen(false);
+    await supabase.from("participants").update(patch).eq("id", pid);
+    setParticipants((prev) => prev.map((p) => p.id === pid ? { ...p, ...patch } : p));
     toast.success("Checked in");
-  }, [selfPid]);
+    if (kioskQueue.length > 0) {
+      advanceKiosk(kioskQueue);
+    } else {
+      setCheckInOpen(false);
+      setCheckInPid(null);
+      setCheckInName(null);
+    }
+  }, [checkInPid, selfPid, kioskQueue, advanceKiosk]);
+
+  const handleCheckInSkip = useCallback(() => {
+    if (kioskQueue.length > 0) {
+      advanceKiosk(kioskQueue);
+    } else {
+      setCheckInOpen(false);
+      setCheckInPid(null);
+      setCheckInName(null);
+    }
+  }, [kioskQueue, advanceKiosk]);
+
+  const openCheckInFor = useCallback((pid: string) => {
+    const p = participants.find((x) => x.id === pid);
+    setCheckInInitial(p ? humanLayerFromParticipant(p) : EMPTY_HUMAN_LAYER);
+    setCheckInPid(pid);
+    setCheckInName(p?.name ?? null);
+    setCheckInOpen(true);
+  }, [participants]);
+
+  const startKiosk = useCallback(() => {
+    const pending = participants.filter((p) => !p.human_layer_complete).map((p) => p.id);
+    if (pending.length === 0) { toast.info("Everyone's checked in"); return; }
+    advanceKiosk(pending);
+  }, [participants, advanceKiosk]);
 
   const openAddPerson = useCallback(() => {
     setIntroMode("add");
