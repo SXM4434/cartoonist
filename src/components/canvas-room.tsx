@@ -648,7 +648,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         </div>
 
 
-        <div className="flex w-[320px] shrink-0 flex-col border-l border-border">
+        <div className="flex w-[280px] shrink-0 flex-col">
           <TeamDesk
             roomId={roomId}
             participants={participants}
