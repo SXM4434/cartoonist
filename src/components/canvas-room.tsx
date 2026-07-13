@@ -13,6 +13,7 @@ import { IntroModal } from "./intro-modal";
 import { Canvas } from "./canvas/Canvas";
 import { CanvasProvider } from "./canvas/canvas-context";
 import { ChatPanel } from "./chat-panel";
+import { CostMeter } from "./cost-meter";
 import { CheckIn } from "./team-desk/CheckIn";
 import { TeamDesk } from "./team-desk/TeamDesk";
 import type { InferredState } from "./team-desk/use-inferred-state";
@@ -251,7 +252,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const res = await fetch("/api/cartoonist-draw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript: fullContext, latest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates }),
+        body: JSON.stringify({ roomId, transcript: fullContext, latest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.error) {
@@ -642,7 +643,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               <Send className="h-3.5 w-3.5" />
             </Button>
           </form>
+
+          <CostMeter roomId={roomId} />
         </div>
+
 
         {chatOpen && (
           <div className="w-[320px] shrink-0">

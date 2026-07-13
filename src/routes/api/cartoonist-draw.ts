@@ -99,6 +99,7 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
         }
 
         let body: {
+          roomId?: string;
           transcript?: string;
           latest?: string;
           existing?: string;
@@ -228,13 +229,38 @@ ${latest || transcript}`;
           return json({ error: aiDrawErrorMessage(res.status, text), shapes: [], edits: [], removes: [] });
         }
 
-        const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+        const data = (await res.json()) as {
+          choices?: Array<{ message?: { content?: string } }>;
+          usage?: { prompt_tokens?: number; completion_tokens?: number };
+        };
         const content = data.choices?.[0]?.message?.content ?? "{}";
         let parsed: { shapes?: unknown; edits?: unknown; removes?: unknown; rationale?: unknown; modality?: unknown } = {};
         try {
           parsed = JSON.parse(content);
         } catch {
           parsed = {};
+        }
+
+        // v1 P1.9 — live cost meter. Log usage per room so the HUD can sum.
+        // Pricing (Gemini 2.5 Pro, USD per 1M tokens): in $1.25, out $5.
+        const inputTokens = Math.max(0, Number(data.usage?.prompt_tokens ?? 0) | 0);
+        const outputTokens = Math.max(0, Number(data.usage?.completion_tokens ?? 0) | 0);
+        const costUsd = (inputTokens * 1.25 + outputTokens * 5.0) / 1_000_000;
+        const roomId = typeof body.roomId === "string" ? body.roomId : null;
+        if (roomId && (inputTokens || outputTokens)) {
+          try {
+            const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+            await supabaseAdmin.from("ai_calls").insert({
+              room_id: roomId,
+              stage: "renderer",
+              model: "google/gemini-2.5-pro",
+              input_tokens: inputTokens,
+              output_tokens: outputTokens,
+              cost_usd: costUsd,
+            });
+          } catch (err) {
+            console.warn("[cartoonist-draw] cost log failed", err);
+          }
         }
 
         // v2.P1.5 anti-fabrication guard: strip fetch_card shapes whose
