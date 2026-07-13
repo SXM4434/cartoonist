@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { PanelRightClose, PanelRightOpen, ClipboardEdit } from "lucide-react";
+import { PanelRightClose, PanelRightOpen, ClipboardEdit, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ParticipantWithHumanLayer } from "@/lib/canvas-types";
 import { ParticipantCard } from "./ParticipantCard";
@@ -18,6 +18,9 @@ export function TeamDesk({
   selfTyping,
   onEditProfile,
   onInferredStates,
+  onCheckInAs,
+  onStartKiosk,
+  kioskActive,
 }: {
   roomId: string;
   participants: ParticipantWithHumanLayer[];
@@ -26,6 +29,9 @@ export function TeamDesk({
   selfTyping: boolean;
   onEditProfile: () => void;
   onInferredStates?: (states: Record<string, InferredState>) => void;
+  onCheckInAs?: (pid: string) => void;
+  onStartKiosk?: () => void;
+  kioskActive?: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const { modeFor } = useParticipantState({ roomId, selfPid, selfSpeaking, selfTyping });
@@ -81,6 +87,18 @@ export function TeamDesk({
       <div className="flex items-center justify-between border-b border-border px-2.5 py-2">
         <span className="eyebrow text-foreground">Team Desk</span>
         <div className="flex items-center gap-1">
+          {onStartKiosk && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onStartKiosk}
+              className="h-6 gap-1 rounded-none px-1.5 text-muted-foreground hover:text-foreground"
+              title="Walk everyone through check-in on this device"
+            >
+              <Users className="h-3 w-3" />
+              <span className="eyebrow">{kioskActive ? "In progress…" : "Kiosk"}</span>
+            </Button>
+          )}
           <Button
             size="sm"
             variant="ghost"
@@ -114,6 +132,7 @@ export function TeamDesk({
             mode={modeFor(p.id)}
             inferred={inferred[p.id]}
             isSelf={p.id === selfPid}
+            onCheckInAs={onCheckInAs ? () => onCheckInAs(p.id) : undefined}
           />
         ))}
       </div>

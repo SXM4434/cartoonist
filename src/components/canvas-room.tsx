@@ -63,6 +63,21 @@ function rowToParticipant(p: ParticipantRow): ParticipantWithHumanLayer {
   };
 }
 
+function humanLayerFromParticipant(me: ParticipantWithHumanLayer): HumanLayer {
+  return {
+    role_today: me.role_today ?? "",
+    strengths: me.strengths ?? [],
+    contribution_modes: (me.contribution_modes ?? []).filter((m): m is "voice" | "chat" | "whiteboard" | "async" => ["voice","chat","whiteboard","async"].includes(m as string)),
+    feedback_style: (["direct","gentle","ask-first","written-only"].includes((me.feedback_style ?? "") as string) ? me.feedback_style : "") as HumanLayer["feedback_style"],
+    needs_today: me.needs_today ?? "",
+    blockers: me.blockers ?? "",
+    can_help_with: me.can_help_with ?? "",
+    share_blockers: me.share_blockers ?? false,
+    share_needs: me.share_needs ?? true,
+    human_layer_complete: me.human_layer_complete ?? false,
+  };
+}
+
 function participantForPrompt(p: ParticipantWithHumanLayer) {
   return {
     name: p.name,
@@ -91,6 +106,9 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [participants, setParticipants] = useState<ParticipantWithHumanLayer[]>([]);
   const [checkInOpen, setCheckInOpen] = useState(false);
   const [checkInInitial, setCheckInInitial] = useState<HumanLayer>(EMPTY_HUMAN_LAYER);
+  const [checkInPid, setCheckInPid] = useState<string | null>(null);
+  const [checkInName, setCheckInName] = useState<string | null>(null);
+  const [kioskQueue, setKioskQueue] = useState<string[]>([]);
   const [shapes, setShapes] = useState<SketchPrimitive[]>([]);
   const [freehand, setFreehand] = useState<FreehandStroke[]>([]);
   const [drawing, setDrawing] = useState(false);
@@ -423,12 +441,36 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       setParticipants([{ id: pid, name: data.name, role: data.role, color: data.color }]);
       // v2.P1 — right after they finish self-intro, prompt the human-layer check-in.
       setCheckInInitial(EMPTY_HUMAN_LAYER);
+      setCheckInPid(pid);
+      setCheckInName(data.name);
       setCheckInOpen(true);
     }
   }, [roomId, inputMode, introMode]);
 
+  const advanceKiosk = useCallback((remaining: string[]) => {
+    if (remaining.length === 0) {
+      setKioskQueue([]);
+      setCheckInPid(null);
+      setCheckInName(null);
+      setCheckInOpen(false);
+      toast.success("Check-ins done");
+      return;
+    }
+    const [next, ...rest] = remaining;
+    setParticipants((prev) => {
+      const p = prev.find((x) => x.id === next);
+      setCheckInName(p?.name ?? null);
+      setCheckInInitial(p ? humanLayerFromParticipant(p) : EMPTY_HUMAN_LAYER);
+      return prev;
+    });
+    setCheckInPid(next);
+    setKioskQueue(rest);
+    setCheckInOpen(true);
+  }, []);
+
   const handleCheckInSave = useCallback(async (hl: HumanLayer) => {
-    if (!selfPid) { setCheckInOpen(false); return; }
+    const pid = checkInPid ?? selfPid;
+    if (!pid) { setCheckInOpen(false); return; }
     const patch = {
       role_today: hl.role_today || null,
       strengths: hl.strengths.length ? hl.strengths : null,
@@ -441,11 +483,41 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       share_needs: hl.share_needs,
       human_layer_complete: true,
     };
-    await supabase.from("participants").update(patch).eq("id", selfPid);
-    setParticipants((prev) => prev.map((p) => p.id === selfPid ? { ...p, ...patch } : p));
-    setCheckInOpen(false);
+    await supabase.from("participants").update(patch).eq("id", pid);
+    setParticipants((prev) => prev.map((p) => p.id === pid ? { ...p, ...patch } : p));
     toast.success("Checked in");
-  }, [selfPid]);
+    if (kioskQueue.length > 0) {
+      advanceKiosk(kioskQueue);
+    } else {
+      setCheckInOpen(false);
+      setCheckInPid(null);
+      setCheckInName(null);
+    }
+  }, [checkInPid, selfPid, kioskQueue, advanceKiosk]);
+
+  const handleCheckInSkip = useCallback(() => {
+    if (kioskQueue.length > 0) {
+      advanceKiosk(kioskQueue);
+    } else {
+      setCheckInOpen(false);
+      setCheckInPid(null);
+      setCheckInName(null);
+    }
+  }, [kioskQueue, advanceKiosk]);
+
+  const openCheckInFor = useCallback((pid: string) => {
+    const p = participants.find((x) => x.id === pid);
+    setCheckInInitial(p ? humanLayerFromParticipant(p) : EMPTY_HUMAN_LAYER);
+    setCheckInPid(pid);
+    setCheckInName(p?.name ?? null);
+    setCheckInOpen(true);
+  }, [participants]);
+
+  const startKiosk = useCallback(() => {
+    const pending = participants.filter((p) => !p.human_layer_complete).map((p) => p.id);
+    if (pending.length === 0) { toast.info("Everyone's checked in"); return; }
+    advanceKiosk(pending);
+  }, [participants, advanceKiosk]);
 
   const openAddPerson = useCallback(() => {
     setIntroMode("add");
@@ -656,22 +728,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
             selfSpeaking={speech.listening}
             selfTyping={false}
             onInferredStates={(s) => { inferredStatesRef.current = s; }}
-            onEditProfile={() => {
-              const me = participants.find((p) => p.id === selfPid);
-              setCheckInInitial(me ? {
-                role_today: me.role_today ?? "",
-                strengths: me.strengths ?? [],
-                contribution_modes: (me.contribution_modes ?? []).filter((m): m is "voice" | "chat" | "whiteboard" | "async" => ["voice","chat","whiteboard","async"].includes(m as string)),
-                feedback_style: (["direct","gentle","ask-first","written-only"].includes((me.feedback_style ?? "") as string) ? me.feedback_style : "") as HumanLayer["feedback_style"],
-                needs_today: me.needs_today ?? "",
-                blockers: me.blockers ?? "",
-                can_help_with: me.can_help_with ?? "",
-                share_blockers: me.share_blockers ?? false,
-                share_needs: me.share_needs ?? true,
-                human_layer_complete: me.human_layer_complete ?? false,
-              } : EMPTY_HUMAN_LAYER);
-              setCheckInOpen(true);
-            }}
+            onEditProfile={() => { if (selfPid) openCheckInFor(selfPid); }}
+            onCheckInAs={openCheckInFor}
+            onStartKiosk={startKiosk}
+            kioskActive={kioskQueue.length > 0}
           />
           {chatOpen && (
             <div className="min-h-0 flex-1 border-t border-border">
@@ -700,7 +760,9 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         open={checkInOpen}
         initial={checkInInitial}
         onSubmit={handleCheckInSave}
-        onSkip={() => setCheckInOpen(false)}
+        onSkip={handleCheckInSkip}
+        subjectName={checkInName}
+        kioskRemaining={kioskQueue.length}
       />
     </div>
   );

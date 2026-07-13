@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRight, Lock, AlertCircle, Clock, MessageCircle } from "lucide-react";
+import { ChevronRight, Lock, AlertCircle, Clock, MessageCircle, UserCheck } from "lucide-react";
 import { ModeDot } from "./ModeDot";
 import type { ParticipantMode } from "./use-participant-state";
 import type { InferredState } from "./use-inferred-state";
@@ -15,11 +15,13 @@ export function ParticipantCard({
   mode,
   inferred,
   isSelf,
+  onCheckInAs,
 }: {
   p: ParticipantWithHumanLayer;
   mode: ParticipantMode;
   inferred?: InferredState;
   isSelf: boolean;
+  onCheckInAs?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const role = p.role_today || p.role || "";
@@ -96,6 +98,18 @@ export function ParticipantCard({
             <p className="italic text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
               No check-in yet.
             </p>
+          )}
+          {onCheckInAs && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onCheckInAs(); }}
+              className="mt-1 flex w-full items-center justify-center gap-1 border border-border px-2 py-1 text-foreground transition hover:bg-foreground hover:text-background"
+              style={{ fontSize: "var(--step-0)" }}
+              title="Fill this person's check-in on this device"
+            >
+              <UserCheck className="h-3 w-3" />
+              <span className="eyebrow">{isSelf ? "Edit my check-in" : `I'm ${p.name} — check in`}</span>
+            </button>
           )}
         </div>
       )}
