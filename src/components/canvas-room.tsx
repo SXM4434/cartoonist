@@ -319,23 +319,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         };
         void (async () => {
           try {
-            const ttsRes = await fetch("/api/mediator-tts", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ text: speak }),
+            const audio = await playStreamingTTS({
+              text: speak,
+              volume: 0.95,
+              onEnd: onDone,
             });
-            if (!ttsRes.ok) throw new Error("tts http " + ttsRes.status);
-            const blob = await ttsRes.blob();
-            const url = URL.createObjectURL(blob);
-            if (ttsAudioRef.current) {
-              try { ttsAudioRef.current.pause(); } catch { /* noop */ }
-            }
-            const audio = new Audio(url);
-            audio.volume = 0.95;
-            ttsAudioRef.current = audio;
-            audio.onended = () => { onDone(); URL.revokeObjectURL(url); };
-            audio.onerror = () => { onDone(); URL.revokeObjectURL(url); };
-            await audio.play();
+            if (audio) ttsAudioRef.current = audio;
           } catch {
             // Fallback to Web Speech
             if ("speechSynthesis" in window) {
