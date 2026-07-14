@@ -5,6 +5,7 @@ import type { ParticipantWithHumanLayer } from "@/lib/canvas-types";
 import { ParticipantCard } from "./ParticipantCard";
 import { useParticipantState } from "./use-participant-state";
 import { useInferredState, type InferredState } from "./use-inferred-state";
+import { useRoomPresence } from "@/hooks/use-presence";
 
 /**
  * TeamDesk — right rail that keeps the humans visible while the work happens.
@@ -37,6 +38,7 @@ export function TeamDesk({
   const { modeFor } = useParticipantState({ roomId, selfPid, selfSpeaking, selfTyping });
   const participantIds = useMemo(() => participants.map((p) => p.id), [participants]);
   const inferred = useInferredState({ roomId, participantIds });
+  const present = useRoomPresence({ roomId, selfPid });
 
   useEffect(() => {
     onInferredStates?.(inferred);
@@ -71,11 +73,14 @@ export function TeamDesk({
         {participants.map((p) => (
           <div
             key={p.id}
-            className="flex h-7 w-7 items-center justify-center border border-border font-medium uppercase text-background"
-            title={p.name}
+            className="relative flex h-7 w-7 items-center justify-center border border-border font-medium uppercase text-background"
+            title={present.has(p.id) ? `${p.name} · here now` : p.name}
             style={{ backgroundColor: p.color, fontSize: "var(--step-0)" }}
           >
             {p.name.slice(0, 1)}
+            {present.has(p.id) && (
+              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border border-background bg-[color:var(--accent,#3fb56b)]" />
+            )}
           </div>
         ))}
       </aside>
@@ -85,7 +90,16 @@ export function TeamDesk({
   return (
     <aside className="flex w-[280px] shrink-0 flex-col border-l border-border bg-background">
       <div className="flex items-center justify-between border-b border-border px-2.5 py-2">
-        <span className="eyebrow text-foreground">Team Desk</span>
+        <span className="eyebrow text-foreground">
+          Team Desk
+          {present.size > 0 && (
+            <span className="ml-2 inline-flex items-center gap-1 text-muted-foreground normal-case tracking-normal">
+              <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--accent,#3fb56b)]" />
+              <span className="tabular-nums">{present.size}</span>
+              <span>here</span>
+            </span>
+          )}
+        </span>
         <div className="flex items-center gap-1">
           {onStartKiosk && (
             <Button
@@ -132,6 +146,7 @@ export function TeamDesk({
             mode={modeFor(p.id)}
             inferred={inferred[p.id]}
             isSelf={p.id === selfPid}
+            isPresent={present.has(p.id)}
             onCheckInAs={onCheckInAs ? () => onCheckInAs(p.id) : undefined}
           />
         ))}

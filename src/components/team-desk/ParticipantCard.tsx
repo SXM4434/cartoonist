@@ -15,12 +15,14 @@ export function ParticipantCard({
   mode,
   inferred,
   isSelf,
+  isPresent,
   onCheckInAs,
 }: {
   p: ParticipantWithHumanLayer;
   mode: ParticipantMode;
   inferred?: InferredState;
   isSelf: boolean;
+  isPresent?: boolean;
   onCheckInAs?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -35,8 +37,14 @@ export function ParticipantCard({
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-start gap-2.5 px-2.5 py-2 text-left transition hover:bg-muted/40"
       >
-        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center border border-border font-medium uppercase text-background" style={{ backgroundColor: p.color, fontSize: "var(--step-0)" }}>
+        <div className="relative mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center border border-border font-medium uppercase text-background" style={{ backgroundColor: p.color, fontSize: "var(--step-0)" }}>
           {p.name.slice(0, 1)}
+          {isPresent && (
+            <span
+              className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border border-background bg-[color:var(--accent,#3fb56b)]"
+              title="Here now"
+            />
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
