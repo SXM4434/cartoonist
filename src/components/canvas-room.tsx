@@ -877,6 +877,20 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
             <Canvas shapes={shapes} drawingEnabled={drawing} />
           </CanvasProvider>
 
+          {reopenPeek && (
+            <div
+              className="pointer-events-none absolute left-1/2 top-6 z-20 -translate-x-1/2 border border-primary bg-background px-4 py-2 shadow-sm"
+              style={{ animation: "cartoonistPeek 4.2s ease-out forwards" }}
+            >
+              <p className="eyebrow text-primary">
+                ↺ {reopenPeek.relation ? reopenPeek.relation : "returning"} — earlier thread
+              </p>
+              <p className="mt-1 max-w-sm truncate font-serif" style={{ fontSize: "var(--step-0)" }}>
+                {reopenPeek.oldLatest}
+              </p>
+            </div>
+          )}
+
           {shapes.length === 0 && freehand.length === 0 && (
             <div className="pointer-events-none absolute left-8 top-8 max-w-md border border-border bg-background p-5">
               <p className="eyebrow text-primary">Whiteboard ready</p>
