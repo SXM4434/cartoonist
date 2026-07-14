@@ -5,6 +5,7 @@ import type { ParticipantWithHumanLayer } from "@/lib/canvas-types";
 import { ParticipantCard } from "./ParticipantCard";
 import { useParticipantState } from "./use-participant-state";
 import { useInferredState, type InferredState } from "./use-inferred-state";
+import { useRoomPresence } from "@/hooks/use-presence";
 
 /**
  * TeamDesk — right rail that keeps the humans visible while the work happens.
