@@ -32,7 +32,7 @@ export function useReactions({
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   useEffect(() => {
-    if (!roomId || !selfPid) return;
+    if (!roomId) return;
     const channel = supabase.channel(`reactions:room:${roomId}`, {
       config: { broadcast: { self: false, ack: false } },
     });
