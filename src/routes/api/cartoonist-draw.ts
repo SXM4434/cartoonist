@@ -27,8 +27,16 @@ Choose ONE modality for this turn:
   "shapes":   [ ...primitives... ],
   "edits":    [ { "id": "<existing id>", "patch": { ...partial fields... } } ],
   "removes":  [ "<existing id>", ... ],
+  "speak":    "<optional short spoken interjection, <=140 chars, plain sentence>",
   "rationale": "<one short sentence>"
 }
+
+# SPEAK (voice — v2.P4)
+The mediator has a voice. Include a "speak" string ONLY when a short spoken nudge adds real value:
+- surfacing an unresolved-thread from live state ("Priya, we didn't get back to your point about pricing")
+- inviting a quiet participant at a natural pause ("Sam — anything to add?")
+- reflecting a decision as it lands ("Sounds like we're going with option B")
+Rules: <=140 chars, calm and warm, no jargon, first names only. NEVER name a participant who is NOT in the voiceAllowedNames list. If nothing worth saying, OMIT the field or use "". Do not speak on every turn — silence is usually right.
 
 Canvas: 1600x1000, origin top-left. Box w=180 h=80. Sticky w=160 h=140. Leave ~60-80px gutters. Arrows touch box EDGES. Group related shapes spatially. Use empty regions of the canvas — don't pile new shapes on top of old ones.
 
@@ -124,6 +132,7 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
             unresolved_point?: string;
           }> | null;
           agentsBlock?: string | null;
+          voiceAllowedNames?: string[] | null;
         };
         try {
           body = await request.json();
@@ -204,7 +213,13 @@ When ready, an 'annotation' anchored on the relevant shape (or a small 'typed_no
           ? `# Already on canvas (REVISE MODE — the user is unhappy, prefer edits/removes on these ids over adding new shapes)`
           : `# Already on canvas (extend, don't repeat; you may reference these ids in edits/removes if the user asks to change them)`;
 
-        const userMsg = `${ctxBlock}${participantsBlock}${liveStatesBlock}${canvasHeader}
+        const voiceNames = Array.isArray(body.voiceAllowedNames) ? body.voiceAllowedNames.filter((s) => typeof s === "string" && s.trim().length > 0) : [];
+        const voiceBlock = `# voiceAllowedNames (only these participants have opted in to being named by voice — never speak the name of anyone not on this list)
+${voiceNames.length ? voiceNames.map((n) => `- ${n}`).join("\n") : `(nobody has opted in — omit the "speak" field entirely this turn)`}
+
+`;
+
+        const userMsg = `${ctxBlock}${participantsBlock}${liveStatesBlock}${voiceBlock}${canvasHeader}
 ${existingBlock}
 
 # Full recent conversation
@@ -243,7 +258,7 @@ ${latest || transcript}`;
           usage?: { prompt_tokens?: number; completion_tokens?: number };
         };
         const content = data.choices?.[0]?.message?.content ?? "{}";
-        let parsed: { shapes?: unknown; edits?: unknown; removes?: unknown; rationale?: unknown; modality?: unknown } = {};
+        let parsed: { shapes?: unknown; edits?: unknown; removes?: unknown; rationale?: unknown; modality?: unknown; speak?: unknown } = {};
         try {
           parsed = JSON.parse(content);
         } catch {
@@ -288,11 +303,24 @@ ${latest || transcript}`;
           return transcriptForCheck.includes(urlMatch[0]);
         });
 
+        // Voice guard: strip speak if it mentions a name not on the allowlist.
+        const rawSpeak = typeof parsed.speak === "string" ? parsed.speak.trim().slice(0, 200) : "";
+        let safeSpeak = rawSpeak;
+        if (safeSpeak) {
+          const allowed = new Set(voiceNames.map((n) => n.toLowerCase()));
+          const mentions = [...(participantsBlock.match(/- \*\*([^*]+)\*\*/g) ?? [])].map((m) => m.replace(/[-*\s]/g, "").toLowerCase());
+          const spoken = safeSpeak.toLowerCase();
+          for (const name of mentions) {
+            if (name && spoken.includes(name) && !allowed.has(name)) { safeSpeak = ""; break; }
+          }
+        }
+
         return json({
           modality,
           shapes: cleanShapes,
           edits: Array.isArray(parsed.edits) ? parsed.edits : [],
           removes: Array.isArray(parsed.removes) ? parsed.removes : [],
+          speak: safeSpeak,
           rationale: typeof parsed.rationale === "string" ? parsed.rationale : "",
         });
       },

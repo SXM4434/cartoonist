@@ -125,6 +125,7 @@ export type Database = {
       }
       participants: {
         Row: {
+          allow_voice_mention: boolean
           blockers: string | null
           can_help_with: string | null
           color: string | null
@@ -149,6 +150,7 @@ export type Database = {
           voice_sample_transcript: string | null
         }
         Insert: {
+          allow_voice_mention?: boolean
           blockers?: string | null
           can_help_with?: string | null
           color?: string | null
@@ -173,6 +175,7 @@ export type Database = {
           voice_sample_transcript?: string | null
         }
         Update: {
+          allow_voice_mention?: boolean
           blockers?: string | null
           can_help_with?: string | null
           color?: string | null

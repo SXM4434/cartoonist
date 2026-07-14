@@ -14,6 +14,7 @@ export type HumanLayer = {
   can_help_with: string;
   share_blockers: boolean;
   share_needs: boolean;
+  allow_voice_mention: boolean;
   human_layer_complete: boolean;
 };
 
@@ -27,6 +28,7 @@ export const EMPTY_HUMAN_LAYER: HumanLayer = {
   can_help_with: "",
   share_blockers: false,
   share_needs: false,
+  allow_voice_mention: true,
   human_layer_complete: false,
 };
 

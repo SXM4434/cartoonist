@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, Eraser, FileDown, Mic, MicOff, MessageSquare, Pencil, Send, Sparkles, UserPlus } from "lucide-react";
+import { Check, Copy, Eraser, FileDown, Mic, MicOff, MessageSquare, Pencil, Send, Sparkles, UserPlus, Volume2, VolumeX } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,6 +41,7 @@ type ParticipantRow = {
   can_help_with: string | null;
   share_blockers: boolean | null;
   share_needs: boolean | null;
+  allow_voice_mention: boolean | null;
   human_layer_complete: boolean | null;
 };
 
@@ -59,6 +60,7 @@ function rowToParticipant(p: ParticipantRow): ParticipantWithHumanLayer {
     can_help_with: p.can_help_with,
     share_blockers: p.share_blockers,
     share_needs: p.share_needs,
+    allow_voice_mention: p.allow_voice_mention,
     human_layer_complete: p.human_layer_complete,
   };
 }
@@ -74,6 +76,7 @@ function humanLayerFromParticipant(me: ParticipantWithHumanLayer): HumanLayer {
     can_help_with: me.can_help_with ?? "",
     share_blockers: me.share_blockers ?? false,
     share_needs: me.share_needs ?? true,
+    allow_voice_mention: me.allow_voice_mention ?? true,
     human_layer_complete: me.human_layer_complete ?? false,
   };
 }
@@ -124,7 +127,9 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [inputMode, setInputMode] = useState<"voice" | "chat">("voice");
   const [selfPid, setSelfPid] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(true);
+  const [mediatorMuted, setMediatorMuted] = useState(false);
   const inferredStatesRef = useRef<Record<string, InferredState>>({});
+  const lastSpokenRef = useRef<string>("");
 
   const speech = useSpeech();
   const startedAtRef = useRef(Date.now());
@@ -168,7 +173,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       }
       const { data: parts } = await supabase
         .from("participants")
-        .select("id,display_name,color,role,role_today,strengths,contribution_modes,feedback_style,blockers,needs_today,can_help_with,share_blockers,share_needs,human_layer_complete")
+        .select("id,display_name,color,role,role_today,strengths,contribution_modes,feedback_style,blockers,needs_today,can_help_with,share_blockers,share_needs,allow_voice_mention,human_layer_complete")
         .eq("room_id", roomId);
       if (parts && parts.length) {
         setParticipants(parts.map((p) => rowToParticipant(p as never)));
@@ -271,15 +276,28 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       // v2.P3 follow-up — unify mediator + drafter on the same agent block.
       const { buildUserAgents, userAgentsPromptBlock } = await import("@/lib/user-agents");
       const agentsBlock = userAgentsPromptBlock(buildUserAgents(participants, inferredStatesRef.current));
+      const voiceAllowedNames = participants.filter((p) => p.allow_voice_mention !== false).map((p) => p.name);
       const res = await fetch("/api/cartoonist-draw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId, transcript: fullContext, latest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock }),
+        body: JSON.stringify({ roomId, transcript: fullContext, latest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.error) {
         setDrawError(data?.error ?? "AI draw failed");
         return;
+      }
+      // v2.P4 — mediator speaks. Play the short interjection via Web Speech,
+      // gated by the per-user mute toggle. Deduped so re-renders don't repeat.
+      const speak = typeof data?.speak === "string" ? data.speak.trim() : "";
+      if (speak && !mediatorMuted && speak !== lastSpokenRef.current && typeof window !== "undefined" && "speechSynthesis" in window) {
+        lastSpokenRef.current = speak;
+        try {
+          const u = new SpeechSynthesisUtterance(speak);
+          u.rate = 1.02; u.pitch = 1.0; u.volume = 0.9;
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(u);
+        } catch { /* noop */ }
       }
       const incoming = Array.isArray(data.shapes) ? (data.shapes as SketchPrimitive[]) : [];
       const edits = Array.isArray(data.edits) ? (data.edits as Array<{ id: string; patch: Record<string, unknown> }>) : [];
@@ -341,7 +359,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     } finally {
       setThinking(false);
     }
-  }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants]);
+  }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, mediatorMuted]);
 
   // Auto-draw from speech: every ~6s if there's new committed text (voice mode only).
   // Note: transcript_chunks rows are written by the diarization hook below, not here,
@@ -508,6 +526,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       can_help_with: hl.can_help_with || null,
       share_blockers: hl.share_blockers,
       share_needs: hl.share_needs,
+      allow_voice_mention: hl.allow_voice_mention,
       human_layer_complete: true,
     };
     await supabase.from("participants").update(patch).eq("id", pid);
@@ -629,6 +648,22 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           </Button>
           <Button size="sm" variant="outline" onClick={() => setChatOpen((v) => !v)} className={`h-8 gap-1.5 rounded-none border-border ${chatOpen ? "bg-foreground text-background" : ""}`}>
             <MessageSquare className="h-3.5 w-3.5" /><span className="eyebrow">Chat</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setMediatorMuted((v) => {
+                const next = !v;
+                if (next && typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
+                return next;
+              });
+            }}
+            title={mediatorMuted ? "Unmute mediator voice" : "Mute mediator voice"}
+            className={`h-8 gap-1.5 rounded-none border-border ${mediatorMuted ? "" : "bg-foreground text-background"}`}
+          >
+            {mediatorMuted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+            <span className="eyebrow">{mediatorMuted ? "Muted" : "Voice"}</span>
           </Button>
           {inputMode === "voice" ? (
             speech.listening ? (
