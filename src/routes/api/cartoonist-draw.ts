@@ -132,6 +132,7 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
             unresolved_point?: string;
           }> | null;
           agentsBlock?: string | null;
+          voiceAllowedNames?: string[] | null;
         };
         try {
           body = await request.json();
