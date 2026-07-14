@@ -21,6 +21,8 @@ import type { InferredState } from "./team-desk/use-inferred-state";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { buildUserAgents, userAgentsPromptBlock } from "@/lib/user-agents";
 import { playStreamingTTS } from "@/lib/tts-stream";
+import { useLiveCursors } from "@/hooks/use-live-cursors";
+import { CursorsOverlay } from "./team-desk/CursorsOverlay";
 
 type SessionContext = {
   name: string;
