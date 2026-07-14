@@ -1079,7 +1079,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           <ReactionsOverlay reactions={reactions} />
 
           {/* Live reactions strip — click an emoji to broadcast a floating burst */}
-          <div className="absolute bottom-5 right-5 z-20 flex items-center gap-1 border border-border bg-background/95 px-2 py-1.5 shadow-sm">
+          <div className="absolute bottom-20 right-5 z-30 flex items-center gap-1 border border-border bg-background/95 px-2 py-1.5 shadow-sm">
             <span className="eyebrow mr-1 text-muted-foreground">react</span>
             {(["👍", "💡", "❓", "🔥", "❤️", "😂"] as const).map((e) => (
               <button
