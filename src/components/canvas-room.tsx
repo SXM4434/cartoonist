@@ -359,7 +359,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     } finally {
       setThinking(false);
     }
-  }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants]);
+  }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, mediatorMuted]);
 
   // Auto-draw from speech: every ~6s if there's new committed text (voice mode only).
   // Note: transcript_chunks rows are written by the diarization hook below, not here,
