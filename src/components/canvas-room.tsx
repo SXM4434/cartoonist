@@ -766,7 +766,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
             onEditProfile={() => { if (selfPid) openCheckInFor(selfPid); }}
             onCheckInAs={openCheckInFor}
             onStartKiosk={startKiosk}
-            kioskActive={kioskQueue.length > 0}
+            kioskActive={kioskMode}
           />
           {chatOpen && (
             <div className="min-h-0 flex-1 border-t border-border">
