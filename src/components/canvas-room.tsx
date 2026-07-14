@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, Eraser, FileDown, Mic, MicOff, MessageSquare, Pencil, Send, Sparkles, UserPlus } from "lucide-react";
+import { Check, Copy, Eraser, FileDown, Mic, MicOff, MessageSquare, Pencil, Send, Sparkles, UserPlus, Volume2, VolumeX } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
