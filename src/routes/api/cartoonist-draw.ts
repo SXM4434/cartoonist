@@ -303,11 +303,24 @@ ${latest || transcript}`;
           return transcriptForCheck.includes(urlMatch[0]);
         });
 
+        // Voice guard: strip speak if it mentions a name not on the allowlist.
+        const rawSpeak = typeof parsed.speak === "string" ? parsed.speak.trim().slice(0, 200) : "";
+        let safeSpeak = rawSpeak;
+        if (safeSpeak) {
+          const allowed = new Set(voiceNames.map((n) => n.toLowerCase()));
+          const mentions = [...(participantsBlock.match(/- \*\*([^*]+)\*\*/g) ?? [])].map((m) => m.replace(/[-*\s]/g, "").toLowerCase());
+          const spoken = safeSpeak.toLowerCase();
+          for (const name of mentions) {
+            if (name && spoken.includes(name) && !allowed.has(name)) { safeSpeak = ""; break; }
+          }
+        }
+
         return json({
           modality,
           shapes: cleanShapes,
           edits: Array.isArray(parsed.edits) ? parsed.edits : [],
           removes: Array.isArray(parsed.removes) ? parsed.removes : [],
+          speak: safeSpeak,
           rationale: typeof parsed.rationale === "string" ? parsed.rationale : "",
         });
       },
