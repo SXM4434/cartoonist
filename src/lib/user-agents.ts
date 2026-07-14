@@ -20,7 +20,7 @@ export type UserAgent = {
   };
   present: {
     // Only labels — never leaks quoted text unless already shared.
-    focus: InferredState["kind"] | "idle";
+    focus: FocusLabel;
     detail?: string;
   };
   future: {
