@@ -278,10 +278,10 @@ ${latest || transcript}`;
         }
 
         // v1 P1.9 — live cost meter. Log usage per room so the HUD can sum.
-        // Pricing (Gemini 2.5 Pro, USD per 1M tokens): in $1.25, out $5.
         const inputTokens = Math.max(0, Number(data.usage?.prompt_tokens ?? 0) | 0);
         const outputTokens = Math.max(0, Number(data.usage?.completion_tokens ?? 0) | 0);
-        const costUsd = (inputTokens * 1.25 + outputTokens * 5.0) / 1_000_000;
+        const price = pricing[model] ?? pricing["google/gemini-2.5-pro"];
+        const costUsd = (inputTokens * price.in + outputTokens * price.out) / 1_000_000;
         const roomId = typeof body.roomId === "string" ? body.roomId : null;
         if (roomId && (inputTokens || outputTokens)) {
           try {
@@ -289,7 +289,7 @@ ${latest || transcript}`;
             await supabaseAdmin.from("ai_calls").insert({
               room_id: roomId,
               stage: "renderer",
-              model: "google/gemini-2.5-pro",
+              model,
               input_tokens: inputTokens,
               output_tokens: outputTokens,
               cost_usd: costUsd,
@@ -298,6 +298,7 @@ ${latest || transcript}`;
             console.warn("[cartoonist-draw] cost log failed", err);
           }
         }
+
 
         // v2.P1.5 anti-fabrication guard: strip fetch_card shapes whose
         // caption URL never appeared verbatim in the transcript. Model is
