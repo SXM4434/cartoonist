@@ -24,6 +24,8 @@ import { playStreamingTTS } from "@/lib/tts-stream";
 import { useLiveCursors } from "@/hooks/use-live-cursors";
 import { useSharedFocus } from "@/hooks/use-shared-focus";
 import { CursorsOverlay } from "./team-desk/CursorsOverlay";
+import { ReactionsOverlay } from "./team-desk/ReactionsOverlay";
+import { useReactions } from "@/hooks/use-reactions";
 
 type SessionContext = {
   name: string;
@@ -162,6 +164,18 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     selfName: selfParticipant?.name,
     selfColor: selfParticipant?.color,
   });
+  const { reactions, send: sendReaction } = useReactions({
+    roomId,
+    selfPid,
+    selfName: selfParticipant?.name,
+    selfColor: selfParticipant?.color,
+  });
+
+  const emitReaction = useCallback((emoji: string) => {
+    const nx = 0.32 + Math.random() * 0.36;
+    const ny = 0.72 + Math.random() * 0.12;
+    sendReaction(emoji, nx, ny);
+  }, [sendReaction]);
 
   // Pull session context + auto-join from local profile
   useEffect(() => {
@@ -1061,6 +1075,24 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
             <Canvas shapes={shapes} drawingEnabled={drawing} />
           </CanvasProvider>
           <CursorsOverlay cursors={remoteCursors} />
+          <ReactionsOverlay reactions={reactions} />
+
+          {/* Live reactions strip — click an emoji to broadcast a floating burst */}
+          <div className="absolute bottom-20 right-5 z-30 flex items-center gap-1 border border-border bg-background/95 px-2 py-1.5 shadow-sm">
+            <span className="eyebrow mr-1 text-muted-foreground">react</span>
+            {(["👍", "💡", "❓", "🔥", "❤️", "😂"] as const).map((e) => (
+              <button
+                key={e}
+                type="button"
+                onClick={() => emitReaction(e)}
+                aria-label={`React ${e}`}
+                className="h-7 w-7 text-lg leading-none transition hover:scale-125"
+                style={{ fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif' }}
+              >
+                {e}
+              </button>
+            ))}
+          </div>
 
           {reopenPeek && (
             <div
