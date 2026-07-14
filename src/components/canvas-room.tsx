@@ -16,6 +16,7 @@ import { ChatPanel } from "./chat-panel";
 import { CostMeter } from "./cost-meter";
 import { CheckIn } from "./team-desk/CheckIn";
 import { TeamDesk } from "./team-desk/TeamDesk";
+import { ThreadRail, type CanvasThread } from "./team-desk/ThreadRail";
 import type { InferredState } from "./team-desk/use-inferred-state";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
