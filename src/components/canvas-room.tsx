@@ -223,6 +223,17 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         thread_id: seedThread,
       });
     }
+    setThreads((prev) => [
+      ...prev,
+      {
+        id: seedThread,
+        latest: `Session brief: ${sessionCtx.goal ?? sessionCtx.name ?? "opening"}`,
+        modality: "seed",
+        shapeIds: seeded.map((s) => s.id),
+        at: Date.now(),
+        source: "seed",
+      },
+    ]);
   }, [sessionCtx, shapes.length, roomId]);
 
 
