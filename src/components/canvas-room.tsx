@@ -434,6 +434,14 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                     reopenCount: (existing.reopenCount ?? 0) + 1,
                     relation: relation ?? existing.relation ?? null,
                   };
+                  // v2.P6 — fire the glow + peek so the reopen is felt, not just filed.
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("cartoonist:reopen", {
+                      detail: { oldIds: existing.shapeIds, newIds, relation: relation ?? existing.relation ?? null },
+                    }));
+                    setReopenPeek({ relation: relation ?? existing.relation ?? null, latest: latest.slice(0, 160), oldLatest: existing.latest });
+                    window.setTimeout(() => setReopenPeek(null), 4200);
+                  }
                   return [...prev.slice(0, idx), ...prev.slice(idx + 1), merged];
                 }
               }
