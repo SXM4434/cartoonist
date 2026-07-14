@@ -228,13 +228,24 @@ ${transcript}
 # Latest chunk to react to
 ${latest || transcript}`;
 
+        // Route to Flash by default for latency; escalate to Pro when the
+        // user is asking for a revision (reasoning-heavy) or when there's
+        // an unresolved-thread the mediator may need to surface carefully.
+        const hasUnresolved = states.some((s) => s.focus === "unresolved-thread");
+        const model = reviseIntent || hasUnresolved ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash";
+        // Pricing per 1M tokens (USD)
+        const pricing: Record<string, { in: number; out: number }> = {
+          "google/gemini-2.5-pro": { in: 1.25, out: 5.0 },
+          "google/gemini-2.5-flash": { in: 0.3, out: 2.5 },
+        };
+
         let res: Response;
         try {
           res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
-              model: "google/gemini-2.5-pro",
+              model,
               response_format: { type: "json_object" },
               messages: [
                 { role: "system", content: SYSTEM_PROMPT },
@@ -242,6 +253,7 @@ ${latest || transcript}`;
               ],
             }),
           });
+
         } catch (error) {
           console.error("AI draw request failed", error);
           return json({ error: "AI draw is temporarily unavailable — try again in a moment.", shapes: [], edits: [], removes: [] });
