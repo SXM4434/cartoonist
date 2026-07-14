@@ -19,7 +19,7 @@ export function ReactionsOverlay({ reactions }: { reactions: Reaction[] }) {
             animation: "cartoonistReactionFloat 2.4s ease-out forwards",
           }}
         >
-          <span style={{ fontSize: 34, lineHeight: 1 }}>{r.emoji}</span>
+          <span style={{ fontSize: 34, lineHeight: 1, fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif' }}>{r.emoji}</span>
           <span
             className="mt-1 border px-1.5 py-0.5 text-[10px] uppercase tracking-wider"
             style={{
