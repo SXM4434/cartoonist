@@ -172,13 +172,9 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   });
 
   const emitReaction = useCallback((emoji: string) => {
-    const el = canvasStageRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    // Random jitter near bottom-center so overlapping bursts don't stack.
     const nx = 0.32 + Math.random() * 0.36;
     const ny = 0.72 + Math.random() * 0.12;
-    void rect; // rect not needed since coords are normalized
+    console.log("[reaction] emit", emoji, nx, ny);
     sendReaction(emoji, nx, ny);
   }, [sendReaction]);
 
