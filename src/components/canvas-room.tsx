@@ -74,6 +74,7 @@ function humanLayerFromParticipant(me: ParticipantWithHumanLayer): HumanLayer {
     can_help_with: me.can_help_with ?? "",
     share_blockers: me.share_blockers ?? false,
     share_needs: me.share_needs ?? true,
+    allow_voice_mention: me.allow_voice_mention ?? true,
     human_layer_complete: me.human_layer_complete ?? false,
   };
 }
