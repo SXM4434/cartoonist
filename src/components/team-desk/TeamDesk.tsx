@@ -90,7 +90,16 @@ export function TeamDesk({
   return (
     <aside className="flex w-[280px] shrink-0 flex-col border-l border-border bg-background">
       <div className="flex items-center justify-between border-b border-border px-2.5 py-2">
-        <span className="eyebrow text-foreground">Team Desk</span>
+        <span className="eyebrow text-foreground">
+          Team Desk
+          {present.size > 0 && (
+            <span className="ml-2 inline-flex items-center gap-1 text-muted-foreground normal-case tracking-normal">
+              <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--accent,#3fb56b)]" />
+              <span className="tabular-nums">{present.size}</span>
+              <span>here</span>
+            </span>
+          )}
+        </span>
         <div className="flex items-center gap-1">
           {onStartKiosk && (
             <Button
