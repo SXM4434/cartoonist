@@ -249,6 +249,19 @@ export function CheckIn({
               className="rounded-none border-border"
             />
           </div>
+
+          <label className="flex cursor-pointer items-start gap-2 border border-border p-2 text-foreground">
+            <input
+              type="checkbox"
+              checked={state.allow_voice_mention}
+              onChange={(e) => set("allow_voice_mention", e.target.checked)}
+              className="mt-0.5 h-3.5 w-3.5 accent-primary"
+            />
+            <span className="flex-1" style={{ fontSize: "var(--step-0)" }}>
+              <span className="eyebrow block text-foreground">Let the mediator say my name out loud</span>
+              <span className="text-muted-foreground">Uncheck if you'd rather not be called out by voice.</span>
+            </span>
+          </label>
         </div>
 
         <DialogFooter className="mt-4 flex-row items-center justify-between gap-2 sm:justify-between">
