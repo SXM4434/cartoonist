@@ -24,7 +24,7 @@ export const Route = createFileRoute("/api/mediator-tts")({
         const voiceId = body.voiceId?.trim() || "9BWtsMINqrJLrRacOk9x";
 
         const res = await fetch(
-          `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_22050_32`,
+          `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream?output_format=mp3_22050_32&optimize_streaming_latency=3`,
           {
             method: "POST",
             headers: {
@@ -39,17 +39,19 @@ export const Route = createFileRoute("/api/mediator-tts")({
             }),
           },
         );
-        if (!res.ok) {
-          const detail = await res.text();
+        if (!res.ok || !res.body) {
+          const detail = await res.text().catch(() => "");
           console.error("[mediator-tts] elevenlabs error", res.status, detail);
           return new Response("TTS failed", { status: res.status });
         }
-        const buf = await res.arrayBuffer();
-        return new Response(buf, {
+        // Stream MP3 chunks straight through — client feeds them into a
+        // MediaSource so playback starts on the first buffered chunk.
+        return new Response(res.body, {
           status: 200,
           headers: {
             "Content-Type": "audio/mpeg",
             "Cache-Control": "no-store",
+            "Transfer-Encoding": "chunked",
           },
         });
       },
