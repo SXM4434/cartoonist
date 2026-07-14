@@ -74,7 +74,7 @@ export async function playStreamingTTS(opts: StreamingTTSOptions): Promise<HTMLA
       const pump = () => {
         if (sb.updating || queue.length === 0) return;
         const chunk = queue.shift()!;
-        try { sb.appendBuffer(chunk); } catch { /* MediaSource closed */ }
+        try { sb.appendBuffer(chunk.slice().buffer as ArrayBuffer); } catch { /* MediaSource closed */ }
       };
       sb.addEventListener("updateend", () => {
         pump();
