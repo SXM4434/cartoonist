@@ -164,6 +164,23 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     selfName: selfParticipant?.name,
     selfColor: selfParticipant?.color,
   });
+  const { reactions, send: sendReaction } = useReactions({
+    roomId,
+    selfPid,
+    selfName: selfParticipant?.name,
+    selfColor: selfParticipant?.color,
+  });
+
+  const emitReaction = useCallback((emoji: string) => {
+    const el = canvasStageRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    // Random jitter near bottom-center so overlapping bursts don't stack.
+    const nx = 0.32 + Math.random() * 0.36;
+    const ny = 0.72 + Math.random() * 0.12;
+    void rect; // rect not needed since coords are normalized
+    sendReaction(emoji, nx, ny);
+  }, [sendReaction]);
 
   // Pull session context + auto-join from local profile
   useEffect(() => {
