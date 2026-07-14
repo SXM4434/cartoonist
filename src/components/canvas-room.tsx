@@ -786,7 +786,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         open={introOpen}
         mode={introMode}
         roomId={roomId}
-        onClose={() => { setIntroOpen(false); setIntroMode("self"); }}
+        onClose={() => { setIntroOpen(false); setIntroMode("self"); if (kioskMode) endKiosk(); }}
         onSubmit={handleIntroSubmit}
       />
 
