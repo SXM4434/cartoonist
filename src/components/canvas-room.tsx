@@ -539,6 +539,16 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   }, [participants]);
 
   const startKiosk = useCallback(() => {
+    if (kioskMode) {
+      // Toggle off — end the kiosk loop.
+      setKioskMode(false);
+      setKioskQueue([]);
+      setCheckInOpen(false);
+      setIntroOpen(false);
+      setIntroMode("self");
+      toast.info("Kiosk ended");
+      return;
+    }
     setKioskMode(true);
     const pending = participants.filter((p) => !p.human_layer_complete).map((p) => p.id);
     if (pending.length === 0) {
@@ -546,12 +556,13 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     } else {
       advanceKiosk(pending, true);
     }
-  }, [participants, advanceKiosk, promptAddNextInKiosk]);
+  }, [kioskMode, participants, advanceKiosk, promptAddNextInKiosk]);
 
   const endKiosk = useCallback(() => {
     setKioskMode(false);
     setKioskQueue([]);
   }, []);
+
 
   const openAddPerson = useCallback(() => {
     setIntroMode("add");
