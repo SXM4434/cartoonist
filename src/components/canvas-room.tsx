@@ -26,6 +26,7 @@ import { useSharedFocus } from "@/hooks/use-shared-focus";
 import { CursorsOverlay } from "./team-desk/CursorsOverlay";
 import { ReactionsOverlay } from "./team-desk/ReactionsOverlay";
 import { useReactions } from "@/hooks/use-reactions";
+import { useHandQueue } from "@/hooks/use-hand-queue";
 
 type SessionContext = {
   name: string;
