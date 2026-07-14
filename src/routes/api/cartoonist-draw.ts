@@ -230,7 +230,16 @@ ${voiceNames.length ? voiceNames.map((n) => `- ${n}`).join("\n") : `(nobody has 
 
 `;
 
-        const userMsg = `${ctxBlock}${participantsBlock}${liveStatesBlock}${voiceBlock}${canvasHeader}
+        // v2.P6 — open threads the model may extend / reference.
+        const openThreads = Array.isArray(body.openThreads) ? body.openThreads.slice(-8) : [];
+        const openThreadsBlock = openThreads.length
+          ? `# openThreads (past utterances with shapes still on canvas — you MAY set thread_ref to one of these ids)
+${openThreads.map((t) => `- ${t.id}${t.modality ? ` [${t.modality}]` : ""}: "${(t.latest ?? "").slice(0, 140)}"`).join("\n")}
+
+`
+          : "";
+
+        const userMsg = `${ctxBlock}${participantsBlock}${liveStatesBlock}${voiceBlock}${openThreadsBlock}${canvasHeader}
 ${existingBlock}
 
 # Full recent conversation
