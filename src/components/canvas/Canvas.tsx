@@ -234,6 +234,10 @@ export function Canvas({
   const editorRef = useRef<Editor | null>(null);
   const createdShapeIdsRef = useRef(new Set<string>());
   const [mounted, setMounted] = useState(false);
+  // v2.P6 — glow overlay: rects positioned over the shape bounds of a
+  // reopened thread, pulse for ~3s so people can see the mediator returning
+  // to an older idea instead of piling a fresh one beside it.
+  const [glow, setGlow] = useState<Array<{ id: string; x: number; y: number; w: number; h: number; tone: "old" | "new" }>>([]);
 
   const handleMount = useCallback(
     (editor: Editor) => {
