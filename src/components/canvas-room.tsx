@@ -289,23 +289,50 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         setDrawError(data?.error ?? "AI draw failed");
         return;
       }
-      // v2.P4 — mediator speaks. Play the short interjection via Web Speech,
-      // gated by the per-user mute toggle. Deduped so re-renders don't repeat.
+      // v2.P4 — mediator speaks. Prefer ElevenLabs (warm, natural) via
+      // /api/mediator-tts; fall back to Web Speech if that fails. Gated by
+      // the per-user mute toggle. Deduped so re-renders don't repeat.
       const speak = typeof data?.speak === "string" ? data.speak.trim() : "";
-      if (speak && !mediatorMuted && speak !== lastSpokenRef.current && typeof window !== "undefined" && "speechSynthesis" in window) {
+      if (speak && !mediatorMuted && speak !== lastSpokenRef.current && typeof window !== "undefined") {
         lastSpokenRef.current = speak;
-        try {
-          const u = new SpeechSynthesisUtterance(speak);
-          u.rate = 1.02; u.pitch = 1.0; u.volume = 0.9;
-          // Suppress self-echo: after the mediator finishes speaking, skip
-          // any transcript captured during TTS so we don't re-trigger a draw.
-          u.onend = () => {
-            lastSentLenRef.current = speech.finals.join(" ").length;
-          };
-          window.speechSynthesis.cancel();
-          window.speechSynthesis.speak(u);
-        } catch { /* noop */ }
+        const onDone = () => {
+          // Suppress self-echo: skip transcript captured during TTS.
+          lastSentLenRef.current = speech.finals.join(" ").length;
+        };
+        void (async () => {
+          try {
+            const ttsRes = await fetch("/api/mediator-tts", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text: speak }),
+            });
+            if (!ttsRes.ok) throw new Error("tts http " + ttsRes.status);
+            const blob = await ttsRes.blob();
+            const url = URL.createObjectURL(blob);
+            if (ttsAudioRef.current) {
+              try { ttsAudioRef.current.pause(); } catch { /* noop */ }
+            }
+            const audio = new Audio(url);
+            audio.volume = 0.95;
+            ttsAudioRef.current = audio;
+            audio.onended = () => { onDone(); URL.revokeObjectURL(url); };
+            audio.onerror = () => { onDone(); URL.revokeObjectURL(url); };
+            await audio.play();
+          } catch {
+            // Fallback to Web Speech
+            if ("speechSynthesis" in window) {
+              try {
+                const u = new SpeechSynthesisUtterance(speak);
+                u.rate = 1.02; u.pitch = 1.0; u.volume = 0.9;
+                u.onend = onDone;
+                window.speechSynthesis.cancel();
+                window.speechSynthesis.speak(u);
+              } catch { /* noop */ }
+            }
+          }
+        })();
       }
+
       const incoming = Array.isArray(data.shapes) ? (data.shapes as SketchPrimitive[]) : [];
       const edits = Array.isArray(data.edits) ? (data.edits as Array<{ id: string; patch: Record<string, unknown> }>) : [];
       const removes = Array.isArray(data.removes) ? (data.removes as string[]) : [];
