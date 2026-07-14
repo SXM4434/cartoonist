@@ -131,6 +131,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [sessionCtx, setSessionCtx] = useState<SessionContext | null>(null);
   const [inputMode, setInputMode] = useState<"voice" | "chat">("voice");
   const [selfPid, setSelfPid] = useState<string | null>(null);
+  const canvasStageRef = useRef<HTMLDivElement | null>(null);
   const [chatOpen, setChatOpen] = useState(true);
   const [mediatorMuted, setMediatorMuted] = useState(false);
   const inferredStatesRef = useRef<Record<string, InferredState>>({});
