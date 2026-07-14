@@ -213,7 +213,13 @@ When ready, an 'annotation' anchored on the relevant shape (or a small 'typed_no
           ? `# Already on canvas (REVISE MODE — the user is unhappy, prefer edits/removes on these ids over adding new shapes)`
           : `# Already on canvas (extend, don't repeat; you may reference these ids in edits/removes if the user asks to change them)`;
 
-        const userMsg = `${ctxBlock}${participantsBlock}${liveStatesBlock}${canvasHeader}
+        const voiceNames = Array.isArray(body.voiceAllowedNames) ? body.voiceAllowedNames.filter((s) => typeof s === "string" && s.trim().length > 0) : [];
+        const voiceBlock = `# voiceAllowedNames (only these participants have opted in to being named by voice — never speak the name of anyone not on this list)
+${voiceNames.length ? voiceNames.map((n) => `- ${n}`).join("\n") : "(nobody has opted in — omit "speak" entirely this turn)"}
+
+`;
+
+        const userMsg = `${ctxBlock}${participantsBlock}${liveStatesBlock}${voiceBlock}${canvasHeader}
 ${existingBlock}
 
 # Full recent conversation
