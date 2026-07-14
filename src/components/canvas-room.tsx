@@ -399,6 +399,20 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
             source: "mediator", transcript_span: span, confidence: 0.9, thread_id: threadId,
           });
         }
+        // Track thread client-side for the Threads rail (jump-to on canvas).
+        if (fresh.length || edits.length) {
+          const modality = span.modality;
+          const shapeIds = [
+            ...fresh.map((s) => s.id),
+            ...edits.map((e) => e.id).filter((id) => byId.has(id)),
+          ];
+          if (shapeIds.length) {
+            setThreads((prev) => [
+              ...prev.slice(-49),
+              { id: threadId, latest: latest.slice(0, 240), modality, shapeIds, at: Date.now(), source: "mediator" },
+            ]);
+          }
+        }
         return Array.from(byId.values());
       });
     } catch (e) {
