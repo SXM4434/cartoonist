@@ -295,6 +295,11 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         try {
           const u = new SpeechSynthesisUtterance(speak);
           u.rate = 1.02; u.pitch = 1.0; u.volume = 0.9;
+          // Suppress self-echo: after the mediator finishes speaking, skip
+          // any transcript captured during TTS so we don't re-trigger a draw.
+          u.onend = () => {
+            lastSentLenRef.current = speech.finals.join(" ").length;
+          };
           window.speechSynthesis.cancel();
           window.speechSynthesis.speak(u);
         } catch { /* noop */ }
