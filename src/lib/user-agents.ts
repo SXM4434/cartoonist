@@ -6,7 +6,7 @@
 // stated strengths, worries, and needs.
 
 import type { ParticipantWithHumanLayer } from "@/lib/canvas-types";
-import type { InferredState } from "@/components/team-desk/use-inferred-state";
+import type { InferredState, FocusLabel } from "@/components/team-desk/use-inferred-state";
 
 export type UserAgent = {
   pid: string;
