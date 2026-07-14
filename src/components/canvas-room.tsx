@@ -1039,10 +1039,11 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       )}
 
       <div className="flex flex-1 overflow-hidden">
-        <div className="relative flex-1 overflow-hidden">
+        <div ref={canvasStageRef} className="relative flex-1 overflow-hidden">
           <CanvasProvider>
             <Canvas shapes={shapes} drawingEnabled={drawing} />
           </CanvasProvider>
+          <CursorsOverlay cursors={remoteCursors} />
 
           {reopenPeek && (
             <div
