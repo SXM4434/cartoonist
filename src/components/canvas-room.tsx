@@ -292,10 +292,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const { buildUserAgents, userAgentsPromptBlock } = await import("@/lib/user-agents");
       const agentsBlock = userAgentsPromptBlock(buildUserAgents(participants, inferredStatesRef.current));
       const voiceAllowedNames = participants.filter((p) => p.allow_voice_mention !== false).map((p) => p.name);
+      // v2.P6 — send recent open threads so the model can extend/reference them.
+      const openThreads = threads.slice(-8).map((t) => ({ id: t.id, latest: t.latest, modality: t.modality }));
       const res = await fetch("/api/cartoonist-draw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId, transcript: fullContext, latest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames }),
+        body: JSON.stringify({ roomId, transcript: fullContext, latest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.error) {
