@@ -19,6 +19,8 @@ import { TeamDesk } from "./team-desk/TeamDesk";
 import { ThreadRail, type CanvasThread } from "./team-desk/ThreadRail";
 import type { InferredState } from "./team-desk/use-inferred-state";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { buildUserAgents, userAgentsPromptBlock } from "@/lib/user-agents";
+import { playStreamingTTS } from "@/lib/tts-stream";
 
 type SessionContext = {
   name: string;
