@@ -16,6 +16,7 @@ import { ChatPanel } from "./chat-panel";
 import { CostMeter } from "./cost-meter";
 import { CheckIn } from "./team-desk/CheckIn";
 import { TeamDesk } from "./team-desk/TeamDesk";
+import { ThreadRail, type CanvasThread } from "./team-desk/ThreadRail";
 import type { InferredState } from "./team-desk/use-inferred-state";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
@@ -131,6 +132,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const inferredStatesRef = useRef<Record<string, InferredState>>({});
   const lastSpokenRef = useRef<string>("");
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [threads, setThreads] = useState<CanvasThread[]>([]);
 
 
   const speech = useSpeech();
@@ -221,6 +223,17 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         thread_id: seedThread,
       });
     }
+    setThreads((prev) => [
+      ...prev,
+      {
+        id: seedThread,
+        latest: `Session brief: ${sessionCtx.goal ?? sessionCtx.name ?? "opening"}`,
+        modality: "seed",
+        shapeIds: seeded.map((s) => s.id),
+        at: Date.now(),
+        source: "seed",
+      },
+    ]);
   }, [sessionCtx, shapes.length, roomId]);
 
 
@@ -385,6 +398,20 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
             room_id: roomId, op: { kind: "remove", id } as unknown as Record<string, string>, t_offset_ms: stamp,
             source: "mediator", transcript_span: span, confidence: 0.9, thread_id: threadId,
           });
+        }
+        // Track thread client-side for the Threads rail (jump-to on canvas).
+        if (fresh.length || edits.length) {
+          const modality = span.modality;
+          const shapeIds = [
+            ...fresh.map((s) => s.id),
+            ...edits.map((e) => e.id).filter((id) => byId.has(id)),
+          ];
+          if (shapeIds.length) {
+            setThreads((prev) => [
+              ...prev.slice(-49),
+              { id: threadId, latest: latest.slice(0, 240), modality, shapeIds, at: Date.now(), source: "mediator" },
+            ]);
+          }
         }
         return Array.from(byId.values());
       });
@@ -684,6 +711,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           <Button size="sm" variant="outline" onClick={() => setChatOpen((v) => !v)} className={`h-8 gap-1.5 rounded-none border-border ${chatOpen ? "bg-foreground text-background" : ""}`}>
             <MessageSquare className="h-3.5 w-3.5" /><span className="eyebrow">Chat</span>
           </Button>
+          <ThreadRail threads={threads} />
           <Button
             size="sm"
             variant="outline"
