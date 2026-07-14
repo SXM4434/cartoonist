@@ -38,6 +38,7 @@ export function TeamDesk({
   const { modeFor } = useParticipantState({ roomId, selfPid, selfSpeaking, selfTyping });
   const participantIds = useMemo(() => participants.map((p) => p.id), [participants]);
   const inferred = useInferredState({ roomId, participantIds });
+  const present = useRoomPresence({ roomId, selfPid });
 
   useEffect(() => {
     onInferredStates?.(inferred);
