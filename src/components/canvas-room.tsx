@@ -293,7 +293,6 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         })
         .filter(Boolean);
       // v2.P3 follow-up — unify mediator + drafter on the same agent block.
-      const { buildUserAgents, userAgentsPromptBlock } = await import("@/lib/user-agents");
       const agentsBlock = userAgentsPromptBlock(buildUserAgents(participants, inferredStatesRef.current));
       const voiceAllowedNames = participants.filter((p) => p.allow_voice_mention !== false).map((p) => p.name);
       // v2.P6 — send recent open threads so the model can extend/reference them.
