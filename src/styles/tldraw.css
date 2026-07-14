@@ -171,6 +171,14 @@
   100% { opacity: 0; transform: translate(-50%, -4px); }
 }
 
+@keyframes cartoonistReactionFloat {
+  0%   { opacity: 0; transform: translate(-50%, 8px) scale(0.6); }
+  15%  { opacity: 1; transform: translate(-50%, -6px) scale(1.15); }
+  35%  { transform: translate(-50%, -22px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -80px) scale(0.9); }
+}
+
+
 /* v2.P6 — persistent ↗ chip on shapes belonging to cross-thread relations.
    Anchored to shape top-right in viewport coords, click opens the peek panel. */
 .cartoonist-relation-chip {
