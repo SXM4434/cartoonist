@@ -73,11 +73,14 @@ export function TeamDesk({
         {participants.map((p) => (
           <div
             key={p.id}
-            className="flex h-7 w-7 items-center justify-center border border-border font-medium uppercase text-background"
-            title={p.name}
+            className="relative flex h-7 w-7 items-center justify-center border border-border font-medium uppercase text-background"
+            title={present.has(p.id) ? `${p.name} · here now` : p.name}
             style={{ backgroundColor: p.color, fontSize: "var(--step-0)" }}
           >
             {p.name.slice(0, 1)}
+            {present.has(p.id) && (
+              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border border-background bg-[color:var(--accent,#3fb56b)]" />
+            )}
           </div>
         ))}
       </aside>
