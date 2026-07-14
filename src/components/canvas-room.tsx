@@ -414,7 +414,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     } finally {
       setGenerating(false);
     }
-  }, [speech.finals]);
+  }, [speech.finals, participants]);
 
   const handleIntroSubmit = useCallback(async (data: { name: string; role: string; personality: string; color: string; voiceSamplePath: string | null }) => {
     const isAdd = introMode === "add";
