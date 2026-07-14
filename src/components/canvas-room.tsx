@@ -367,6 +367,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   useEffect(() => {
     if (inputMode === "chat") return;
     if (!speech.listening) return;
+    if (thinking) return;
     const text = speech.finals.join(" ");
     if (text.length <= lastSentLenRef.current + 6) return;
     const timer = setTimeout(() => {
