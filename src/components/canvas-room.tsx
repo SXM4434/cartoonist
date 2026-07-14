@@ -436,6 +436,13 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
     if (isAdd) {
       setParticipants((prev) => [...prev, { id: pid, name: data.name, role: data.role, color: data.color }]);
+      // In kiosk mode, immediately walk this new person through their check-in.
+      if (kioskMode) {
+        setCheckInInitial(EMPTY_HUMAN_LAYER);
+        setCheckInPid(pid);
+        setCheckInName(data.name);
+        setCheckInOpen(true);
+      }
     } else {
       if (ins?.id) window.localStorage.setItem(`cartoonist_participant_${roomId}`, ins.id);
       setSelfPid(pid);
@@ -446,7 +453,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       setCheckInName(data.name);
       setCheckInOpen(true);
     }
-  }, [roomId, inputMode, introMode]);
+  }, [roomId, inputMode, introMode, kioskMode]);
 
   const advanceKiosk = useCallback((remaining: string[]) => {
     if (remaining.length === 0) {
