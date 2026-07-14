@@ -41,6 +41,7 @@ type ParticipantRow = {
   can_help_with: string | null;
   share_blockers: boolean | null;
   share_needs: boolean | null;
+  allow_voice_mention: boolean | null;
   human_layer_complete: boolean | null;
 };
 
@@ -59,6 +60,7 @@ function rowToParticipant(p: ParticipantRow): ParticipantWithHumanLayer {
     can_help_with: p.can_help_with,
     share_blockers: p.share_blockers,
     share_needs: p.share_needs,
+    allow_voice_mention: p.allow_voice_mention,
     human_layer_complete: p.human_layer_complete,
   };
 }
