@@ -132,6 +132,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const inferredStatesRef = useRef<Record<string, InferredState>>({});
   const lastSpokenRef = useRef<string>("");
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [threads, setThreads] = useState<CanvasThread[]>([]);
 
 
   const speech = useSpeech();
