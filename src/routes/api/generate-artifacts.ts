@@ -27,7 +27,7 @@ export const Route = createFileRoute("/api/generate-artifacts")({
           );
         }
 
-        let body: { transcript?: string };
+        let body: { transcript?: string; participantsBlock?: string };
         try {
           body = await request.json();
         } catch {
