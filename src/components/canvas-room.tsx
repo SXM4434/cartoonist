@@ -1080,6 +1080,23 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
             <Canvas shapes={shapes} drawingEnabled={drawing} />
           </CanvasProvider>
           <CursorsOverlay cursors={remoteCursors} />
+          <ReactionsOverlay reactions={reactions} />
+
+          {/* Live reactions strip — click an emoji to broadcast a floating burst */}
+          <div className="absolute bottom-5 right-5 z-20 flex items-center gap-1 border border-border bg-background/95 px-2 py-1.5 shadow-sm">
+            <span className="eyebrow mr-1 text-muted-foreground">react</span>
+            {(["👍", "💡", "❓", "🔥", "❤️", "😂"] as const).map((e) => (
+              <button
+                key={e}
+                type="button"
+                onClick={() => emitReaction(e)}
+                aria-label={`React ${e}`}
+                className="h-7 w-7 text-lg leading-none transition hover:scale-125"
+              >
+                {e}
+              </button>
+            ))}
+          </div>
 
           {reopenPeek && (
             <div
