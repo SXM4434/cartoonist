@@ -15,12 +15,14 @@ export function ParticipantCard({
   mode,
   inferred,
   isSelf,
+  isPresent,
   onCheckInAs,
 }: {
   p: ParticipantWithHumanLayer;
   mode: ParticipantMode;
   inferred?: InferredState;
   isSelf: boolean;
+  isPresent?: boolean;
   onCheckInAs?: () => void;
 }) {
   const [open, setOpen] = useState(false);
