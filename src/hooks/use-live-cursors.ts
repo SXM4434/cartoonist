@@ -29,7 +29,7 @@ export function useLiveCursors({
   selfPid: string | null | undefined;
   selfName: string | undefined;
   selfColor: string | undefined;
-  containerRef: React.RefObject<HTMLElement>;
+  containerRef: React.RefObject<HTMLElement | null>;
 }) {
   const [cursors, setCursors] = useState<Record<string, RemoteCursor>>({});
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
