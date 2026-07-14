@@ -650,7 +650,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     } finally {
       setThinking(false);
     }
-  }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, mediatorMuted]);
+  }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, mediatorMuted, handQueue, threads]);
 
   // Auto-draw from speech: debounce ~1.2s after the last new final utterance,
   // so the mediator reacts as soon as the speaker pauses instead of waiting
