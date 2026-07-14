@@ -79,6 +79,7 @@ Out of v2.P2: scoring participants, leaderboards, anything ranked.
 
 **Slots after:** v1 Phase 3 (per-user past/present/future agents) **and** v2.P2.
 **Est:** ~4 days.
+**Status:** shipped 2026-07-14 (drafter path). `src/lib/user-agents.ts` projects each participant into `{past, present, future}` from Human Layer + `useInferredState`. `past` = role today / strengths / feedback style / can-help. `present` = live focus label (+ unresolved-point detail when detected). `future` = needs + blockers, gated by per-field `share_needs` / `share_blockers` so private worries never leak. `userAgentsPromptBlock` emits a compact markdown block; `canvas-room.generateArtifacts` now forwards it as `participantsBlock` to `/api/generate-artifacts`, whose system prompt requires decisions to attribute inline to a participant's stated strength/worry/need when there's a match, and biases action-item owners toward the person whose "can help with" fits. Mediator (`cartoonist-draw`) still gets the raw Human Layer block from v2.P1 — the agent projection is currently drafter-only; unifying both prompts on the same agent block is a follow-up.
 
 Scope:
 - v1's per-user agents get their seed context from the Human Layer profile instead of cold-starting from utterances.
