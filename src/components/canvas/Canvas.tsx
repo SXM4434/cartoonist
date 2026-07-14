@@ -359,6 +359,47 @@ export function Canvas({
     return () => cancelAnimationFrame(raf);
   }, [glowTargets]);
 
+  // v2.P6 — listen for relation updates from canvas-room. We map raw shape
+  // ids to prefixed tldraw ids and store the list; positions are reprojected
+  // per-frame in the effect below.
+  useEffect(() => {
+    if (!mounted || typeof window === "undefined") return;
+    const handler = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ items?: Array<{ id: string; threadId: string; relation: string; peer: string }> }>).detail;
+      const items = Array.isArray(detail?.items) ? detail!.items : [];
+      setRelationTargets(items.map((it) => ({ id: String(shapeId(it.id)), threadId: it.threadId, relation: it.relation, peer: it.peer })));
+    };
+    window.addEventListener("cartoonist:relations", handler as EventListener);
+    return () => window.removeEventListener("cartoonist:relations", handler as EventListener);
+  }, [mounted]);
+
+  // Reproject relation chips per frame. Cheap: at most a few dozen shapes.
+  useEffect(() => {
+    if (!mounted || !relationTargets.length) { setRelations([]); return; }
+    const editor = editorRef.current;
+    if (!editor) return;
+    let raf = 0;
+    const tick = () => {
+      const next: Array<{ id: string; threadId: string; relation: string; peer: string; x: number; y: number }> = [];
+      const page = editor.getCurrentPageShapeIds();
+      const present = new Set<string>();
+      for (const id of page) present.add(String(id));
+      for (const t of relationTargets) {
+        if (!present.has(t.id)) continue;
+        const bounds = editor.getShapePageBounds(t.id as unknown as Parameters<Editor["getShapePageBounds"]>[0]);
+        if (!bounds) continue;
+        const tr = editor.pageToViewport({ x: bounds.x + bounds.w, y: bounds.y });
+        next.push({ id: t.id, threadId: t.threadId, relation: t.relation, peer: t.peer, x: tr.x, y: tr.y });
+      }
+      setRelations(next);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [mounted, relationTargets]);
+
+
+
 
 
   useEffect(() => {
