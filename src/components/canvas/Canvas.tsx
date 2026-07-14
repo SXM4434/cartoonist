@@ -362,6 +362,18 @@ export function Canvas({
   return (
     <div className="absolute inset-0 bg-background">
       <Tldraw hideUi onMount={handleMount} />
+      {glow.length > 0 && (
+        <div className="pointer-events-none absolute inset-0 z-10">
+          {glow.map((r, i) => (
+            <div
+              key={`${r.id}-${i}`}
+              className="cartoonist-glow-ring"
+              data-tone={r.tone}
+              style={{ left: r.x - 6, top: r.y - 6, width: r.w + 12, height: r.h + 12 }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
