@@ -649,6 +649,22 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           <Button size="sm" variant="outline" onClick={() => setChatOpen((v) => !v)} className={`h-8 gap-1.5 rounded-none border-border ${chatOpen ? "bg-foreground text-background" : ""}`}>
             <MessageSquare className="h-3.5 w-3.5" /><span className="eyebrow">Chat</span>
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setMediatorMuted((v) => {
+                const next = !v;
+                if (next && typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
+                return next;
+              });
+            }}
+            title={mediatorMuted ? "Unmute mediator voice" : "Mute mediator voice"}
+            className={`h-8 gap-1.5 rounded-none border-border ${mediatorMuted ? "" : "bg-foreground text-background"}`}
+          >
+            {mediatorMuted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+            <span className="eyebrow">{mediatorMuted ? "Muted" : "Voice"}</span>
+          </Button>
           {inputMode === "voice" ? (
             speech.listening ? (
               <Button size="sm" onClick={speech.stop} className="h-8 gap-1.5 rounded-none bg-foreground text-background hover:bg-foreground/90">
