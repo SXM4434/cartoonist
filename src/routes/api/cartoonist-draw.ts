@@ -348,12 +348,22 @@ ${latest || transcript}`;
           }
         }
 
+        // v2.P6 — validate thread_ref against openThreads we sent in.
+        const openIds = new Set(openThreads.map((t) => t.id));
+        const rawRef = typeof parsed.thread_ref === "string" ? parsed.thread_ref.trim() : "";
+        const threadRef = rawRef && openIds.has(rawRef) ? rawRef : null;
+        const allowedRel = new Set(["extends", "references", "contradicts", "resolves"]);
+        const rawRel = typeof parsed.relation === "string" ? parsed.relation.trim() : "";
+        const relation = threadRef && allowedRel.has(rawRel) ? rawRel : null;
+
         return json({
           modality,
           shapes: cleanShapes,
           edits: Array.isArray(parsed.edits) ? parsed.edits : [],
           removes: Array.isArray(parsed.removes) ? parsed.removes : [],
           speak: safeSpeak,
+          thread_ref: threadRef,
+          relation,
           rationale: typeof parsed.rationale === "string" ? parsed.rationale : "",
         });
       },
