@@ -276,10 +276,11 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       // v2.P3 follow-up — unify mediator + drafter on the same agent block.
       const { buildUserAgents, userAgentsPromptBlock } = await import("@/lib/user-agents");
       const agentsBlock = userAgentsPromptBlock(buildUserAgents(participants, inferredStatesRef.current));
+      const voiceAllowedNames = participants.filter((p) => p.allow_voice_mention !== false).map((p) => p.name);
       const res = await fetch("/api/cartoonist-draw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId, transcript: fullContext, latest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock }),
+        body: JSON.stringify({ roomId, transcript: fullContext, latest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.error) {
