@@ -376,7 +376,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       void requestDraw(newText);
     }, 1200);
     return () => clearTimeout(timer);
-  }, [requestDraw, speech.finals, speech.listening, inputMode]);
+  }, [requestDraw, speech.finals, speech.listening, inputMode, thinking]);
 
   // Live diarization: rolling 8s chunks → ElevenLabs Scribe diarize → speaker_map
   const diarization = useLiveDiarization({
