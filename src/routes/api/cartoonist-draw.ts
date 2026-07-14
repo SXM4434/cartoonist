@@ -123,6 +123,7 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
             last_ms: number | null;
             unresolved_point?: string;
           }> | null;
+          agentsBlock?: string | null;
         };
         try {
           body = await request.json();
@@ -146,10 +147,17 @@ Your mode: ${ctx.facilitation || "scribe"} — ${ctx.facilitation === "facilitat
 
 ` : "";
 
-        // v2.P1 — compact participant block. Mediator uses stated preferences
-        // to route the right question to the right person and calibrate tone.
+        // v2.P3 follow-up — unified per-user agent block (past/present/future).
+        // Prefer it when the client sent one; fall back to the older ad-hoc
+        // participant summary for older callers.
+        const agentsBlockRaw = typeof body.agentsBlock === "string" ? body.agentsBlock.trim() : "";
         const parts = (body.participants ?? []).slice(0, 10);
-        const participantsBlock = parts.length
+        const participantsBlock = agentsBlockRaw
+          ? `# Participants (per-user agents — past = what they bring, present = live focus, future = needs/worries. Route questions and calibrate tone from this. Reference by first name.)
+${agentsBlockRaw.slice(0, 3000)}
+
+`
+          : parts.length
           ? `# Participants in the room (route questions and calibrate tone using these — reference by first name when it helps)
 ${parts.map((p) => {
   const role = (p.role_today || p.role || "").toString().trim();
@@ -165,6 +173,7 @@ ${parts.map((p) => {
 
 `
           : "";
+
 
         // v2.P2 — live state deltas the facilitator watch emitted. Only
         // non-trivial states (quiet-too-long / repeated-ask / unresolved-thread)
