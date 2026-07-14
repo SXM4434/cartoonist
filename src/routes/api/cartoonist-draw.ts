@@ -258,7 +258,7 @@ ${latest || transcript}`;
           usage?: { prompt_tokens?: number; completion_tokens?: number };
         };
         const content = data.choices?.[0]?.message?.content ?? "{}";
-        let parsed: { shapes?: unknown; edits?: unknown; removes?: unknown; rationale?: unknown; modality?: unknown } = {};
+        let parsed: { shapes?: unknown; edits?: unknown; removes?: unknown; rationale?: unknown; modality?: unknown; speak?: unknown } = {};
         try {
           parsed = JSON.parse(content);
         } catch {
