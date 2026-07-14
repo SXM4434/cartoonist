@@ -47,5 +47,6 @@ export type ParticipantWithHumanLayer = Participant & {
   can_help_with?: string | null;
   share_blockers?: boolean | null;
   share_needs?: boolean | null;
+  allow_voice_mention?: boolean | null;
   human_layer_complete?: boolean | null;
 };
