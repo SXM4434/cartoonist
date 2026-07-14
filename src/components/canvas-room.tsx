@@ -1087,6 +1087,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                 onClick={() => emitReaction(e)}
                 aria-label={`React ${e}`}
                 className="h-7 w-7 text-lg leading-none transition hover:scale-125"
+                style={{ fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif' }}
               >
                 {e}
               </button>
