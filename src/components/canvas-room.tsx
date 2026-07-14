@@ -133,6 +133,8 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const lastSpokenRef = useRef<string>("");
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const [threads, setThreads] = useState<CanvasThread[]>([]);
+  // v2.P6 — brief peek toast when the mediator returns to an older thread.
+  const [reopenPeek, setReopenPeek] = useState<{ relation: string | null; latest: string; oldLatest: string } | null>(null);
 
 
   const speech = useSpeech();
