@@ -478,6 +478,22 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     return () => clearTimeout(timer);
   }, [requestDraw, speech.finals, speech.listening, inputMode, thinking]);
 
+  // v2.P6 — publish a per-shape relations map to Canvas so it can render
+  // persistent ↗ chips glued to any shape belonging to a reopened / related
+  // thread. One chip per shape; click → focus the whole thread.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const items: Array<{ id: string; threadId: string; relation: string; label: string; peer: string }> = [];
+    for (const t of threads) {
+      if (!t.relation) continue;
+      const label = t.latest.slice(0, 120);
+      for (const sid of t.shapeIds) {
+        items.push({ id: sid, threadId: t.id, relation: t.relation, label, peer: t.latest.slice(0, 160) });
+      }
+    }
+    window.dispatchEvent(new CustomEvent("cartoonist:relations", { detail: { items } }));
+  }, [threads]);
+
   // Live diarization: rolling 8s chunks → ElevenLabs Scribe diarize → speaker_map
   const diarization = useLiveDiarization({
     roomId,

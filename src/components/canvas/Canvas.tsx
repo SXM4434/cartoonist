@@ -242,6 +242,12 @@ export function Canvas({
   // shapes even while the camera is animating from zoomToSelection.
   const [glowTargets, setGlowTargets] = useState<Array<{ id: string; tone: "old" | "new" }>>([]);
   const [glow, setGlow] = useState<Array<{ id: string; x: number; y: number; w: number; h: number; tone: "old" | "new" }>>([]);
+  // v2.P6 — persistent relation chips. Populated from a `cartoonist:relations`
+  // event fired by canvas-room whenever threads change. Positions reproject
+  // every animation frame so chips stay glued to shapes as the camera moves.
+  const [relationTargets, setRelationTargets] = useState<Array<{ id: string; threadId: string; relation: string; peer: string }>>([]);
+  const [relations, setRelations] = useState<Array<{ id: string; threadId: string; relation: string; peer: string; x: number; y: number }>>([]);
+  const [openRelation, setOpenRelation] = useState<{ threadId: string; relation: string; peer: string; x: number; y: number } | null>(null);
 
 
   const handleMount = useCallback(
@@ -353,6 +359,47 @@ export function Canvas({
     return () => cancelAnimationFrame(raf);
   }, [glowTargets]);
 
+  // v2.P6 — listen for relation updates from canvas-room. We map raw shape
+  // ids to prefixed tldraw ids and store the list; positions are reprojected
+  // per-frame in the effect below.
+  useEffect(() => {
+    if (!mounted || typeof window === "undefined") return;
+    const handler = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ items?: Array<{ id: string; threadId: string; relation: string; peer: string }> }>).detail;
+      const items = Array.isArray(detail?.items) ? detail!.items : [];
+      setRelationTargets(items.map((it) => ({ id: String(shapeId(it.id)), threadId: it.threadId, relation: it.relation, peer: it.peer })));
+    };
+    window.addEventListener("cartoonist:relations", handler as EventListener);
+    return () => window.removeEventListener("cartoonist:relations", handler as EventListener);
+  }, [mounted]);
+
+  // Reproject relation chips per frame. Cheap: at most a few dozen shapes.
+  useEffect(() => {
+    if (!mounted || !relationTargets.length) { setRelations([]); return; }
+    const editor = editorRef.current;
+    if (!editor) return;
+    let raf = 0;
+    const tick = () => {
+      const next: Array<{ id: string; threadId: string; relation: string; peer: string; x: number; y: number }> = [];
+      const page = editor.getCurrentPageShapeIds();
+      const present = new Set<string>();
+      for (const id of page) present.add(String(id));
+      for (const t of relationTargets) {
+        if (!present.has(t.id)) continue;
+        const bounds = editor.getShapePageBounds(t.id as unknown as Parameters<Editor["getShapePageBounds"]>[0]);
+        if (!bounds) continue;
+        const tr = editor.pageToViewport({ x: bounds.x + bounds.w, y: bounds.y });
+        next.push({ id: t.id, threadId: t.threadId, relation: t.relation, peer: t.peer, x: tr.x, y: tr.y });
+      }
+      setRelations(next);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [mounted, relationTargets]);
+
+
+
 
 
   useEffect(() => {
@@ -398,6 +445,63 @@ export function Canvas({
               style={{ left: r.x - 6, top: r.y - 6, width: r.w + 12, height: r.h + 12 }}
             />
           ))}
+        </div>
+      )}
+      {relations.length > 0 && (
+        <div className="absolute inset-0 z-10" style={{ pointerEvents: "none" }}>
+          {relations.map((r) => (
+            <button
+              key={`rel-${r.id}`}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpenRelation({ threadId: r.threadId, relation: r.relation, peer: r.peer, x: r.x, y: r.y });
+              }}
+              title={`${r.relation} — click to see linked thread`}
+              className="cartoonist-relation-chip"
+              style={{ left: r.x - 10, top: r.y - 12, pointerEvents: "auto" }}
+            >
+              ↗
+            </button>
+          ))}
+        </div>
+      )}
+      {openRelation && (
+        <div
+          className="cartoonist-relation-peek"
+          style={{ left: Math.min(openRelation.x + 6, (typeof window !== "undefined" ? window.innerWidth : 1200) - 320), top: openRelation.y + 8 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="mb-1 text-[10px] uppercase tracking-wider" style={{ color: "var(--primary)" }}>
+            ↗ {openRelation.relation} — linked thread
+          </div>
+          <div className="font-serif text-foreground" style={{ fontSize: "var(--step-0)", lineHeight: 1.4 }}>
+            {openRelation.peer || "(no transcript)"}
+          </div>
+          <div className="mt-2 flex justify-end gap-2">
+            <button
+              type="button"
+              className="border border-border px-2 py-0.5 text-[11px] hover:border-foreground"
+              onClick={() => {
+                setOpenRelation(null);
+              }}
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              className="border border-border px-2 py-0.5 text-[11px] hover:border-foreground"
+              onClick={() => {
+                if (typeof window === "undefined") return;
+                // Focus the thread that has this shape's threadId → find its shape ids.
+                const targets = relationTargets.filter((rt) => rt.threadId === openRelation.threadId).map((rt) => rt.id.replace(/^shape:cartoonist-/, ""));
+                window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids: targets } }));
+                setOpenRelation(null);
+              }}
+            >
+              Jump to thread
+            </button>
+          </div>
         </div>
       )}
     </div>
