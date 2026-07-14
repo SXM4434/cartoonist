@@ -21,6 +21,8 @@ import type { InferredState } from "./team-desk/use-inferred-state";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { buildUserAgents, userAgentsPromptBlock } from "@/lib/user-agents";
 import { playStreamingTTS } from "@/lib/tts-stream";
+import { useLiveCursors } from "@/hooks/use-live-cursors";
+import { CursorsOverlay } from "./team-desk/CursorsOverlay";
 
 type SessionContext = {
   name: string;
@@ -129,6 +131,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [sessionCtx, setSessionCtx] = useState<SessionContext | null>(null);
   const [inputMode, setInputMode] = useState<"voice" | "chat">("voice");
   const [selfPid, setSelfPid] = useState<string | null>(null);
+  const canvasStageRef = useRef<HTMLDivElement | null>(null);
   const [chatOpen, setChatOpen] = useState(true);
   const [mediatorMuted, setMediatorMuted] = useState(false);
   const inferredStatesRef = useRef<Record<string, InferredState>>({});
@@ -143,6 +146,15 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const startedAtRef = useRef(Date.now());
   const lastSentLenRef = useRef(0);
   const seededRef = useRef(false);
+
+  const selfParticipant = participants.find((p) => p.id === selfPid);
+  const remoteCursors = useLiveCursors({
+    roomId,
+    selfPid,
+    selfName: selfParticipant?.name,
+    selfColor: selfParticipant?.color,
+    containerRef: canvasStageRef,
+  });
 
   // Pull session context + auto-join from local profile
   useEffect(() => {
@@ -1037,10 +1049,11 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       )}
 
       <div className="flex flex-1 overflow-hidden">
-        <div className="relative flex-1 overflow-hidden">
+        <div ref={canvasStageRef} className="relative flex-1 overflow-hidden">
           <CanvasProvider>
             <Canvas shapes={shapes} drawingEnabled={drawing} />
           </CanvasProvider>
+          <CursorsOverlay cursors={remoteCursors} />
 
           {reopenPeek && (
             <div
