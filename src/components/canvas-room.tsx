@@ -361,21 +361,21 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     }
   }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, mediatorMuted]);
 
-  // Auto-draw from speech: every ~6s if there's new committed text (voice mode only).
-  // Note: transcript_chunks rows are written by the diarization hook below, not here,
-  // so each chunk gets a proper speaker attribution.
+  // Auto-draw from speech: debounce ~1.2s after the last new final utterance,
+  // so the mediator reacts as soon as the speaker pauses instead of waiting
+  // for a fixed 6s tick. Voice mode only.
   useEffect(() => {
     if (inputMode === "chat") return;
     if (!speech.listening) return;
-    const interval = setInterval(() => {
-      const text = speech.finals.join(" ");
-      if (text.length <= lastSentLenRef.current + 12) return;
+    const text = speech.finals.join(" ");
+    if (text.length <= lastSentLenRef.current + 6) return;
+    const timer = setTimeout(() => {
       const newText = text.slice(lastSentLenRef.current);
       lastSentLenRef.current = text.length;
       void requestDraw(newText);
-    }, 6000);
-    return () => clearInterval(interval);
-  }, [requestDraw, roomId, speech.finals, speech.listening, inputMode, selfPid]);
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [requestDraw, speech.finals, speech.listening, inputMode]);
 
   // Live diarization: rolling 8s chunks → ElevenLabs Scribe diarize → speaker_map
   const diarization = useLiveDiarization({
