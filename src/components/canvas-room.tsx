@@ -1099,7 +1099,49 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                 {e}
               </button>
             ))}
+            <span className="mx-1 h-5 w-px bg-border" />
+            <button
+              type="button"
+              onClick={toggleHand}
+              aria-label={isRaised ? "Lower hand" : "Raise hand"}
+              title={isRaised ? "Lower hand" : "Raise hand"}
+              className={`h-7 px-2 text-lg leading-none transition hover:scale-110 ${isRaised ? "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]" : ""}`}
+              style={{ fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif' }}
+            >
+              ✋
+            </button>
           </div>
+
+          {/* Raise-hand queue: quieter voices get a lane. Ordered by ts. */}
+          {handQueue.length > 0 && (
+            <div className="absolute bottom-32 right-5 z-30 max-w-[240px] border border-border bg-background/95 px-2.5 py-2 shadow-sm">
+              <div className="eyebrow mb-1 flex items-center justify-between text-muted-foreground">
+                <span>hands up · {handQueue.length}</span>
+              </div>
+              <ul className="flex flex-col gap-1">
+                {handQueue.map((h, i) => (
+                  <li key={h.pid} className="flex items-center gap-2 text-[13px]">
+                    <span className="tabular-nums text-muted-foreground">{i + 1}.</span>
+                    <span
+                      className="inline-block h-2 w-2 shrink-0 rounded-full"
+                      style={{ background: h.color }}
+                      aria-hidden
+                    />
+                    <span className="truncate" style={{ color: h.color }}>{h.name}</span>
+                    {h.pid === selfPid && (
+                      <button
+                        type="button"
+                        onClick={() => lowerHand()}
+                        className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                      >
+                        lower
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {reopenPeek && (
             <div
