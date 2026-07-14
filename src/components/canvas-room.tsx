@@ -109,6 +109,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [checkInPid, setCheckInPid] = useState<string | null>(null);
   const [checkInName, setCheckInName] = useState<string | null>(null);
   const [kioskQueue, setKioskQueue] = useState<string[]>([]);
+  const [kioskMode, setKioskMode] = useState(false);
   const [shapes, setShapes] = useState<SketchPrimitive[]>([]);
   const [freehand, setFreehand] = useState<FreehandStroke[]>([]);
   const [drawing, setDrawing] = useState(false);
@@ -435,6 +436,13 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
     if (isAdd) {
       setParticipants((prev) => [...prev, { id: pid, name: data.name, role: data.role, color: data.color }]);
+      // In kiosk mode, immediately walk this new person through their check-in.
+      if (kioskMode) {
+        setCheckInInitial(EMPTY_HUMAN_LAYER);
+        setCheckInPid(pid);
+        setCheckInName(data.name);
+        setCheckInOpen(true);
+      }
     } else {
       if (ins?.id) window.localStorage.setItem(`cartoonist_participant_${roomId}`, ins.id);
       setSelfPid(pid);
@@ -445,15 +453,28 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       setCheckInName(data.name);
       setCheckInOpen(true);
     }
-  }, [roomId, inputMode, introMode]);
+  }, [roomId, inputMode, introMode, kioskMode]);
 
-  const advanceKiosk = useCallback((remaining: string[]) => {
+  const promptAddNextInKiosk = useCallback(() => {
+    setCheckInOpen(false);
+    setCheckInPid(null);
+    setCheckInName(null);
+    setIntroMode("add");
+    setIntroOpen(true);
+    toast.info("Add the next person, or close to end kiosk.");
+  }, []);
+
+  const advanceKiosk = useCallback((remaining: string[], inKiosk: boolean) => {
     if (remaining.length === 0) {
       setKioskQueue([]);
-      setCheckInPid(null);
-      setCheckInName(null);
-      setCheckInOpen(false);
-      toast.success("Check-ins done");
+      if (inKiosk) {
+        promptAddNextInKiosk();
+      } else {
+        setCheckInPid(null);
+        setCheckInName(null);
+        setCheckInOpen(false);
+        toast.success("Check-ins done");
+      }
       return;
     }
     const [next, ...rest] = remaining;
@@ -466,7 +487,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     setCheckInPid(next);
     setKioskQueue(rest);
     setCheckInOpen(true);
-  }, []);
+  }, [promptAddNextInKiosk]);
 
   const handleCheckInSave = useCallback(async (hl: HumanLayer) => {
     const pid = checkInPid ?? selfPid;
@@ -487,23 +508,27 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     setParticipants((prev) => prev.map((p) => p.id === pid ? { ...p, ...patch } : p));
     toast.success("Checked in");
     if (kioskQueue.length > 0) {
-      advanceKiosk(kioskQueue);
+      advanceKiosk(kioskQueue, kioskMode);
+    } else if (kioskMode) {
+      promptAddNextInKiosk();
     } else {
       setCheckInOpen(false);
       setCheckInPid(null);
       setCheckInName(null);
     }
-  }, [checkInPid, selfPid, kioskQueue, advanceKiosk]);
+  }, [checkInPid, selfPid, kioskQueue, kioskMode, advanceKiosk, promptAddNextInKiosk]);
 
   const handleCheckInSkip = useCallback(() => {
     if (kioskQueue.length > 0) {
-      advanceKiosk(kioskQueue);
+      advanceKiosk(kioskQueue, kioskMode);
+    } else if (kioskMode) {
+      promptAddNextInKiosk();
     } else {
       setCheckInOpen(false);
       setCheckInPid(null);
       setCheckInName(null);
     }
-  }, [kioskQueue, advanceKiosk]);
+  }, [kioskQueue, kioskMode, advanceKiosk, promptAddNextInKiosk]);
 
   const openCheckInFor = useCallback((pid: string) => {
     const p = participants.find((x) => x.id === pid);
@@ -514,15 +539,36 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   }, [participants]);
 
   const startKiosk = useCallback(() => {
+    if (kioskMode) {
+      // Toggle off — end the kiosk loop.
+      setKioskMode(false);
+      setKioskQueue([]);
+      setCheckInOpen(false);
+      setIntroOpen(false);
+      setIntroMode("self");
+      toast.info("Kiosk ended");
+      return;
+    }
+    setKioskMode(true);
     const pending = participants.filter((p) => !p.human_layer_complete).map((p) => p.id);
-    if (pending.length === 0) { toast.info("Everyone's checked in"); return; }
-    advanceKiosk(pending);
-  }, [participants, advanceKiosk]);
+    if (pending.length === 0) {
+      promptAddNextInKiosk();
+    } else {
+      advanceKiosk(pending, true);
+    }
+  }, [kioskMode, participants, advanceKiosk, promptAddNextInKiosk]);
+
+  const endKiosk = useCallback(() => {
+    setKioskMode(false);
+    setKioskQueue([]);
+  }, []);
+
 
   const openAddPerson = useCallback(() => {
     setIntroMode("add");
     setIntroOpen(true);
   }, []);
+
 
 
   const recentTranscript = useMemo(() => {
@@ -731,7 +777,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
             onEditProfile={() => { if (selfPid) openCheckInFor(selfPid); }}
             onCheckInAs={openCheckInFor}
             onStartKiosk={startKiosk}
-            kioskActive={kioskQueue.length > 0}
+            kioskActive={kioskMode}
           />
           {chatOpen && (
             <div className="min-h-0 flex-1 border-t border-border">
@@ -751,7 +797,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         open={introOpen}
         mode={introMode}
         roomId={roomId}
-        onClose={() => { setIntroOpen(false); setIntroMode("self"); }}
+        onClose={() => { setIntroOpen(false); setIntroMode("self"); if (kioskMode) endKiosk(); }}
         onSubmit={handleIntroSubmit}
       />
 

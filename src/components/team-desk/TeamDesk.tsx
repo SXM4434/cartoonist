@@ -93,10 +93,10 @@ export function TeamDesk({
               variant="ghost"
               onClick={onStartKiosk}
               className="h-6 gap-1 rounded-none px-1.5 text-muted-foreground hover:text-foreground"
-              title="Walk everyone through check-in on this device"
+              title={kioskActive ? "End kiosk mode" : "Walk everyone through check-in on this device"}
             >
               <Users className="h-3 w-3" />
-              <span className="eyebrow">{kioskActive ? "In progress…" : "Kiosk"}</span>
+              <span className="eyebrow">{kioskActive ? "End kiosk" : "Kiosk"}</span>
             </Button>
           )}
           <Button
