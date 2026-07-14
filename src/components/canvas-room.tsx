@@ -398,10 +398,13 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     setGenerating(true);
     setArtifacts({});
     try {
+      const { buildUserAgents, userAgentsPromptBlock } = await import("@/lib/user-agents");
+      const agents = buildUserAgents(participants, inferredStatesRef.current);
+      const participantsBlock = userAgentsPromptBlock(agents);
       const res = await fetch("/api/generate-artifacts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript }),
+        body: JSON.stringify({ transcript, participantsBlock }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Failed");
@@ -411,7 +414,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     } finally {
       setGenerating(false);
     }
-  }, [speech.finals]);
+  }, [speech.finals, participants]);
 
   const handleIntroSubmit = useCallback(async (data: { name: string; role: string; personality: string; color: string; voiceSamplePath: string | null }) => {
     const isAdd = introMode === "add";
