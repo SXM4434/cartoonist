@@ -170,6 +170,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     selfName: selfParticipant?.name,
     selfColor: selfParticipant?.color,
   });
+  const { queue: handQueue, isRaised, toggle: toggleHand, lower: lowerHand } = useHandQueue({
+    roomId,
+    selfPid,
+    selfName: selfParticipant?.name,
+    selfColor: selfParticipant?.color,
+  });
 
   const emitReaction = useCallback((emoji: string) => {
     const nx = 0.32 + Math.random() * 0.36;
