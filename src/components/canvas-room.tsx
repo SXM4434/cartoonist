@@ -275,6 +275,77 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     return () => { cancelled = true; };
   }, [roomId]);
 
+  // v2.P6 — realtime canvas sync. Any device inserting into canvas_events
+  // publishes to the room channel; every other device applies the op to
+  // local shapes + threads. Skips ids already known locally so we don't
+  // fight our own writes.
+  useEffect(() => {
+    const ch = supabase
+      .channel(`canvas_events:${roomId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "canvas_events", filter: `room_id=eq.${roomId}` }, (payload) => {
+        const row = payload.new as { op: unknown; source: string | null; transcript_span: unknown; thread_id: string | null; created_at: string };
+        const op = row.op as { id?: string; type?: string; kind?: string; patch?: Record<string, unknown> } | null;
+        if (!op || typeof op !== "object") return;
+        const span = (row.transcript_span ?? {}) as { latest?: string; modality?: string | null; relation?: string | null; goal?: string | null; origin?: string };
+        const tid = row.thread_id ?? null;
+
+        setShapes((current) => {
+          const byId = new Map(current.map((s) => [s.id, s]));
+          if (op.kind === "remove" && typeof op.id === "string") {
+            if (!byId.has(op.id)) return current;
+            byId.delete(op.id);
+          } else if (op.kind === "edit" && typeof op.id === "string" && op.patch) {
+            const prev = byId.get(op.id);
+            if (!prev) return current;
+            byId.set(op.id, { ...prev, ...op.patch, id: prev.id, type: prev.type } as SketchPrimitive);
+          } else if (typeof op.id === "string" && typeof op.type === "string") {
+            if (byId.has(op.id)) return current; // already local
+            byId.set(op.id, op as unknown as SketchPrimitive);
+          } else {
+            return current;
+          }
+          return Array.from(byId.values());
+        });
+
+        if (tid && typeof op.id === "string" && op.kind !== "remove" && op.kind !== "edit") {
+          const rel = (span.relation as CanvasThread["relation"]) ?? null;
+          const src: "seed" | "mediator" = row.source === "seed" ? "seed" : "mediator";
+          setThreads((prev) => {
+            const idx = prev.findIndex((t) => t.id === tid);
+            if (idx >= 0) {
+              const t = prev[idx];
+              if (t.shapeIds.includes(op.id!)) return prev;
+              const merged: CanvasThread = {
+                ...t,
+                shapeIds: [...t.shapeIds, op.id!],
+                latest: span.latest ?? t.latest,
+                modality: span.modality ?? t.modality,
+                at: Date.now(),
+                relation: rel ?? t.relation ?? null,
+              };
+              return [...prev.slice(0, idx), ...prev.slice(idx + 1), merged];
+            }
+            return [
+              ...prev.slice(-49),
+              {
+                id: tid,
+                latest: span.latest ?? (span.origin === "session_brief" ? `Session brief: ${span.goal ?? "opening"}` : "(remote)"),
+                modality: span.modality ?? null,
+                shapeIds: [op.id!],
+                at: Date.now(),
+                source: src,
+                relation: rel,
+              },
+            ];
+          });
+        }
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(ch); };
+  }, [roomId]);
+
+
+
 
 
   // Seed initial shapes from session setup the first time we have context + empty canvas
