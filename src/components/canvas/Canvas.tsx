@@ -293,6 +293,8 @@ export function Canvas({
   // both sets so the connection is visible.
   useEffect(() => {
     if (!mounted || typeof window === "undefined") return;
+
+
     const handler = (ev: Event) => {
       const editor = editorRef.current;
       if (!editor) return;
@@ -311,6 +313,8 @@ export function Canvas({
         }).filter(Boolean) as Array<{ id: string; x: number; y: number; w: number; h: number; tone: "old" | "new" }>;
       const rings = [...toRing(oldRaw, "old"), ...toRing(newRaw, "new")];
       if (!rings.length) return;
+
+
       setGlow(rings);
       // Select union and zoom so both regions are on-screen.
       const union = [...oldRaw, ...newRaw].map((r) => String(shapeId(r)));

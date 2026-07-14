@@ -149,11 +149,14 @@
   box-sizing: border-box;
 }
 .cartoonist-glow-ring[data-tone="old"] {
-  border: 2px dashed color-mix(in oklch, var(--accent) 90%, transparent);
+  border: 2px dashed color-mix(in oklch, var(--primary) 90%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--primary) 18%, transparent);
 }
 .cartoonist-glow-ring[data-tone="new"] {
-  border: 2px solid var(--accent);
+  border: 2px solid var(--primary);
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--primary) 28%, transparent);
 }
+
 @keyframes cartoonistGlow {
   0%   { opacity: 0; transform: scale(1.04); }
   15%  { opacity: 1; transform: scale(1); }
