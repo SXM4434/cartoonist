@@ -329,6 +329,32 @@ export function Canvas({
     return () => window.removeEventListener("cartoonist:reopen", handler as EventListener);
   }, [mounted]);
 
+  // Reproject glow rings from page → viewport on each animation frame while
+  // the pulse is active. This keeps rings glued to shapes during the
+  // zoomToSelection camera animation.
+  useEffect(() => {
+    if (!glowTargets.length) { setGlow([]); return; }
+    const editor = editorRef.current;
+    if (!editor) return;
+    let raf = 0;
+    const tick = () => {
+      const next: Array<{ id: string; x: number; y: number; w: number; h: number; tone: "old" | "new" }> = [];
+      for (const t of glowTargets) {
+        const bounds = editor.getShapePageBounds(t.id as unknown as Parameters<Editor["getShapePageBounds"]>[0]);
+        if (!bounds) continue;
+        const tl = editor.pageToViewport({ x: bounds.x, y: bounds.y });
+        const br = editor.pageToViewport({ x: bounds.x + bounds.w, y: bounds.y + bounds.h });
+        next.push({ id: t.id, x: tl.x, y: tl.y, w: br.x - tl.x, h: br.y - tl.y, tone: t.tone });
+      }
+      setGlow(next);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [glowTargets]);
+
+
+
   useEffect(() => {
     const editor = editorRef.current;
     if (!mounted || !editor) return;
