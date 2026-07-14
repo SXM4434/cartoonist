@@ -147,6 +147,15 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const lastSentLenRef = useRef(0);
   const seededRef = useRef(false);
 
+  const selfParticipant = participants.find((p) => p.id === selfPid);
+  const remoteCursors = useLiveCursors({
+    roomId,
+    selfPid,
+    selfName: selfParticipant?.name,
+    selfColor: selfParticipant?.color,
+    containerRef: canvasStageRef,
+  });
+
   // Pull session context + auto-join from local profile
   useEffect(() => {
     if (typeof window === "undefined") return;
