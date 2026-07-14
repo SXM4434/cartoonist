@@ -171,7 +171,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       }
       const { data: parts } = await supabase
         .from("participants")
-        .select("id,display_name,color,role,role_today,strengths,contribution_modes,feedback_style,blockers,needs_today,can_help_with,share_blockers,share_needs,human_layer_complete")
+        .select("id,display_name,color,role,role_today,strengths,contribution_modes,feedback_style,blockers,needs_today,can_help_with,share_blockers,share_needs,allow_voice_mention,human_layer_complete")
         .eq("room_id", roomId);
       if (parts && parts.length) {
         setParticipants(parts.map((p) => rowToParticipant(p as never)));
