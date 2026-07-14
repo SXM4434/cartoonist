@@ -234,6 +234,10 @@ export function Canvas({
   const editorRef = useRef<Editor | null>(null);
   const createdShapeIdsRef = useRef(new Set<string>());
   const [mounted, setMounted] = useState(false);
+  // v2.P6 — glow overlay: rects positioned over the shape bounds of a
+  // reopened thread, pulse for ~3s so people can see the mediator returning
+  // to an older idea instead of piling a fresh one beside it.
+  const [glow, setGlow] = useState<Array<{ id: string; x: number; y: number; w: number; h: number; tone: "old" | "new" }>>([]);
 
   const handleMount = useCallback(
     (editor: Editor) => {
@@ -283,6 +287,48 @@ export function Canvas({
     return () => window.removeEventListener("cartoonist:focus", handler as EventListener);
   }, [mounted]);
 
+  // v2.P6 — reopen glow: when the mediator extends/references/contradicts an
+  // older thread, we get { oldIds, newIds } here. Position accent rings over
+  // both sets in viewport coords, pulse for ~3s, then fade. Also zoom to fit
+  // both sets so the connection is visible.
+  useEffect(() => {
+    if (!mounted || typeof window === "undefined") return;
+    const handler = (ev: Event) => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      const detail = (ev as CustomEvent<{ oldIds?: string[]; newIds?: string[] }>).detail;
+      const oldRaw = Array.isArray(detail?.oldIds) ? detail!.oldIds : [];
+      const newRaw = Array.isArray(detail?.newIds) ? detail!.newIds : [];
+      if (!oldRaw.length && !newRaw.length) return;
+      const toRing = (raw: string[], tone: "old" | "new") =>
+        raw.map((rid) => {
+          const sid = String(shapeId(rid));
+          const bounds = editor.getShapePageBounds(sid as unknown as Parameters<Editor["getShapePageBounds"]>[0]);
+          if (!bounds) return null;
+          const tl = editor.pageToViewport({ x: bounds.x, y: bounds.y });
+          const br = editor.pageToViewport({ x: bounds.x + bounds.w, y: bounds.y + bounds.h });
+          return { id: sid, x: tl.x, y: tl.y, w: br.x - tl.x, h: br.y - tl.y, tone };
+        }).filter(Boolean) as Array<{ id: string; x: number; y: number; w: number; h: number; tone: "old" | "new" }>;
+      const rings = [...toRing(oldRaw, "old"), ...toRing(newRaw, "new")];
+      if (!rings.length) return;
+      setGlow(rings);
+      // Select union and zoom so both regions are on-screen.
+      const union = [...oldRaw, ...newRaw].map((r) => String(shapeId(r)));
+      const present: string[] = [];
+      const page = editor.getCurrentPageShapeIds();
+      const want = new Set(union);
+      for (const id of page) if (want.has(String(id))) present.push(String(id));
+      if (present.length) {
+        editor.setCurrentTool("select");
+        editor.select(...(present as unknown as Parameters<Editor["select"]>));
+        try { editor.zoomToSelection({ animation: { duration: 380 } }); } catch { /* noop */ }
+      }
+      window.setTimeout(() => setGlow([]), 3200);
+    };
+    window.addEventListener("cartoonist:reopen", handler as EventListener);
+    return () => window.removeEventListener("cartoonist:reopen", handler as EventListener);
+  }, [mounted]);
+
   useEffect(() => {
     const editor = editorRef.current;
     if (!mounted || !editor) return;
@@ -316,6 +362,18 @@ export function Canvas({
   return (
     <div className="absolute inset-0 bg-background">
       <Tldraw hideUi onMount={handleMount} />
+      {glow.length > 0 && (
+        <div className="pointer-events-none absolute inset-0 z-10">
+          {glow.map((r, i) => (
+            <div
+              key={`${r.id}-${i}`}
+              className="cartoonist-glow-ring"
+              data-tone={r.tone}
+              style={{ left: r.x - 6, top: r.y - 6, width: r.w + 12, height: r.h + 12 }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -133,6 +133,8 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const lastSpokenRef = useRef<string>("");
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const [threads, setThreads] = useState<CanvasThread[]>([]);
+  // v2.P6 — brief peek toast when the mediator returns to an older thread.
+  const [reopenPeek, setReopenPeek] = useState<{ relation: string | null; latest: string; oldLatest: string } | null>(null);
 
 
   const speech = useSpeech();
@@ -432,6 +434,14 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                     reopenCount: (existing.reopenCount ?? 0) + 1,
                     relation: relation ?? existing.relation ?? null,
                   };
+                  // v2.P6 — fire the glow + peek so the reopen is felt, not just filed.
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("cartoonist:reopen", {
+                      detail: { oldIds: existing.shapeIds, newIds, relation: relation ?? existing.relation ?? null },
+                    }));
+                    setReopenPeek({ relation: relation ?? existing.relation ?? null, latest: latest.slice(0, 160), oldLatest: existing.latest });
+                    window.setTimeout(() => setReopenPeek(null), 4200);
+                  }
                   return [...prev.slice(0, idx), ...prev.slice(idx + 1), merged];
                 }
               }
@@ -866,6 +876,20 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           <CanvasProvider>
             <Canvas shapes={shapes} drawingEnabled={drawing} />
           </CanvasProvider>
+
+          {reopenPeek && (
+            <div
+              className="pointer-events-none absolute left-1/2 top-6 z-20 -translate-x-1/2 border border-primary bg-background px-4 py-2 shadow-sm"
+              style={{ animation: "cartoonistPeek 4.2s ease-out forwards" }}
+            >
+              <p className="eyebrow text-primary">
+                ↺ {reopenPeek.relation ? reopenPeek.relation : "returning"} — earlier thread
+              </p>
+              <p className="mt-1 max-w-sm truncate font-serif" style={{ fontSize: "var(--step-0)" }}>
+                {reopenPeek.oldLatest}
+              </p>
+            </div>
+          )}
 
           {shapes.length === 0 && freehand.length === 0 && (
             <div className="pointer-events-none absolute left-8 top-8 max-w-md border border-border bg-background p-5">

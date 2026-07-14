@@ -137,3 +137,33 @@
 .tl-container .tl-selection__bg {
   stroke-width: 1.5px;
 }
+
+/* v2.P6 — reopen glow ring: accent border pulses over shape bounds when the
+   mediator returns to an older thread. Two tones: "old" (existing shapes) and
+   "new" (this turn's additions). */
+.cartoonist-glow-ring {
+  position: absolute;
+  border-radius: 4px;
+  pointer-events: none;
+  animation: cartoonistGlow 3s ease-out forwards;
+  box-sizing: border-box;
+}
+.cartoonist-glow-ring[data-tone="old"] {
+  border: 2px dashed color-mix(in oklch, var(--accent) 90%, transparent);
+}
+.cartoonist-glow-ring[data-tone="new"] {
+  border: 2px solid var(--accent);
+}
+@keyframes cartoonistGlow {
+  0%   { opacity: 0; transform: scale(1.04); }
+  15%  { opacity: 1; transform: scale(1); }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes cartoonistPeek {
+  0%   { opacity: 0; transform: translate(-50%, -8px); }
+  8%   { opacity: 1; transform: translate(-50%, 0); }
+  85%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -4px); }
+}
