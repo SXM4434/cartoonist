@@ -189,6 +189,94 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     })();
   }, [roomId]);
 
+  // v2.P6 — hydrate shapes + threads from canvas_events so reload survives.
+  // Replays creates/edits/removes in insert order; groups by thread_id to
+  // rebuild the Threads rail. Skips seed effect if anything hydrates.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("canvas_events")
+        .select("op,source,transcript_span,thread_id,created_at")
+        .eq("room_id", roomId)
+        .order("created_at", { ascending: true })
+        .limit(2000);
+      if (cancelled || error || !data || data.length === 0) return;
+      if (seededRef.current) return;
+
+      const byId = new Map<string, SketchPrimitive>();
+      type ThreadAcc = { latest: string; modality: string | null; shapeIds: string[]; at: number; source: "seed" | "mediator"; relation: CanvasThread["relation"] };
+      const threadMap = new Map<string, ThreadAcc>();
+
+      for (const row of data as Array<{ op: unknown; source: string | null; transcript_span: unknown; thread_id: string | null; created_at: string }>) {
+        const op = row.op as { id?: string; type?: string; kind?: string; patch?: Record<string, unknown> } | null;
+        if (!op || typeof op !== "object") continue;
+        const tid = row.thread_id ?? null;
+        const span = (row.transcript_span ?? {}) as { latest?: string; modality?: string | null; relation?: string | null; goal?: string | null; origin?: string };
+        const at = new Date(row.created_at).getTime();
+
+        // Apply op to shape map.
+        if (op.kind === "remove" && typeof op.id === "string") {
+          byId.delete(op.id);
+        } else if (op.kind === "edit" && typeof op.id === "string" && op.patch) {
+          const prev = byId.get(op.id);
+          if (prev) byId.set(op.id, { ...prev, ...op.patch, id: prev.id, type: prev.type } as SketchPrimitive);
+        } else if (typeof op.id === "string" && typeof op.type === "string") {
+          byId.set(op.id, op as unknown as SketchPrimitive);
+        }
+
+        // Group into threads.
+        if (tid) {
+          const src: "seed" | "mediator" = row.source === "seed" ? "seed" : "mediator";
+          const latest = span.latest ?? (span.origin === "session_brief" ? `Session brief: ${span.goal ?? "opening"}` : "");
+          const existing = threadMap.get(tid);
+          const shapeId = typeof op.id === "string" && op.kind !== "remove" && op.kind !== "edit" ? op.id : null;
+          if (existing) {
+            if (shapeId && !existing.shapeIds.includes(shapeId)) existing.shapeIds.push(shapeId);
+            if (latest) existing.latest = latest;
+            if (span.modality) existing.modality = span.modality;
+            existing.at = at;
+            const rel = span.relation as CanvasThread["relation"];
+            if (rel) existing.relation = rel;
+          } else {
+            threadMap.set(tid, {
+              latest: latest || "(untitled)",
+              modality: span.modality ?? null,
+              shapeIds: shapeId ? [shapeId] : [],
+              at,
+              source: src,
+              relation: (span.relation as CanvasThread["relation"]) ?? null,
+            });
+          }
+        }
+      }
+
+      // Only keep shapeIds still present on canvas.
+      const alive = new Set(byId.keys());
+      const rebuiltThreads: CanvasThread[] = Array.from(threadMap.entries())
+        .map(([id, t]) => ({
+          id,
+          latest: t.latest,
+          modality: t.modality,
+          shapeIds: t.shapeIds.filter((sid) => alive.has(sid)),
+          at: t.at,
+          source: t.source,
+          relation: t.relation ?? null,
+        }))
+        .filter((t) => t.shapeIds.length > 0)
+        .sort((a, b) => a.at - b.at);
+
+      if (byId.size > 0) {
+        seededRef.current = true;
+        setShapes(Array.from(byId.values()));
+        setThreads(rebuiltThreads);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [roomId]);
+
+
+
   // Seed initial shapes from session setup the first time we have context + empty canvas
   useEffect(() => {
     if (seededRef.current) return;
