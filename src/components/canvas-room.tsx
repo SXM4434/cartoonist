@@ -287,6 +287,18 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         setDrawError(data?.error ?? "AI draw failed");
         return;
       }
+      // v2.P4 — mediator speaks. Play the short interjection via Web Speech,
+      // gated by the per-user mute toggle. Deduped so re-renders don't repeat.
+      const speak = typeof data?.speak === "string" ? data.speak.trim() : "";
+      if (speak && !mediatorMuted && speak !== lastSpokenRef.current && typeof window !== "undefined" && "speechSynthesis" in window) {
+        lastSpokenRef.current = speak;
+        try {
+          const u = new SpeechSynthesisUtterance(speak);
+          u.rate = 1.02; u.pitch = 1.0; u.volume = 0.9;
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(u);
+        } catch { /* noop */ }
+      }
       const incoming = Array.isArray(data.shapes) ? (data.shapes as SketchPrimitive[]) : [];
       const edits = Array.isArray(data.edits) ? (data.edits as Array<{ id: string; patch: Record<string, unknown> }>) : [];
       const removes = Array.isArray(data.removes) ? (data.removes as string[]) : [];
