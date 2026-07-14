@@ -1,0 +1,1 @@
+ALTER TABLE public.participants ADD COLUMN IF NOT EXISTS allow_voice_mention boolean NOT NULL DEFAULT true;
