@@ -379,7 +379,8 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         // reuse that id so new shapes attach to (and re-open) it.
         const stamp = Date.now() - startedAtRef.current;
         const threadRef = typeof (data as { thread_ref?: unknown }).thread_ref === "string" ? (data as { thread_ref: string }).thread_ref : null;
-        const relation = typeof (data as { relation?: unknown }).relation === "string" ? (data as { relation: string }).relation : null;
+        const rawRelation = typeof (data as { relation?: unknown }).relation === "string" ? (data as { relation: string }).relation : null;
+        const relation = (["extends", "references", "contradicts", "resolves"] as const).find((r) => r === rawRelation) ?? null;
         const threadId = threadRef ?? `thread_${crypto.randomUUID().slice(0, 8)}`;
         const span = {
           origin: "utterance" as const,
