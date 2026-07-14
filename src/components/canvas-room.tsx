@@ -526,6 +526,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       can_help_with: hl.can_help_with || null,
       share_blockers: hl.share_blockers,
       share_needs: hl.share_needs,
+      allow_voice_mention: hl.allow_voice_mention,
       human_layer_complete: true,
     };
     await supabase.from("participants").update(patch).eq("id", pid);
