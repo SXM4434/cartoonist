@@ -258,6 +258,31 @@ export function Canvas({
     editor.setCurrentTool(drawingEnabled ? "draw" : "select");
   }, [drawingEnabled, mounted]);
 
+  // Listen for external "focus these shapes" events (e.g. Threads rail click).
+  // We resolve string ids to their tldraw shape ids (prefixed) and select+zoom.
+  useEffect(() => {
+    if (!mounted) return;
+    if (typeof window === "undefined") return;
+    const handler = (ev: Event) => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      const detail = (ev as CustomEvent<{ ids?: string[] }>).detail;
+      const rawIds = Array.isArray(detail?.ids) ? detail!.ids : [];
+      if (!rawIds.length) return;
+      const wanted = new Set(rawIds.map((id) => String(shapeId(id))));
+      const present: string[] = [];
+      for (const id of editor.getCurrentPageShapeIds()) {
+        if (wanted.has(String(id))) present.push(String(id));
+      }
+      if (!present.length) return;
+      editor.setCurrentTool("select");
+      editor.select(...(present as unknown as Parameters<Editor["select"]>));
+      try { editor.zoomToSelection({ animation: { duration: 320 } }); } catch { /* noop */ }
+    };
+    window.addEventListener("cartoonist:focus", handler as EventListener);
+    return () => window.removeEventListener("cartoonist:focus", handler as EventListener);
+  }, [mounted]);
+
   useEffect(() => {
     const editor = editorRef.current;
     if (!mounted || !editor) return;
