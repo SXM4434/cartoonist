@@ -143,6 +143,7 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
           }> | null;
           agentsBlock?: string | null;
           voiceAllowedNames?: string[] | null;
+          openThreads?: Array<{ id: string; latest: string; modality?: string | null }> | null;
         };
         try {
           body = await request.json();
