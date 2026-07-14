@@ -174,7 +174,6 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const emitReaction = useCallback((emoji: string) => {
     const nx = 0.32 + Math.random() * 0.36;
     const ny = 0.72 + Math.random() * 0.12;
-    console.log("[reaction] emit", emoji, nx, ny);
     sendReaction(emoji, nx, ny);
   }, [sendReaction]);
 
