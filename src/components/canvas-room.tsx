@@ -22,6 +22,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { buildUserAgents, userAgentsPromptBlock } from "@/lib/user-agents";
 import { playStreamingTTS } from "@/lib/tts-stream";
 import { useLiveCursors } from "@/hooks/use-live-cursors";
+import { useSharedFocus } from "@/hooks/use-shared-focus";
 import { CursorsOverlay } from "./team-desk/CursorsOverlay";
 
 type SessionContext = {
@@ -154,6 +155,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     selfName: selfParticipant?.name,
     selfColor: selfParticipant?.color,
     containerRef: canvasStageRef,
+  });
+  useSharedFocus({
+    roomId,
+    selfPid,
+    selfName: selfParticipant?.name,
+    selfColor: selfParticipant?.color,
   });
 
   // Pull session context + auto-join from local profile
