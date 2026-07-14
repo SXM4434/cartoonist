@@ -18,6 +18,7 @@ import { Route as RRoomIdRouteImport } from './routes/r.$roomId'
 import { Route as ApiTranscribeSampleRouteImport } from './routes/api/transcribe-sample'
 import { Route as ApiTranscribeChunkRouteImport } from './routes/api/transcribe-chunk'
 import { Route as ApiParseIntroRouteImport } from './routes/api/parse-intro'
+import { Route as ApiMediatorTtsRouteImport } from './routes/api/mediator-tts'
 import { Route as ApiLiveblocksAuthRouteImport } from './routes/api/liveblocks-auth'
 import { Route as ApiGenerateArtifactsRouteImport } from './routes/api/generate-artifacts'
 import { Route as ApiCartoonistDrawRouteImport } from './routes/api/cartoonist-draw'
@@ -69,6 +70,11 @@ const ApiParseIntroRoute = ApiParseIntroRouteImport.update({
   path: '/api/parse-intro',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMediatorTtsRoute = ApiMediatorTtsRouteImport.update({
+  id: '/api/mediator-tts',
+  path: '/api/mediator-tts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiLiveblocksAuthRoute = ApiLiveblocksAuthRouteImport.update({
   id: '/api/liveblocks-auth',
   path: '/api/liveblocks-auth',
@@ -104,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/api/cartoonist-draw': typeof ApiCartoonistDrawRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
+  '/api/mediator-tts': typeof ApiMediatorTtsRoute
   '/api/parse-intro': typeof ApiParseIntroRoute
   '/api/transcribe-chunk': typeof ApiTranscribeChunkRoute
   '/api/transcribe-sample': typeof ApiTranscribeSampleRoute
@@ -120,6 +127,7 @@ export interface FileRoutesByTo {
   '/api/cartoonist-draw': typeof ApiCartoonistDrawRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
+  '/api/mediator-tts': typeof ApiMediatorTtsRoute
   '/api/parse-intro': typeof ApiParseIntroRoute
   '/api/transcribe-chunk': typeof ApiTranscribeChunkRoute
   '/api/transcribe-sample': typeof ApiTranscribeSampleRoute
@@ -137,6 +145,7 @@ export interface FileRoutesById {
   '/api/cartoonist-draw': typeof ApiCartoonistDrawRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
+  '/api/mediator-tts': typeof ApiMediatorTtsRoute
   '/api/parse-intro': typeof ApiParseIntroRoute
   '/api/transcribe-chunk': typeof ApiTranscribeChunkRoute
   '/api/transcribe-sample': typeof ApiTranscribeSampleRoute
@@ -155,6 +164,7 @@ export interface FileRouteTypes {
     | '/api/cartoonist-draw'
     | '/api/generate-artifacts'
     | '/api/liveblocks-auth'
+    | '/api/mediator-tts'
     | '/api/parse-intro'
     | '/api/transcribe-chunk'
     | '/api/transcribe-sample'
@@ -171,6 +181,7 @@ export interface FileRouteTypes {
     | '/api/cartoonist-draw'
     | '/api/generate-artifacts'
     | '/api/liveblocks-auth'
+    | '/api/mediator-tts'
     | '/api/parse-intro'
     | '/api/transcribe-chunk'
     | '/api/transcribe-sample'
@@ -187,6 +198,7 @@ export interface FileRouteTypes {
     | '/api/cartoonist-draw'
     | '/api/generate-artifacts'
     | '/api/liveblocks-auth'
+    | '/api/mediator-tts'
     | '/api/parse-intro'
     | '/api/transcribe-chunk'
     | '/api/transcribe-sample'
@@ -204,6 +216,7 @@ export interface RootRouteChildren {
   ApiCartoonistDrawRoute: typeof ApiCartoonistDrawRoute
   ApiGenerateArtifactsRoute: typeof ApiGenerateArtifactsRoute
   ApiLiveblocksAuthRoute: typeof ApiLiveblocksAuthRoute
+  ApiMediatorTtsRoute: typeof ApiMediatorTtsRoute
   ApiParseIntroRoute: typeof ApiParseIntroRoute
   ApiTranscribeChunkRoute: typeof ApiTranscribeChunkRoute
   ApiTranscribeSampleRoute: typeof ApiTranscribeSampleRoute
@@ -278,6 +291,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiParseIntroRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/mediator-tts': {
+      id: '/api/mediator-tts'
+      path: '/api/mediator-tts'
+      fullPath: '/api/mediator-tts'
+      preLoaderRoute: typeof ApiMediatorTtsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/liveblocks-auth': {
       id: '/api/liveblocks-auth'
       path: '/api/liveblocks-auth'
@@ -324,6 +344,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCartoonistDrawRoute: ApiCartoonistDrawRoute,
   ApiGenerateArtifactsRoute: ApiGenerateArtifactsRoute,
   ApiLiveblocksAuthRoute: ApiLiveblocksAuthRoute,
+  ApiMediatorTtsRoute: ApiMediatorTtsRoute,
   ApiParseIntroRoute: ApiParseIntroRoute,
   ApiTranscribeChunkRoute: ApiTranscribeChunkRoute,
   ApiTranscribeSampleRoute: ApiTranscribeSampleRoute,
