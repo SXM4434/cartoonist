@@ -64,21 +64,23 @@ export function useReactions({
 
   const send = useCallback(
     (emoji: string, nx: number, ny: number) => {
-      if (!selfPid || !selfName || !selfColor) return;
+      const pid = selfPid ?? "guest";
+      const name = selfName || "Guest";
+      const color = selfColor || "#E07A3E";
       const r: Reaction = {
-        id: `${selfPid}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        pid: selfPid,
-        name: selfName,
-        color: selfColor,
+        id: `${pid}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        pid,
+        name,
+        color,
         emoji,
         nx,
         ny,
         ts: Date.now(),
       };
-      // Show locally.
+      // Show locally first (works even before selfPid resolves).
       setReactions((prev) => [...prev, r].slice(-40));
       const ch = channelRef.current;
-      if (ch) ch.send({ type: "broadcast", event: "burst", payload: r });
+      if (ch && selfPid) ch.send({ type: "broadcast", event: "burst", payload: r });
     },
     [selfPid, selfName, selfColor],
   );
