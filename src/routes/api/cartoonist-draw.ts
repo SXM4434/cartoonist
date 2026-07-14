@@ -123,6 +123,7 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
             last_ms: number | null;
             unresolved_point?: string;
           }> | null;
+          agentsBlock?: string | null;
         };
         try {
           body = await request.json();
