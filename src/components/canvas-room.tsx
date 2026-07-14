@@ -292,10 +292,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const { buildUserAgents, userAgentsPromptBlock } = await import("@/lib/user-agents");
       const agentsBlock = userAgentsPromptBlock(buildUserAgents(participants, inferredStatesRef.current));
       const voiceAllowedNames = participants.filter((p) => p.allow_voice_mention !== false).map((p) => p.name);
+      // v2.P6 — send recent open threads so the model can extend/reference them.
+      const openThreads = threads.slice(-8).map((t) => ({ id: t.id, latest: t.latest, modality: t.modality }));
       const res = await fetch("/api/cartoonist-draw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId, transcript: fullContext, latest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames }),
+        body: JSON.stringify({ roomId, transcript: fullContext, latest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.error) {
@@ -373,12 +375,19 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         // Mirror to canvas_events with provenance (v2.P6 groundwork).
         // One thread_id per draw batch so shapes born of the same utterance
         // group together; span carries the utterance that triggered them.
+        // v2.P6 — if the model set a thread_ref to an existing open thread,
+        // reuse that id so new shapes attach to (and re-open) it.
         const stamp = Date.now() - startedAtRef.current;
-        const threadId = `thread_${crypto.randomUUID().slice(0, 8)}`;
+        const threadRef = typeof (data as { thread_ref?: unknown }).thread_ref === "string" ? (data as { thread_ref: string }).thread_ref : null;
+        const rawRelation = typeof (data as { relation?: unknown }).relation === "string" ? (data as { relation: string }).relation : null;
+        const relation = (["extends", "references", "contradicts", "resolves"] as const).find((r) => r === rawRelation) ?? null;
+        const threadId = threadRef ?? `thread_${crypto.randomUUID().slice(0, 8)}`;
         const span = {
           origin: "utterance" as const,
           latest: latest.slice(0, 240),
           modality: typeof (data as { modality?: unknown }).modality === "string" ? (data as { modality: string }).modality : null,
+          thread_ref: threadRef,
+          relation,
         };
         for (const shape of fresh) {
           void supabase.from("canvas_events").insert({
@@ -402,15 +411,35 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         // Track thread client-side for the Threads rail (jump-to on canvas).
         if (fresh.length || edits.length) {
           const modality = span.modality;
-          const shapeIds = [
+          const newIds = [
             ...fresh.map((s) => s.id),
             ...edits.map((e) => e.id).filter((id) => byId.has(id)),
           ];
-          if (shapeIds.length) {
-            setThreads((prev) => [
-              ...prev.slice(-49),
-              { id: threadId, latest: latest.slice(0, 240), modality, shapeIds, at: Date.now(), source: "mediator" },
-            ]);
+          if (newIds.length) {
+            setThreads((prev) => {
+              if (threadRef) {
+                // Merge into existing thread — mark reopened.
+                const idx = prev.findIndex((t) => t.id === threadRef);
+                if (idx >= 0) {
+                  const existing = prev[idx];
+                  const merged: CanvasThread = {
+                    ...existing,
+                    latest: latest.slice(0, 240) || existing.latest,
+                    modality: modality ?? existing.modality,
+                    shapeIds: Array.from(new Set([...existing.shapeIds, ...newIds])),
+                    at: Date.now(),
+                    reopenedAt: Date.now(),
+                    reopenCount: (existing.reopenCount ?? 0) + 1,
+                    relation: relation ?? existing.relation ?? null,
+                  };
+                  return [...prev.slice(0, idx), ...prev.slice(idx + 1), merged];
+                }
+              }
+              return [
+                ...prev.slice(-49),
+                { id: threadId, latest: latest.slice(0, 240), modality, shapeIds: newIds, at: Date.now(), source: "mediator", relation: relation ?? null },
+              ];
+            });
           }
         }
         return Array.from(byId.values());

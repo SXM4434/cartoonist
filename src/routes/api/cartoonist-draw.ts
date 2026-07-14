@@ -28,8 +28,18 @@ Choose ONE modality for this turn:
   "edits":    [ { "id": "<existing id>", "patch": { ...partial fields... } } ],
   "removes":  [ "<existing id>", ... ],
   "speak":    "<optional short spoken interjection, <=140 chars, plain sentence>",
+  "thread_ref": "<optional id from openThreads THIS turn extends or references, or null>",
+  "relation":   "extends"|"references"|"contradicts"|"resolves"|null,
   "rationale": "<one short sentence>"
 }
+
+# CROSS-TIME THREADS (v2.P6)
+You will receive an "openThreads" list — past utterances that already have shapes on the canvas. If the LATEST chunk is clearly continuing, answering, contradicting, or resolving one of those threads (not just a new topic), set "thread_ref" to that thread id and pick a "relation":
+- extends     → adds detail to the same idea
+- references  → touches it in passing
+- contradicts → disagrees with what was drawn
+- resolves    → closes the question the thread raised
+Only set thread_ref when the link is real. If the latest chunk is a genuinely new topic, omit thread_ref (or set null). When you set thread_ref, place new shapes NEAR the referenced shapes' bboxes on the canvas — don't march to the right edge.
 
 # SPEAK (voice — v2.P4)
 The mediator has a voice. Include a "speak" string ONLY when a short spoken nudge adds real value:
@@ -133,6 +143,7 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
           }> | null;
           agentsBlock?: string | null;
           voiceAllowedNames?: string[] | null;
+          openThreads?: Array<{ id: string; latest: string; modality?: string | null }> | null;
         };
         try {
           body = await request.json();
@@ -219,7 +230,16 @@ ${voiceNames.length ? voiceNames.map((n) => `- ${n}`).join("\n") : `(nobody has 
 
 `;
 
-        const userMsg = `${ctxBlock}${participantsBlock}${liveStatesBlock}${voiceBlock}${canvasHeader}
+        // v2.P6 — open threads the model may extend / reference.
+        const openThreads = Array.isArray(body.openThreads) ? body.openThreads.slice(-8) : [];
+        const openThreadsBlock = openThreads.length
+          ? `# openThreads (past utterances with shapes still on canvas — you MAY set thread_ref to one of these ids)
+${openThreads.map((t) => `- ${t.id}${t.modality ? ` [${t.modality}]` : ""}: "${(t.latest ?? "").slice(0, 140)}"`).join("\n")}
+
+`
+          : "";
+
+        const userMsg = `${ctxBlock}${participantsBlock}${liveStatesBlock}${voiceBlock}${openThreadsBlock}${canvasHeader}
 ${existingBlock}
 
 # Full recent conversation
@@ -270,7 +290,7 @@ ${latest || transcript}`;
           usage?: { prompt_tokens?: number; completion_tokens?: number };
         };
         const content = data.choices?.[0]?.message?.content ?? "{}";
-        let parsed: { shapes?: unknown; edits?: unknown; removes?: unknown; rationale?: unknown; modality?: unknown; speak?: unknown } = {};
+        let parsed: { shapes?: unknown; edits?: unknown; removes?: unknown; rationale?: unknown; modality?: unknown; speak?: unknown; thread_ref?: unknown; relation?: unknown } = {};
         try {
           parsed = JSON.parse(content);
         } catch {
@@ -328,12 +348,22 @@ ${latest || transcript}`;
           }
         }
 
+        // v2.P6 — validate thread_ref against openThreads we sent in.
+        const openIds = new Set(openThreads.map((t) => t.id));
+        const rawRef = typeof parsed.thread_ref === "string" ? parsed.thread_ref.trim() : "";
+        const threadRef = rawRef && openIds.has(rawRef) ? rawRef : null;
+        const allowedRel = new Set(["extends", "references", "contradicts", "resolves"]);
+        const rawRel = typeof parsed.relation === "string" ? parsed.relation.trim() : "";
+        const relation = threadRef && allowedRel.has(rawRel) ? rawRel : null;
+
         return json({
           modality,
           shapes: cleanShapes,
           edits: Array.isArray(parsed.edits) ? parsed.edits : [],
           removes: Array.isArray(parsed.removes) ? parsed.removes : [],
           speak: safeSpeak,
+          thread_ref: threadRef,
+          relation,
           rationale: typeof parsed.rationale === "string" ? parsed.rationale : "",
         });
       },
