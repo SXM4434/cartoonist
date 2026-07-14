@@ -242,6 +242,12 @@ export function Canvas({
   // shapes even while the camera is animating from zoomToSelection.
   const [glowTargets, setGlowTargets] = useState<Array<{ id: string; tone: "old" | "new" }>>([]);
   const [glow, setGlow] = useState<Array<{ id: string; x: number; y: number; w: number; h: number; tone: "old" | "new" }>>([]);
+  // v2.P6 — persistent relation chips. Populated from a `cartoonist:relations`
+  // event fired by canvas-room whenever threads change. Positions reproject
+  // every animation frame so chips stay glued to shapes as the camera moves.
+  const [relationTargets, setRelationTargets] = useState<Array<{ id: string; threadId: string; relation: string; peer: string }>>([]);
+  const [relations, setRelations] = useState<Array<{ id: string; threadId: string; relation: string; peer: string; x: number; y: number }>>([]);
+  const [openRelation, setOpenRelation] = useState<{ threadId: string; relation: string; peer: string; x: number; y: number } | null>(null);
 
 
   const handleMount = useCallback(
