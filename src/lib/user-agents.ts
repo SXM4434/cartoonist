@@ -35,7 +35,7 @@ export function buildUserAgents(
 ): UserAgent[] {
   return participants.map((p) => {
     const state = inferred[p.id];
-    const focus = (state?.kind ?? "idle") as UserAgent["present"]["focus"];
+    const focus: FocusLabel = state?.focus ?? "idle";
     return {
       pid: p.id,
       name: p.name,
@@ -48,7 +48,7 @@ export function buildUserAgents(
       },
       present: {
         focus,
-        detail: state?.detail,
+        detail: state?.unresolved_point,
       },
       future: {
         needs_today: p.share_needs ? (p.needs_today ?? null) : null,
