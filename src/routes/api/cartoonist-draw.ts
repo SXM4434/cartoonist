@@ -144,6 +144,7 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
           agentsBlock?: string | null;
           voiceAllowedNames?: string[] | null;
           openThreads?: Array<{ id: string; latest: string; modality?: string | null }> | null;
+          handsUp?: string[] | null;
         };
         try {
           body = await request.json();
@@ -239,7 +240,19 @@ ${openThreads.map((t) => `- ${t.id}${t.modality ? ` [${t.modality}]` : ""}: "${(
 `
           : "";
 
-        const userMsg = `${ctxBlock}${participantsBlock}${liveStatesBlock}${voiceBlock}${openThreadsBlock}${canvasHeader}
+        // Raise-hand queue → mediator prefers to invite the first name in
+        // the queue during any natural pause, using `speak` (only if that
+        // name is in voiceAllowedNames). Never scold anyone for talking too
+        // much; just open a lane for the raised hand.
+        const handsUp = Array.isArray(body.handsUp) ? body.handsUp.filter((s) => typeof s === "string" && s.trim().length > 0) : [];
+        const handsBlock = handsUp.length
+          ? `# handsUp (raise-hand queue, in order — at a natural pause, invite the first name via \`speak\` if they are also in voiceAllowedNames; keep it warm, one short sentence)
+${handsUp.map((n, i) => `${i + 1}. ${n}`).join("\n")}
+
+`
+          : "";
+
+        const userMsg = `${ctxBlock}${participantsBlock}${liveStatesBlock}${voiceBlock}${openThreadsBlock}${handsBlock}${canvasHeader}
 ${existingBlock}
 
 # Full recent conversation

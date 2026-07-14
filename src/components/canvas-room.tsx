@@ -26,6 +26,7 @@ import { useSharedFocus } from "@/hooks/use-shared-focus";
 import { CursorsOverlay } from "./team-desk/CursorsOverlay";
 import { ReactionsOverlay } from "./team-desk/ReactionsOverlay";
 import { useReactions } from "@/hooks/use-reactions";
+import { useHandQueue } from "@/hooks/use-hand-queue";
 
 type SessionContext = {
   name: string;
@@ -165,6 +166,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     selfColor: selfParticipant?.color,
   });
   const { reactions, send: sendReaction } = useReactions({
+    roomId,
+    selfPid,
+    selfName: selfParticipant?.name,
+    selfColor: selfParticipant?.color,
+  });
+  const { queue: handQueue, isRaised, toggle: toggleHand, lower: lowerHand } = useHandQueue({
     roomId,
     selfPid,
     selfName: selfParticipant?.name,
@@ -489,10 +496,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const voiceAllowedNames = participants.filter((p) => p.allow_voice_mention !== false).map((p) => p.name);
       // v2.P6 — send recent open threads so the model can extend/reference them.
       const openThreads = threads.slice(-8).map((t) => ({ id: t.id, latest: t.latest, modality: t.modality }));
+      // Raise-hand queue → mediator surfaces the next hand at natural pauses.
+      const handsUp = handQueue.map((h) => h.name);
       const res = await fetch("/api/cartoonist-draw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId, transcript: fullContext, latest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads }),
+        body: JSON.stringify({ roomId, transcript: fullContext, latest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads, handsUp }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.error) {
@@ -641,7 +650,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     } finally {
       setThinking(false);
     }
-  }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, mediatorMuted]);
+  }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, mediatorMuted, handQueue, threads]);
 
   // Auto-draw from speech: debounce ~1.2s after the last new final utterance,
   // so the mediator reacts as soon as the speaker pauses instead of waiting
@@ -1092,7 +1101,49 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                 {e}
               </button>
             ))}
+            <span className="mx-1 h-5 w-px bg-border" />
+            <button
+              type="button"
+              onClick={toggleHand}
+              aria-label={isRaised ? "Lower hand" : "Raise hand"}
+              title={isRaised ? "Lower hand" : "Raise hand"}
+              className={`h-7 px-2 text-lg leading-none transition hover:scale-110 ${isRaised ? "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]" : ""}`}
+              style={{ fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif' }}
+            >
+              ✋
+            </button>
           </div>
+
+          {/* Raise-hand queue: quieter voices get a lane. Ordered by ts. */}
+          {handQueue.length > 0 && (
+            <div className="absolute bottom-32 right-5 z-30 max-w-[240px] border border-border bg-background/95 px-2.5 py-2 shadow-sm">
+              <div className="eyebrow mb-1 flex items-center justify-between text-muted-foreground">
+                <span>hands up · {handQueue.length}</span>
+              </div>
+              <ul className="flex flex-col gap-1">
+                {handQueue.map((h, i) => (
+                  <li key={h.pid} className="flex items-center gap-2 text-[13px]">
+                    <span className="tabular-nums text-muted-foreground">{i + 1}.</span>
+                    <span
+                      className="inline-block h-2 w-2 shrink-0 rounded-full"
+                      style={{ background: h.color }}
+                      aria-hidden
+                    />
+                    <span className="truncate" style={{ color: h.color }}>{h.name}</span>
+                    {h.pid === selfPid && (
+                      <button
+                        type="button"
+                        onClick={() => lowerHand()}
+                        className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                      >
+                        lower
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {reopenPeek && (
             <div
