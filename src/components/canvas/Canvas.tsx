@@ -255,6 +255,10 @@ export function Canvas({
       editorRef.current = editor;
       setEditor(editor);
       setMounted(true);
+      // Expose for E2E/debug harnesses. Cheap and safe in prod.
+      if (typeof window !== "undefined") {
+        (window as unknown as { __cartoonistEditor?: Editor }).__cartoonistEditor = editor;
+      }
       // Light theme to match the editorial warm-paper surface.
       editor.user.updateUserPreferences({ colorScheme: "light" });
       editor.updateInstanceState({ isGridMode: true }, { history: "ignore" });
@@ -266,6 +270,7 @@ export function Canvas({
     },
     [drawingEnabled, onHasContentChange, setEditor],
   );
+
 
   useEffect(() => {
     const editor = editorRef.current;
