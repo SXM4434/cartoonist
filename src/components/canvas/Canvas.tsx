@@ -237,7 +237,12 @@ export function Canvas({
   // v2.P6 — glow overlay: rects positioned over the shape bounds of a
   // reopened thread, pulse for ~3s so people can see the mediator returning
   // to an older idea instead of piling a fresh one beside it.
+  // We keep the reopened shape IDs + tone here and reproject to viewport
+  // coords every frame during the pulse, so the rings stay glued to the
+  // shapes even while the camera is animating from zoomToSelection.
+  const [glowTargets, setGlowTargets] = useState<Array<{ id: string; tone: "old" | "new" }>>([]);
   const [glow, setGlow] = useState<Array<{ id: string; x: number; y: number; w: number; h: number; tone: "old" | "new" }>>([]);
+
 
   const handleMount = useCallback(
     (editor: Editor) => {
