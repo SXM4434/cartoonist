@@ -19,6 +19,8 @@ import { TeamDesk } from "./team-desk/TeamDesk";
 import { ThreadRail, type CanvasThread } from "./team-desk/ThreadRail";
 import type { InferredState } from "./team-desk/use-inferred-state";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { buildUserAgents, userAgentsPromptBlock } from "@/lib/user-agents";
+import { playStreamingTTS } from "@/lib/tts-stream";
 
 type SessionContext = {
   name: string;
@@ -291,7 +293,6 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         })
         .filter(Boolean);
       // v2.P3 follow-up — unify mediator + drafter on the same agent block.
-      const { buildUserAgents, userAgentsPromptBlock } = await import("@/lib/user-agents");
       const agentsBlock = userAgentsPromptBlock(buildUserAgents(participants, inferredStatesRef.current));
       const voiceAllowedNames = participants.filter((p) => p.allow_voice_mention !== false).map((p) => p.name);
       // v2.P6 — send recent open threads so the model can extend/reference them.
@@ -318,23 +319,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         };
         void (async () => {
           try {
-            const ttsRes = await fetch("/api/mediator-tts", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ text: speak }),
+            const audio = await playStreamingTTS({
+              text: speak,
+              volume: 0.95,
+              onEnd: onDone,
             });
-            if (!ttsRes.ok) throw new Error("tts http " + ttsRes.status);
-            const blob = await ttsRes.blob();
-            const url = URL.createObjectURL(blob);
-            if (ttsAudioRef.current) {
-              try { ttsAudioRef.current.pause(); } catch { /* noop */ }
-            }
-            const audio = new Audio(url);
-            audio.volume = 0.95;
-            ttsAudioRef.current = audio;
-            audio.onended = () => { onDone(); URL.revokeObjectURL(url); };
-            audio.onerror = () => { onDone(); URL.revokeObjectURL(url); };
-            await audio.play();
+            if (audio) ttsAudioRef.current = audio;
           } catch {
             // Fallback to Web Speech
             if ("speechSynthesis" in window) {
