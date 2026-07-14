@@ -228,13 +228,24 @@ ${transcript}
 # Latest chunk to react to
 ${latest || transcript}`;
 
+        // Route to Flash by default for latency; escalate to Pro when the
+        // user is asking for a revision (reasoning-heavy) or when there's
+        // an unresolved-thread the mediator may need to surface carefully.
+        const hasUnresolved = states.some((s) => s.focus === "unresolved-thread");
+        const model = reviseIntent || hasUnresolved ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash";
+        // Pricing per 1M tokens (USD)
+        const pricing: Record<string, { in: number; out: number }> = {
+          "google/gemini-2.5-pro": { in: 1.25, out: 5.0 },
+          "google/gemini-2.5-flash": { in: 0.3, out: 2.5 },
+        };
+
         let res: Response;
         try {
           res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
-              model: "google/gemini-2.5-pro",
+              model,
               response_format: { type: "json_object" },
               messages: [
                 { role: "system", content: SYSTEM_PROMPT },
@@ -242,6 +253,7 @@ ${latest || transcript}`;
               ],
             }),
           });
+
         } catch (error) {
           console.error("AI draw request failed", error);
           return json({ error: "AI draw is temporarily unavailable — try again in a moment.", shapes: [], edits: [], removes: [] });
@@ -266,10 +278,10 @@ ${latest || transcript}`;
         }
 
         // v1 P1.9 — live cost meter. Log usage per room so the HUD can sum.
-        // Pricing (Gemini 2.5 Pro, USD per 1M tokens): in $1.25, out $5.
         const inputTokens = Math.max(0, Number(data.usage?.prompt_tokens ?? 0) | 0);
         const outputTokens = Math.max(0, Number(data.usage?.completion_tokens ?? 0) | 0);
-        const costUsd = (inputTokens * 1.25 + outputTokens * 5.0) / 1_000_000;
+        const price = pricing[model] ?? pricing["google/gemini-2.5-pro"];
+        const costUsd = (inputTokens * price.in + outputTokens * price.out) / 1_000_000;
         const roomId = typeof body.roomId === "string" ? body.roomId : null;
         if (roomId && (inputTokens || outputTokens)) {
           try {
@@ -277,7 +289,7 @@ ${latest || transcript}`;
             await supabaseAdmin.from("ai_calls").insert({
               room_id: roomId,
               stage: "renderer",
-              model: "google/gemini-2.5-pro",
+              model,
               input_tokens: inputTokens,
               output_tokens: outputTokens,
               cost_usd: costUsd,
@@ -286,6 +298,7 @@ ${latest || transcript}`;
             console.warn("[cartoonist-draw] cost log failed", err);
           }
         }
+
 
         // v2.P1.5 anti-fabrication guard: strip fetch_card shapes whose
         // caption URL never appeared verbatim in the transcript. Model is
