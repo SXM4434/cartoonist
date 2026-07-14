@@ -28,8 +28,18 @@ Choose ONE modality for this turn:
   "edits":    [ { "id": "<existing id>", "patch": { ...partial fields... } } ],
   "removes":  [ "<existing id>", ... ],
   "speak":    "<optional short spoken interjection, <=140 chars, plain sentence>",
+  "thread_ref": "<optional id from openThreads THIS turn extends or references, or null>",
+  "relation":   "extends"|"references"|"contradicts"|"resolves"|null,
   "rationale": "<one short sentence>"
 }
+
+# CROSS-TIME THREADS (v2.P6)
+You will receive an "openThreads" list — past utterances that already have shapes on the canvas. If the LATEST chunk is clearly continuing, answering, contradicting, or resolving one of those threads (not just a new topic), set "thread_ref" to that thread id and pick a "relation":
+- extends     → adds detail to the same idea
+- references  → touches it in passing
+- contradicts → disagrees with what was drawn
+- resolves    → closes the question the thread raised
+Only set thread_ref when the link is real. If the latest chunk is a genuinely new topic, omit thread_ref (or set null). When you set thread_ref, place new shapes NEAR the referenced shapes' bboxes on the canvas — don't march to the right edge.
 
 # SPEAK (voice — v2.P4)
 The mediator has a voice. Include a "speak" string ONLY when a short spoken nudge adds real value:
