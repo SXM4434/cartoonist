@@ -24,6 +24,8 @@ import { playStreamingTTS } from "@/lib/tts-stream";
 import { useLiveCursors } from "@/hooks/use-live-cursors";
 import { useSharedFocus } from "@/hooks/use-shared-focus";
 import { CursorsOverlay } from "./team-desk/CursorsOverlay";
+import { ReactionsOverlay } from "./team-desk/ReactionsOverlay";
+import { useReactions } from "@/hooks/use-reactions";
 
 type SessionContext = {
   name: string;
