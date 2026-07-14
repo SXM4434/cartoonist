@@ -160,3 +160,10 @@
   70%  { opacity: 1; }
   100% { opacity: 0; }
 }
+
+@keyframes cartoonistPeek {
+  0%   { opacity: 0; transform: translate(-50%, -8px); }
+  8%   { opacity: 1; transform: translate(-50%, 0); }
+  85%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -4px); }
+}
