@@ -130,6 +130,8 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [mediatorMuted, setMediatorMuted] = useState(false);
   const inferredStatesRef = useRef<Record<string, InferredState>>({});
   const lastSpokenRef = useRef<string>("");
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
+
 
   const speech = useSpeech();
   const startedAtRef = useRef(Date.now());
