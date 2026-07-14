@@ -690,7 +690,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
             onClick={() => {
               setMediatorMuted((v) => {
                 const next = !v;
-                if (next && typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
+                if (next && typeof window !== "undefined") {
+                  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+                  if (ttsAudioRef.current) { try { ttsAudioRef.current.pause(); } catch { /* noop */ } }
+                }
                 return next;
               });
             }}
