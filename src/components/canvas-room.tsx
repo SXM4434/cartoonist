@@ -109,6 +109,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [checkInPid, setCheckInPid] = useState<string | null>(null);
   const [checkInName, setCheckInName] = useState<string | null>(null);
   const [kioskQueue, setKioskQueue] = useState<string[]>([]);
+  const [kioskMode, setKioskMode] = useState(false);
   const [shapes, setShapes] = useState<SketchPrimitive[]>([]);
   const [freehand, setFreehand] = useState<FreehandStroke[]>([]);
   const [drawing, setDrawing] = useState(false);
