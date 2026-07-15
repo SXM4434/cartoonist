@@ -171,11 +171,16 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     selfName: selfParticipant?.name,
     selfColor: selfParticipant?.color,
   });
+  // Fallback identity so anyone in the room (even pre-check-in) can raise a hand.
+  const fallbackId = typeof window !== "undefined" ? (localStorage.getItem("cartoonist_user_id") || null) : null;
+  const fallbackName = typeof window !== "undefined" ? (localStorage.getItem("cartoonist_user_name") || "Guest") : "Guest";
+  const fallbackColor = typeof window !== "undefined" ? (localStorage.getItem("cartoonist_user_color") || "#E07A3E") : "#E07A3E";
+  const handPid = selfPid ?? fallbackId;
   const { queue: handQueue, isRaised, toggle: toggleHand, lower: lowerHand } = useHandQueue({
     roomId,
-    selfPid,
-    selfName: selfParticipant?.name,
-    selfColor: selfParticipant?.color,
+    selfPid: handPid,
+    selfName: selfParticipant?.name || fallbackName,
+    selfColor: selfParticipant?.color || fallbackColor,
   });
 
   const emitReaction = useCallback((emoji: string) => {
