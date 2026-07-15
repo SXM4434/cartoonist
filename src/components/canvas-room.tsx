@@ -183,6 +183,73 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     selfColor: selfParticipant?.color || fallbackColor,
   });
 
+  const playMediatorLine = useCallback((text: string, opts?: { localFirst?: boolean }) => {
+    const speak = text.trim();
+    if (!speak || mediatorMuted || speak === lastSpokenRef.current || typeof window === "undefined") return;
+    lastSpokenRef.current = speak;
+    const onDone = () => {
+      // Suppress self-echo: skip transcript captured during TTS.
+      lastSentLenRef.current = speech.finals.join(" ").length;
+    };
+    const playBrowserVoice = () => {
+      if (!("speechSynthesis" in window)) return false;
+      try {
+        const u = new SpeechSynthesisUtterance(speak);
+        u.rate = 1.02;
+        u.pitch = 1;
+        u.volume = 0.9;
+        u.onend = onDone;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(u);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    if (opts?.localFirst && playBrowserVoice()) return;
+    void (async () => {
+      try {
+        const audio = await playStreamingTTS({ text: speak, volume: 0.95, onEnd: onDone });
+        if (audio) ttsAudioRef.current = audio;
+      } catch {
+        playBrowserVoice();
+      }
+    })();
+  }, [mediatorMuted, speech.finals]);
+
+  const lastHandInviteRef = useRef<string | null>(null);
+
+  const handInviteLine = useCallback((hand: { pid: string; name: string }) => {
+    const participant = participants.find((p) => p.id === hand.pid);
+    const canName = participant ? participant.allow_voice_mention !== false : true;
+    return canName ? `${hand.name}, go ahead.` : "I see a hand up — go ahead.";
+  }, [participants]);
+
+  const inviteRaisedHand = useCallback((hand: { pid: string; name: string }) => {
+    if (hand.pid === lastHandInviteRef.current) return;
+    lastHandInviteRef.current = hand.pid;
+    const line = handInviteLine(hand);
+    toast.message(line);
+    playMediatorLine(line, { localFirst: true });
+  }, [handInviteLine, playMediatorLine]);
+
+  const handleToggleHand = useCallback(() => {
+    if (!isRaised && handPid) {
+      // Speak inside the click gesture for the local user, then let the
+      // broadcast queue update every other screen.
+      inviteRaisedHand({ pid: handPid, name: selfParticipant?.name || fallbackName });
+    }
+    toggleHand();
+  }, [fallbackName, handPid, inviteRaisedHand, isRaised, selfParticipant?.name, toggleHand]);
+
+  // A raised hand is an explicit facilitation event, so the mediator should
+  // open the floor immediately instead of waiting for the next transcript draw.
+  useEffect(() => {
+    const next = handQueue[0];
+    if (!next) return;
+    inviteRaisedHand(next);
+  }, [handQueue, inviteRaisedHand]);
+
   const emitReaction = useCallback((emoji: string) => {
     const nx = 0.32 + Math.random() * 0.36;
     const ny = 0.72 + Math.random() * 0.12;
@@ -517,34 +584,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       // /api/mediator-tts; fall back to Web Speech if that fails. Gated by
       // the per-user mute toggle. Deduped so re-renders don't repeat.
       const speak = typeof data?.speak === "string" ? data.speak.trim() : "";
-      if (speak && !mediatorMuted && speak !== lastSpokenRef.current && typeof window !== "undefined") {
-        lastSpokenRef.current = speak;
-        const onDone = () => {
-          // Suppress self-echo: skip transcript captured during TTS.
-          lastSentLenRef.current = speech.finals.join(" ").length;
-        };
-        void (async () => {
-          try {
-            const audio = await playStreamingTTS({
-              text: speak,
-              volume: 0.95,
-              onEnd: onDone,
-            });
-            if (audio) ttsAudioRef.current = audio;
-          } catch {
-            // Fallback to Web Speech
-            if ("speechSynthesis" in window) {
-              try {
-                const u = new SpeechSynthesisUtterance(speak);
-                u.rate = 1.02; u.pitch = 1.0; u.volume = 0.9;
-                u.onend = onDone;
-                window.speechSynthesis.cancel();
-                window.speechSynthesis.speak(u);
-              } catch { /* noop */ }
-            }
-          }
-        })();
-      }
+      playMediatorLine(speak);
 
       const incoming = Array.isArray(data.shapes) ? (data.shapes as SketchPrimitive[]) : [];
       const edits = Array.isArray(data.edits) ? (data.edits as Array<{ id: string; patch: Record<string, unknown> }>) : [];
@@ -655,7 +695,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     } finally {
       setThinking(false);
     }
-  }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, mediatorMuted, handQueue, threads]);
+  }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, handQueue, threads, playMediatorLine]);
 
   // Auto-draw from speech: debounce ~1.2s after the last new final utterance,
   // so the mediator reacts as soon as the speaker pauses instead of waiting
@@ -1109,7 +1149,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
             <span className="mx-1 h-5 w-px bg-border" />
             <button
               type="button"
-              onClick={toggleHand}
+              onClick={handleToggleHand}
               aria-label={isRaised ? "Lower hand" : "Raise hand"}
               title={isRaised ? "Lower hand" : "Raise hand"}
               className={`h-7 px-2 text-lg leading-none transition hover:scale-110 ${isRaised ? "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]" : ""}`}
