@@ -1056,6 +1056,15 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               <div className="mt-4"><ArtifactTabs artifacts={artifacts} loading={generating} /></div>
             </SheetContent>
           </Sheet>
+          <SessionRecap
+            roomId={roomId}
+            buildRequest={() => ({
+              transcript: speech.finals.length ? speech.finals.join("\n") : "",
+              canvasSummary: summarizeCanvas(),
+              sessionContext: sessionCtx ? { name: sessionCtx.name, goal: sessionCtx.goal, outputs: sessionCtx.outputs } : null,
+              participants: participants.map((p) => ({ name: p.name, role: p.role ?? null })),
+            })}
+          />
         </div>
       </header>
 
