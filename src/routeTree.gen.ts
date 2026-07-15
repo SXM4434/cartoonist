@@ -17,6 +17,7 @@ import { Route as SessionsSessionIdRouteImport } from './routes/sessions.$sessio
 import { Route as RRoomIdRouteImport } from './routes/r.$roomId'
 import { Route as ApiTranscribeSampleRouteImport } from './routes/api/transcribe-sample'
 import { Route as ApiTranscribeChunkRouteImport } from './routes/api/transcribe-chunk'
+import { Route as ApiSessionRecapRouteImport } from './routes/api/session-recap'
 import { Route as ApiParseIntroRouteImport } from './routes/api/parse-intro'
 import { Route as ApiMediatorTtsRouteImport } from './routes/api/mediator-tts'
 import { Route as ApiLiveblocksAuthRouteImport } from './routes/api/liveblocks-auth'
@@ -63,6 +64,11 @@ const ApiTranscribeSampleRoute = ApiTranscribeSampleRouteImport.update({
 const ApiTranscribeChunkRoute = ApiTranscribeChunkRouteImport.update({
   id: '/api/transcribe-chunk',
   path: '/api/transcribe-chunk',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSessionRecapRoute = ApiSessionRecapRouteImport.update({
+  id: '/api/session-recap',
+  path: '/api/session-recap',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiParseIntroRoute = ApiParseIntroRouteImport.update({
@@ -112,6 +118,7 @@ export interface FileRoutesByFullPath {
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
   '/api/mediator-tts': typeof ApiMediatorTtsRoute
   '/api/parse-intro': typeof ApiParseIntroRoute
+  '/api/session-recap': typeof ApiSessionRecapRoute
   '/api/transcribe-chunk': typeof ApiTranscribeChunkRoute
   '/api/transcribe-sample': typeof ApiTranscribeSampleRoute
   '/r/$roomId': typeof RRoomIdRoute
@@ -129,6 +136,7 @@ export interface FileRoutesByTo {
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
   '/api/mediator-tts': typeof ApiMediatorTtsRoute
   '/api/parse-intro': typeof ApiParseIntroRoute
+  '/api/session-recap': typeof ApiSessionRecapRoute
   '/api/transcribe-chunk': typeof ApiTranscribeChunkRoute
   '/api/transcribe-sample': typeof ApiTranscribeSampleRoute
   '/r/$roomId': typeof RRoomIdRoute
@@ -147,6 +155,7 @@ export interface FileRoutesById {
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
   '/api/mediator-tts': typeof ApiMediatorTtsRoute
   '/api/parse-intro': typeof ApiParseIntroRoute
+  '/api/session-recap': typeof ApiSessionRecapRoute
   '/api/transcribe-chunk': typeof ApiTranscribeChunkRoute
   '/api/transcribe-sample': typeof ApiTranscribeSampleRoute
   '/r/$roomId': typeof RRoomIdRoute
@@ -166,6 +175,7 @@ export interface FileRouteTypes {
     | '/api/liveblocks-auth'
     | '/api/mediator-tts'
     | '/api/parse-intro'
+    | '/api/session-recap'
     | '/api/transcribe-chunk'
     | '/api/transcribe-sample'
     | '/r/$roomId'
@@ -183,6 +193,7 @@ export interface FileRouteTypes {
     | '/api/liveblocks-auth'
     | '/api/mediator-tts'
     | '/api/parse-intro'
+    | '/api/session-recap'
     | '/api/transcribe-chunk'
     | '/api/transcribe-sample'
     | '/r/$roomId'
@@ -200,6 +211,7 @@ export interface FileRouteTypes {
     | '/api/liveblocks-auth'
     | '/api/mediator-tts'
     | '/api/parse-intro'
+    | '/api/session-recap'
     | '/api/transcribe-chunk'
     | '/api/transcribe-sample'
     | '/r/$roomId'
@@ -218,6 +230,7 @@ export interface RootRouteChildren {
   ApiLiveblocksAuthRoute: typeof ApiLiveblocksAuthRoute
   ApiMediatorTtsRoute: typeof ApiMediatorTtsRoute
   ApiParseIntroRoute: typeof ApiParseIntroRoute
+  ApiSessionRecapRoute: typeof ApiSessionRecapRoute
   ApiTranscribeChunkRoute: typeof ApiTranscribeChunkRoute
   ApiTranscribeSampleRoute: typeof ApiTranscribeSampleRoute
   RRoomIdRoute: typeof RRoomIdRoute
@@ -284,6 +297,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTranscribeChunkRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/session-recap': {
+      id: '/api/session-recap'
+      path: '/api/session-recap'
+      fullPath: '/api/session-recap'
+      preLoaderRoute: typeof ApiSessionRecapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/parse-intro': {
       id: '/api/parse-intro'
       path: '/api/parse-intro'
@@ -346,6 +366,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiLiveblocksAuthRoute: ApiLiveblocksAuthRoute,
   ApiMediatorTtsRoute: ApiMediatorTtsRoute,
   ApiParseIntroRoute: ApiParseIntroRoute,
+  ApiSessionRecapRoute: ApiSessionRecapRoute,
   ApiTranscribeChunkRoute: ApiTranscribeChunkRoute,
   ApiTranscribeSampleRoute: ApiTranscribeSampleRoute,
   RRoomIdRoute: RRoomIdRoute,
