@@ -183,6 +183,49 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     selfColor: selfParticipant?.color || fallbackColor,
   });
 
+  const playMediatorLine = useCallback((text: string) => {
+    const speak = text.trim();
+    if (!speak || mediatorMuted || speak === lastSpokenRef.current || typeof window === "undefined") return;
+    lastSpokenRef.current = speak;
+    const onDone = () => {
+      // Suppress self-echo: skip transcript captured during TTS.
+      lastSentLenRef.current = speech.finals.join(" ").length;
+    };
+    void (async () => {
+      try {
+        const audio = await playStreamingTTS({ text: speak, volume: 0.95, onEnd: onDone });
+        if (audio) ttsAudioRef.current = audio;
+      } catch {
+        if ("speechSynthesis" in window) {
+          try {
+            const u = new SpeechSynthesisUtterance(speak);
+            u.rate = 1.02;
+            u.pitch = 1;
+            u.volume = 0.9;
+            u.onend = onDone;
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(u);
+          } catch { /* noop */ }
+        }
+      }
+    })();
+  }, [mediatorMuted, speech.finals]);
+
+  const lastHandInviteRef = useRef<string | null>(null);
+
+  // A raised hand is an explicit facilitation event, so the mediator should
+  // open the floor immediately instead of waiting for the next transcript draw.
+  useEffect(() => {
+    const next = handQueue[0];
+    if (!next || next.pid === lastHandInviteRef.current) return;
+    lastHandInviteRef.current = next.pid;
+    const participant = participants.find((p) => p.id === next.pid);
+    const canName = participant ? participant.allow_voice_mention !== false : true;
+    const line = canName ? `${next.name}, go ahead.` : "I see a hand up — go ahead.";
+    toast.message(line);
+    playMediatorLine(line);
+  }, [handQueue, participants, playMediatorLine]);
+
   const emitReaction = useCallback((emoji: string) => {
     const nx = 0.32 + Math.random() * 0.36;
     const ny = 0.72 + Math.random() * 0.12;
@@ -517,34 +560,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       // /api/mediator-tts; fall back to Web Speech if that fails. Gated by
       // the per-user mute toggle. Deduped so re-renders don't repeat.
       const speak = typeof data?.speak === "string" ? data.speak.trim() : "";
-      if (speak && !mediatorMuted && speak !== lastSpokenRef.current && typeof window !== "undefined") {
-        lastSpokenRef.current = speak;
-        const onDone = () => {
-          // Suppress self-echo: skip transcript captured during TTS.
-          lastSentLenRef.current = speech.finals.join(" ").length;
-        };
-        void (async () => {
-          try {
-            const audio = await playStreamingTTS({
-              text: speak,
-              volume: 0.95,
-              onEnd: onDone,
-            });
-            if (audio) ttsAudioRef.current = audio;
-          } catch {
-            // Fallback to Web Speech
-            if ("speechSynthesis" in window) {
-              try {
-                const u = new SpeechSynthesisUtterance(speak);
-                u.rate = 1.02; u.pitch = 1.0; u.volume = 0.9;
-                u.onend = onDone;
-                window.speechSynthesis.cancel();
-                window.speechSynthesis.speak(u);
-              } catch { /* noop */ }
-            }
-          }
-        })();
-      }
+      playMediatorLine(speak);
 
       const incoming = Array.isArray(data.shapes) ? (data.shapes as SketchPrimitive[]) : [];
       const edits = Array.isArray(data.edits) ? (data.edits as Array<{ id: string; patch: Record<string, unknown> }>) : [];
@@ -655,7 +671,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     } finally {
       setThinking(false);
     }
-  }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, mediatorMuted, handQueue, threads]);
+  }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, handQueue, threads, playMediatorLine]);
 
   // Auto-draw from speech: debounce ~1.2s after the last new final utterance,
   // so the mediator reacts as soon as the speaker pauses instead of waiting
