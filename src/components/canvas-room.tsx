@@ -9,6 +9,7 @@ import { EMPTY_HUMAN_LAYER, type HumanLayer } from "@/lib/human-layer";
 import { useSpeech } from "@/lib/use-speech";
 import { useLiveDiarization } from "@/hooks/use-live-diarization";
 import { ArtifactTabs, type Artifacts } from "./artifact-tabs";
+import { SessionRecap } from "./session-recap";
 import { IntroModal } from "./intro-modal";
 import { Canvas } from "./canvas/Canvas";
 import { CanvasProvider } from "./canvas/canvas-context";
@@ -1055,6 +1056,15 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               <div className="mt-4"><ArtifactTabs artifacts={artifacts} loading={generating} /></div>
             </SheetContent>
           </Sheet>
+          <SessionRecap
+            roomId={roomId}
+            buildRequest={() => ({
+              transcript: speech.finals.length ? speech.finals.join("\n") : "",
+              canvasSummary: summarizeCanvas(),
+              sessionContext: sessionCtx ? { name: sessionCtx.name, goal: sessionCtx.goal, outputs: sessionCtx.outputs } : null,
+              participants: participants.map((p) => ({ name: p.name, role: p.role ?? null })),
+            })}
+          />
         </div>
       </header>
 
