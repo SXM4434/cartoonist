@@ -183,7 +183,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     selfColor: selfParticipant?.color || fallbackColor,
   });
 
-  const playMediatorLine = useCallback((text: string) => {
+  const playMediatorLine = useCallback((text: string, opts?: { localFirst?: boolean }) => {
     const speak = text.trim();
     if (!speak || mediatorMuted || speak === lastSpokenRef.current || typeof window === "undefined") return;
     lastSpokenRef.current = speak;
@@ -191,22 +191,28 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       // Suppress self-echo: skip transcript captured during TTS.
       lastSentLenRef.current = speech.finals.join(" ").length;
     };
+    const playBrowserVoice = () => {
+      if (!("speechSynthesis" in window)) return false;
+      try {
+        const u = new SpeechSynthesisUtterance(speak);
+        u.rate = 1.02;
+        u.pitch = 1;
+        u.volume = 0.9;
+        u.onend = onDone;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(u);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    if (opts?.localFirst && playBrowserVoice()) return;
     void (async () => {
       try {
         const audio = await playStreamingTTS({ text: speak, volume: 0.95, onEnd: onDone });
         if (audio) ttsAudioRef.current = audio;
       } catch {
-        if ("speechSynthesis" in window) {
-          try {
-            const u = new SpeechSynthesisUtterance(speak);
-            u.rate = 1.02;
-            u.pitch = 1;
-            u.volume = 0.9;
-            u.onend = onDone;
-            window.speechSynthesis.cancel();
-            window.speechSynthesis.speak(u);
-          } catch { /* noop */ }
-        }
+        playBrowserVoice();
       }
     })();
   }, [mediatorMuted, speech.finals]);
@@ -223,7 +229,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     const canName = participant ? participant.allow_voice_mention !== false : true;
     const line = canName ? `${next.name}, go ahead.` : "I see a hand up — go ahead.";
     toast.message(line);
-    playMediatorLine(line);
+    playMediatorLine(line, { localFirst: true });
   }, [handQueue, participants, playMediatorLine]);
 
   const emitReaction = useCallback((emoji: string) => {
