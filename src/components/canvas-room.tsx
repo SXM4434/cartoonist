@@ -1135,7 +1135,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                       aria-hidden
                     />
                     <span className="truncate" style={{ color: h.color }}>{h.name}</span>
-                    {h.pid === selfPid && (
+                    {h.pid === handPid && (
                       <button
                         type="button"
                         onClick={() => lowerHand()}
