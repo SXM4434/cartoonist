@@ -219,18 +219,36 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
   const lastHandInviteRef = useRef<string | null>(null);
 
+  const handInviteLine = useCallback((hand: { pid: string; name: string }) => {
+    const participant = participants.find((p) => p.id === hand.pid);
+    const canName = participant ? participant.allow_voice_mention !== false : true;
+    return canName ? `${hand.name}, go ahead.` : "I see a hand up — go ahead.";
+  }, [participants]);
+
+  const inviteRaisedHand = useCallback((hand: { pid: string; name: string }) => {
+    if (hand.pid === lastHandInviteRef.current) return;
+    lastHandInviteRef.current = hand.pid;
+    const line = handInviteLine(hand);
+    toast.message(line);
+    playMediatorLine(line, { localFirst: true });
+  }, [handInviteLine, playMediatorLine]);
+
+  const handleToggleHand = useCallback(() => {
+    if (!isRaised && handPid) {
+      // Speak inside the click gesture for the local user, then let the
+      // broadcast queue update every other screen.
+      inviteRaisedHand({ pid: handPid, name: selfParticipant?.name || fallbackName });
+    }
+    toggleHand();
+  }, [fallbackName, handPid, inviteRaisedHand, isRaised, selfParticipant?.name, toggleHand]);
+
   // A raised hand is an explicit facilitation event, so the mediator should
   // open the floor immediately instead of waiting for the next transcript draw.
   useEffect(() => {
     const next = handQueue[0];
-    if (!next || next.pid === lastHandInviteRef.current) return;
-    lastHandInviteRef.current = next.pid;
-    const participant = participants.find((p) => p.id === next.pid);
-    const canName = participant ? participant.allow_voice_mention !== false : true;
-    const line = canName ? `${next.name}, go ahead.` : "I see a hand up — go ahead.";
-    toast.message(line);
-    playMediatorLine(line, { localFirst: true });
-  }, [handQueue, participants, playMediatorLine]);
+    if (!next) return;
+    inviteRaisedHand(next);
+  }, [handQueue, inviteRaisedHand]);
 
   const emitReaction = useCallback((emoji: string) => {
     const nx = 0.32 + Math.random() * 0.36;
@@ -1131,7 +1149,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
             <span className="mx-1 h-5 w-px bg-border" />
             <button
               type="button"
-              onClick={toggleHand}
+              onClick={handleToggleHand}
               aria-label={isRaised ? "Lower hand" : "Raise hand"}
               title={isRaised ? "Lower hand" : "Raise hand"}
               className={`h-7 px-2 text-lg leading-none transition hover:scale-110 ${isRaised ? "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]" : ""}`}
