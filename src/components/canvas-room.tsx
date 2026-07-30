@@ -152,6 +152,11 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   // v2.P6 — brief peek toast when the mediator returns to an older thread.
   const [reopenPeek, setReopenPeek] = useState<{ relation: string | null; latest: string; oldLatest: string } | null>(null);
 
+  // v2.P6 — cross-session memory: does today's talk echo an older session?
+  const memory = useCrossSessionMemory(roomId);
+  const memoryRef = useRef(memory);
+  memoryRef.current = memory;
+  const lastThreadIdRef = useRef<string | null>(null);
 
   const speech = useSpeech();
   const startedAtRef = useRef(Date.now());
