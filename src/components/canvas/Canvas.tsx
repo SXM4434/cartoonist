@@ -224,7 +224,7 @@ function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
     }];
     if (label && !showInside && size >= 26) {
       out.push({
-        id: createShapeId(`${shape.id}_lbl`),
+        id: shapeId(`${shape.id}-lbl`),
         type: "text",
         x: shape.x + size + 6,
         y: shape.y + size / 2 - 8,
