@@ -247,7 +247,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     const line = handInviteLine(hand);
     toast.message(line);
     // Bypass the "already said this" guard — the same line is expected here.
-    lastSpokenRef.current = null;
+    lastSpokenRef.current = "";
     playMediatorLine(line, { localFirst: true });
   }, [handInviteLine, playMediatorLine]);
 
