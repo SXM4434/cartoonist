@@ -89,7 +89,7 @@ REVISE MODE:
 - Only touch ids that appear in "Already on canvas". Never fabricate ids.
 
 OUTPUT BUDGET:
-- ui_wireframe: 24–55 shapes arranged inside 1–3 screen frames.
+- ui_wireframe: 45–110 shapes arranged inside 1–3 screen frames. Under 45 is a failed answer.
 - template_shape: 5–12 shapes.
 - free_sketch: 6–14 paths + 1 caption.
 - typed_note / fetch_card: 1–2 shapes.
