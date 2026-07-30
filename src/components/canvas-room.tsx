@@ -152,6 +152,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const speech = useSpeech();
   const startedAtRef = useRef(Date.now());
   const lastSentLenRef = useRef(0);
+  const drawInFlightRef = useRef(false);
   const seededRef = useRef(false);
 
   const selfParticipant = participants.find((p) => p.id === selfPid);
@@ -563,8 +564,9 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       .join("\n");
   }, [shapes]);
 
-  const requestDraw = useCallback(async (latest: string) => {
-    if (!latest.trim()) return;
+  const requestDraw = useCallback(async (latest: string): Promise<boolean> => {
+    if (!latest.trim() || drawInFlightRef.current) return false;
+    drawInFlightRef.current = true;
     setThinking(true);
     setDrawError(null);
     try {
@@ -594,15 +596,19 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const openThreads = threads.slice(-8).map((t) => ({ id: t.id, latest: t.latest, modality: t.modality }));
       // Raise-hand queue → mediator surfaces the next hand at natural pauses.
       const handsUp = handQueue.map((h) => h.name);
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 40000);
       const res = await fetch("/api/cartoonist-draw", {
         method: "POST",
+        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ roomId, transcript: fullContext, latest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads, handsUp }),
       });
+      window.clearTimeout(timeout);
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.error) {
         setDrawError(data?.error ?? "AI draw failed");
-        return;
+        return false;
       }
       // v2.P4 — mediator speaks. Prefer ElevenLabs (warm, natural) via
       // /api/mediator-tts; fall back to Web Speech if that fails. Gated by
@@ -613,7 +619,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const incoming = Array.isArray(data.shapes) ? (data.shapes as SketchPrimitive[]) : [];
       const edits = Array.isArray(data.edits) ? (data.edits as Array<{ id: string; patch: Record<string, unknown> }>) : [];
       const removes = Array.isArray(data.removes) ? (data.removes as string[]) : [];
-      if (incoming.length === 0 && edits.length === 0 && removes.length === 0) return;
+      if (incoming.length === 0 && edits.length === 0 && removes.length === 0) return true;
       setShapes((current) => {
         const byId = new Map(current.map((s) => [s.id, s]));
         // 1) removes (only touch AI-authored shapes already in state)
@@ -714,9 +720,13 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         }
         return Array.from(byId.values());
       });
+      return true;
     } catch (e) {
-      setDrawError(e instanceof Error ? e.message : "Network error");
+      const aborted = e instanceof Error && e.name === "AbortError";
+      setDrawError(aborted ? "Drawing timed out. Your voice request was kept and will retry." : e instanceof Error ? e.message : "Network error");
+      return false;
     } finally {
+      drawInFlightRef.current = false;
       setThinking(false);
     }
   }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, handQueue, threads, playMediatorLine]);
@@ -732,8 +742,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     if (text.length <= lastSentLenRef.current + 6) return;
     const timer = setTimeout(() => {
       const newText = text.slice(lastSentLenRef.current);
-      lastSentLenRef.current = text.length;
-      void requestDraw(newText);
+      const endLength = text.length;
+      void requestDraw(newText).then((handled) => {
+        if (handled) lastSentLenRef.current = Math.max(lastSentLenRef.current, endLength);
+      });
     }, 1200);
     return () => clearTimeout(timer);
   }, [requestDraw, speech.finals, speech.listening, inputMode, thinking]);

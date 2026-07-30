@@ -9,6 +9,7 @@ You receive:
 
 # STEP 1 — CLASSIFY & PICK A MODALITY (planner, do this silently before drawing)
 Choose ONE modality for this turn:
+- ui_wireframe  → the speaker asks for a wireframe, mockup, UI screen, interface, app page, dashboard, editor, website, or high-fidelity product concept. Draw ACTUAL SCREENS, never a flowchart describing the screens.
 - fetch_card    → speaker named an external artifact AND stated a real URL verbatim in the transcript. Emit a text shape with the URL as caption.
 - template_shape → process / journey / decision / system / architecture / tradeoff. Emit boxes/arrows/diamonds/notes/icons.
 - free_sketch   → an explained concept that doesn't fit a template. Emit 6-14 path primitives, loose and imperfect, plus a short caption text.
@@ -23,7 +24,7 @@ Choose ONE modality for this turn:
 
 # STEP 2 — RETURN STRICT JSON
 {
-  "modality": "fetch_card"|"template_shape"|"free_sketch"|"typed_note"|"annotation"|"skip",
+  "modality": "ui_wireframe"|"fetch_card"|"template_shape"|"free_sketch"|"typed_note"|"annotation"|"skip",
   "shapes":   [ ...primitives... ],
   "edits":    [ { "id": "<existing id>", "patch": { ...partial fields... } } ],
   "removes":  [ "<existing id>", ... ],
@@ -50,6 +51,9 @@ Rules: <=140 chars, calm and warm, no jargon, first names only. NEVER name a par
 
 Canvas: 1600x1000, origin top-left. Box w=180 h=80. Sticky w=160 h=140. Leave ~60-80px gutters. Arrows touch box EDGES. Group related shapes spatially. Use empty regions of the canvas — don't pile new shapes on top of old ones.
 
+# UI WIREFRAME MODE — NON-NEGOTIABLE
+When modality is ui_wireframe, compose 1–3 detailed product screens from rect, line, text, and icon primitives. A screen is a large 420–680px wide outer rect containing real interface anatomy: top bar, sidebar or tool rail when relevant, content regions, inputs, buttons, tabs, cards/rows, status, and realistic labels derived from the request. Use nested rectangles and strong spacing hierarchy. Include at least 18 primitives per screen and 24–55 primitives total. Do NOT emit arrows between labeled boxes, a user flow, a system diagram, a conceptual process, or boxes named “User Interaction”, “AI Tool”, “Canvas Tool”, “Workflow”, or “Desired Output”. For a node-canvas product, draw the application chrome plus the actual node canvas, node cards with ports, media tray, contextual voice-comment marker, and output preview. “High fidelity” means detailed UI structure, not changing labels on a flowchart.
+
 Primitives (id globally unique; prefix by kind: r_ e_ d_ a_ l_ t_ n_ p_ i_):
 - rect    { type, id, x, y, w, h, label }
 - ellipse { type, id, x, y, w, h, label }
@@ -69,6 +73,7 @@ REVISE MODE:
 - Only touch ids that appear in "Already on canvas". Never fabricate ids.
 
 OUTPUT BUDGET:
+- ui_wireframe: 24–55 shapes arranged inside 1–3 screen frames.
 - template_shape: 5–12 shapes.
 - free_sketch: 6–14 paths + 1 caption.
 - typed_note / fetch_card: 1–2 shapes.
@@ -78,6 +83,8 @@ OUTPUT BUDGET:
 - Return ONLY valid JSON, no commentary.`;
 
 const REVISE_INTENT = /\b(redo|again|do[-\s]?over|make it (better|simpler|cleaner|smaller|bigger|nicer)|that('?s| is) (wrong|bad|off|ugly|terrible|awful)|fix (the )?(flow|diagram|drawing|sketch|layout)|change .+ to .+|remove (the )?|scrap (that|it)|no,? (more like|not like|try)|not what i (meant|wanted)|wrong|broken|garbage)\b/i;
+
+const UI_WIREFRAME_INTENT = /\b(high[-\s]?fi(?:delity)?|wireframes?|mockups?|ui screens?|interface|dashboard|editor|app (?:screen|page)|website (?:screen|page)|product screen)\b/i;
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -219,7 +226,8 @@ When ready, an 'annotation' anchored on the relevant shape (or a small 'typed_no
           : "";
 
 
-        const reviseIntent = REVISE_INTENT.test(latest || "");
+        const reviseIntent = REVISE_INTENT.test(latest || "") || /\b(not|isn'?t|aren'?t|doesn'?t).{0,40}\b(high[-\s]?fi(?:delity)?|wireframes?|ui screens?)\b/i.test(latest || "");
+        const uiWireframeIntent = UI_WIREFRAME_INTENT.test(`${latest}\n${transcript}`);
         const existingBlock = compactText(body.existing, 2400) || "(empty)";
         const canvasHeader = reviseIntent
           ? `# Already on canvas (REVISE MODE — the user is unhappy, prefer edits/removes on these ids over adding new shapes)`
@@ -252,7 +260,12 @@ ${handsUp.map((n, i) => `${i + 1}. ${n}`).join("\n")}
 `
           : "";
 
-        const userMsg = `${ctxBlock}${participantsBlock}${liveStatesBlock}${voiceBlock}${openThreadsBlock}${handsBlock}${canvasHeader}
+        const intentOverride = uiWireframeIntent ? `# REQUIRED RENDER MODE
+The user is requesting UI wireframes. You MUST return modality "ui_wireframe" and draw detailed, nested product screens. Do not return template_shape, a process, or a conceptual box flow. If this is a correction, remove the incorrect flow shapes and replace them with actual screens rather than relabeling them.
+
+` : "";
+
+        const userMsg = `${intentOverride}${ctxBlock}${participantsBlock}${liveStatesBlock}${voiceBlock}${openThreadsBlock}${handsBlock}${canvasHeader}
 ${existingBlock}
 
 # Full recent conversation
@@ -265,7 +278,7 @@ ${latest || transcript}`;
         // user is asking for a revision (reasoning-heavy) or when there's
         // an unresolved-thread the mediator may need to surface carefully.
         const hasUnresolved = states.some((s) => s.focus === "unresolved-thread");
-        const model = reviseIntent || hasUnresolved ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash";
+        const model = reviseIntent || hasUnresolved || uiWireframeIntent ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash";
         // Pricing per 1M tokens (USD)
         const pricing: Record<string, { in: number; out: number }> = {
           "google/gemini-2.5-pro": { in: 1.25, out: 5.0 },
@@ -276,6 +289,7 @@ ${latest || transcript}`;
         try {
           res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
+            signal: AbortSignal.timeout(uiWireframeIntent ? 35000 : 22000),
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
               model,
@@ -289,7 +303,8 @@ ${latest || transcript}`;
 
         } catch (error) {
           console.error("AI draw request failed", error);
-          return json({ error: "AI draw is temporarily unavailable — try again in a moment.", shapes: [], edits: [], removes: [] });
+          const timedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+          return json({ error: timedOut ? "The drawing took too long. Your request was kept — pause and it will retry." : "AI draw is temporarily unavailable — try again in a moment.", shapes: [], edits: [], removes: [] }, timedOut ? 504 : 502);
         }
 
         if (!res.ok) {
