@@ -604,7 +604,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       // Raise-hand queue → mediator surfaces the next hand at natural pauses.
       const handsUp = handQueue.map((h) => h.name);
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 40000);
+      const timeout = window.setTimeout(() => controller.abort(), 95000);
       const res = await fetch("/api/cartoonist-draw", {
         method: "POST",
         signal: controller.signal,
