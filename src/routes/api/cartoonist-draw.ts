@@ -67,6 +67,8 @@ Every screen MUST contain, wherever the product implies it:
 8. Real copy everywhere, drawn from the conversation. No lorem, no "Label", no "Box 1".
 
 Type ladder for wireframes: 11 (meta/caption), 13 (body/labels), 15 (section heads), 22 (screen title). Use text size field accordingly.
+TEXT RULE (critical): in ui_wireframe mode rects carry NO label — leave label empty and place a separate 'text' primitive at x = rect.x + 10, y = rect.y + (rect.h/2) - 7. Keep labels under 26 characters, one text per rect, and never place two texts within 16px vertically of each other. A rect narrower than 8 * (label length) must get a shorter label.
+NO ARROWS in ui_wireframe except short port-to-port connector 'line' primitives inside a node canvas.
 Density: MINIMUM 34 primitives per screen; 45–110 primitives total. If you are under 45 you have not drawn a real screen — go back and add rows, labels, icons, dividers, and states until the screen looks like a product screenshot.
 Use hairline 'line' primitives for dividers, 'icon' for glyphs, 'rect' with fill for filled buttons/active states, and text for every label. Do NOT emit arrows between labeled boxes, a user flow, a system diagram, a conceptual process, or boxes named "User Interaction", "AI Tool", "Canvas Tool", "Workflow", or "Desired Output". For a node-canvas product, draw the application chrome plus the actual node canvas, node cards with titled headers and input/output port ellipses, connector lines between ports, media tray thumbnails, a contextual voice-comment marker, and an output preview panel.
 
