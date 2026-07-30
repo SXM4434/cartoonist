@@ -1108,7 +1108,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                     roomId,
                     sessionName: sessionCtx?.name ?? null,
                     goal: sessionCtx?.goal ?? null,
-                    outputs: sessionCtx?.outputs ?? null,
+                    outputs: Array.isArray(sessionCtx?.outputs) ? sessionCtx.outputs.join(", ") : (sessionCtx?.outputs ?? null),
                     participants: participants.map((p) => ({ name: p.name, role: p.role ?? null })),
                     threads: threads.map((t) => ({ id: t.id, latest: t.latest, modality: t.modality })),
                     transcript: speech.finals.join("\n"),
