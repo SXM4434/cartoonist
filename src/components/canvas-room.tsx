@@ -770,9 +770,11 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     for (const t of threads) {
       if (!t.relation) continue;
       const label = t.latest.slice(0, 120);
-      for (const sid of t.shapeIds) {
-        items.push({ id: sid, threadId: t.id, relation: t.relation, label, peer: t.latest.slice(0, 160) });
-      }
+      // One chip per THREAD (anchored on its first shape) — chips on every
+      // shape turned dense wireframes into a field of orange arrows.
+      const sid = t.shapeIds[0];
+      if (!sid) continue;
+      items.push({ id: sid, threadId: t.id, relation: t.relation, label, peer: t.latest.slice(0, 160) });
     }
     window.dispatchEvent(new CustomEvent("cartoonist:relations", { detail: { items } }));
   }, [threads]);
