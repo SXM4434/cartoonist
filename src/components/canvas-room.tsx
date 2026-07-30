@@ -31,6 +31,7 @@ import { CursorsOverlay } from "./team-desk/CursorsOverlay";
 import { ReactionsOverlay } from "./team-desk/ReactionsOverlay";
 import { useReactions } from "@/hooks/use-reactions";
 import { useHandQueue } from "@/hooks/use-hand-queue";
+import { useCrossSessionMemory } from "@/hooks/use-cross-session-memory";
 
 type SessionContext = {
   name: string;
@@ -151,6 +152,11 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   // v2.P6 — brief peek toast when the mediator returns to an older thread.
   const [reopenPeek, setReopenPeek] = useState<{ relation: string | null; latest: string; oldLatest: string } | null>(null);
 
+  // v2.P6 — cross-session memory: does today's talk echo an older session?
+  const memory = useCrossSessionMemory(roomId);
+  const memoryRef = useRef(memory);
+  memoryRef.current = memory;
+  const lastThreadIdRef = useRef<string | null>(null);
 
   const speech = useSpeech();
   const startedAtRef = useRef(Date.now());
@@ -658,6 +664,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         const rawRelation = typeof (data as { relation?: unknown }).relation === "string" ? (data as { relation: string }).relation : null;
         const relation = (["extends", "references", "contradicts", "resolves"] as const).find((r) => r === rawRelation) ?? null;
         const threadId = threadRef ?? `thread_${crypto.randomUUID().slice(0, 8)}`;
+        lastThreadIdRef.current = threadId;
         const span = {
           origin: "utterance" as const,
           latest: cleanLatest.slice(0, 240),
@@ -728,6 +735,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         }
         return Array.from(byId.values());
       });
+      // v2.P6 — cross-session recall: if this utterance echoes a thread from an
+      // earlier session, persist the edge and ghost-surface it in the room.
+      try {
+        const hit = memoryRef.current.recall(cleanLatest);
+        if (hit && lastThreadIdRef.current) void memoryRef.current.record(hit, lastThreadIdRef.current);
+      } catch { /* memory is best-effort */ }
       return true;
     } catch (e) {
       const aborted = e instanceof Error && e.name === "AbortError";
@@ -1052,7 +1065,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           <Button size="sm" variant="outline" onClick={() => setChatOpen((v) => !v)} className={`h-8 gap-1.5 rounded-none border-border ${chatOpen ? "bg-foreground text-background" : ""}`}>
             <MessageSquare className="h-3.5 w-3.5" /><span className="eyebrow">Chat</span>
           </Button>
-          <ThreadRail threads={threads} />
+          <ThreadRail threads={threads} echoes={memory.echoes} />
           <Button
             size="sm"
             variant="outline"
@@ -1285,6 +1298,39 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               </p>
             </div>
           )}
+
+          {/* v2.P6 — cross-session ghost callback. */}
+          {memory.peek && (
+            <div
+              data-testid="memory-peek"
+              className="absolute right-6 top-6 z-20 max-w-sm border border-dashed bg-background/95 px-4 py-3 shadow-sm"
+              style={{ borderColor: "var(--accent-warm, #E07A3E)" }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <p className="eyebrow" style={{ color: "var(--accent-warm, #E07A3E)" }}>
+                  ↗ this came up before — {memory.peek.roomName}
+                </p>
+                <button
+                  type="button"
+                  onClick={memory.dismissPeek}
+                  className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                >
+                  dismiss
+                </button>
+              </div>
+              <p className="mt-1.5 font-serif" style={{ fontSize: "var(--step-1)", lineHeight: 1.35 }}>
+                {memory.peek.text}
+              </p>
+              <a
+                href={`/r/${memory.peek.roomId}`}
+                className="mt-2 inline-block text-[11px] uppercase tracking-wider underline underline-offset-4"
+              >
+                open that session
+              </a>
+            </div>
+          )}
+
+
 
           {shapes.length === 0 && freehand.length === 0 && (
             <div className="pointer-events-none absolute left-8 top-8 max-w-md border border-border bg-background p-5">

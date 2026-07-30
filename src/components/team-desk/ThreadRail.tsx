@@ -35,8 +35,19 @@ const relationCopy: Record<ThreadRelation, string> = {
   resolves: "resolves",
 };
 
-export function ThreadRail({ threads }: { threads: CanvasThread[] }) {
+export type ThreadEcho = {
+  roomId: string;
+  roomName: string;
+  threadId: string;
+  text: string;
+  at: number;
+  score: number;
+  relation: ThreadRelation;
+};
+
+export function ThreadRail({ threads, echoes = [] }: { threads: CanvasThread[]; echoes?: ThreadEcho[] }) {
   const ordered = [...threads].sort((a, b) => (b.reopenedAt ?? b.at) - (a.reopenedAt ?? a.at));
+
 
   return (
     <Sheet>
@@ -98,6 +109,35 @@ export function ThreadRail({ threads }: { threads: CanvasThread[] }) {
             );
           })}
         </div>
+
+        {echoes.length > 0 && (
+          <div className="mt-8">
+            <p className="eyebrow text-muted-foreground">Echoes from earlier sessions</p>
+            <p className="mt-1 text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
+              Threads from other rooms that today's conversation circled back to.
+            </p>
+            <div className="mt-3 space-y-2">
+              {echoes.map((e) => (
+                <a
+                  key={`${e.roomId}:${e.threadId}`}
+                  href={`/r/${e.roomId}`}
+                  className="block border border-dashed border-border bg-secondary/40 px-3 py-2 opacity-80 transition hover:border-foreground hover:opacity-100"
+                >
+                  <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+                    <span className="flex items-center gap-2">
+                      <span style={{ color: "var(--accent-warm, #E07A3E)" }}>↗ {relationCopy[e.relation]}</span>
+                      <span className="truncate">{e.roomName}</span>
+                    </span>
+                    <span className="tabular-nums">{Math.round(e.score * 100)}% match</span>
+                  </div>
+                  <p className="mt-1 font-serif text-foreground" style={{ fontSize: "var(--step-1)", lineHeight: 1.35 }}>
+                    {e.text || "(no transcript)"}
+                  </p>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </SheetContent>
     </Sheet>
   );
