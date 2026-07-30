@@ -10,6 +10,8 @@ import { useSpeech } from "@/lib/use-speech";
 import { useLiveDiarization } from "@/hooks/use-live-diarization";
 import { ArtifactTabs, type Artifacts } from "./artifact-tabs";
 import { SessionRecap } from "./session-recap";
+import { KnownAboutYou } from "./known-about-you";
+
 import { IntroModal } from "./intro-modal";
 import { Canvas } from "./canvas/Canvas";
 import { CanvasProvider } from "./canvas/canvas-context";
