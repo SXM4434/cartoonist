@@ -1101,6 +1101,21 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               <SheetHeader>
                 <SheetTitle className="font-serif" style={{ fontSize: "var(--step-3)" }}>Meeting artifacts</SheetTitle>
               </SheetHeader>
+              <div className="mt-4">
+                <SessionPack
+                  build={() => ({
+                    roomId,
+                    sessionName: sessionCtx?.name ?? null,
+                    goal: sessionCtx?.goal ?? null,
+                    outputs: sessionCtx?.outputs ?? null,
+                    participants: participants.map((p) => ({ name: p.name, role: p.role ?? null })),
+                    threads: threads.map((t) => ({ id: t.id, latest: t.latest, modality: t.modality })),
+                    transcript: speech.finals.join("\n"),
+                    canvasSummary: summarizeCanvas(),
+                    artifacts,
+                  })}
+                />
+              </div>
               <div className="mt-4"><ArtifactTabs artifacts={artifacts} loading={generating} /></div>
             </SheetContent>
           </Sheet>
