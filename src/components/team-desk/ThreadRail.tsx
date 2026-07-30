@@ -35,8 +35,19 @@ const relationCopy: Record<ThreadRelation, string> = {
   resolves: "resolves",
 };
 
-export function ThreadRail({ threads }: { threads: CanvasThread[] }) {
+export type ThreadEcho = {
+  roomId: string;
+  roomName: string;
+  threadId: string;
+  text: string;
+  at: number;
+  score: number;
+  relation: ThreadRelation;
+};
+
+export function ThreadRail({ threads, echoes = [] }: { threads: CanvasThread[]; echoes?: ThreadEcho[] }) {
   const ordered = [...threads].sort((a, b) => (b.reopenedAt ?? b.at) - (a.reopenedAt ?? a.at));
+
 
   return (
     <Sheet>
