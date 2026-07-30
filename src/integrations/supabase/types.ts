@@ -123,6 +123,57 @@ export type Database = {
           },
         ]
       }
+      canvas_relations: {
+        Row: {
+          confidence: number
+          created_at: string
+          from_room_id: string
+          from_thread_id: string
+          id: string
+          reason: string | null
+          relation: string
+          to_room_id: string
+          to_thread_id: string
+        }
+        Insert: {
+          confidence?: number
+          created_at?: string
+          from_room_id: string
+          from_thread_id: string
+          id?: string
+          reason?: string | null
+          relation?: string
+          to_room_id: string
+          to_thread_id: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          from_room_id?: string
+          from_thread_id?: string
+          id?: string
+          reason?: string | null
+          relation?: string
+          to_room_id?: string
+          to_thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "canvas_relations_from_room_id_fkey"
+            columns: ["from_room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "canvas_relations_to_room_id_fkey"
+            columns: ["to_room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       participant_insights: {
         Row: {
           confidence: number
