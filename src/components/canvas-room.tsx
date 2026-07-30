@@ -664,6 +664,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         const rawRelation = typeof (data as { relation?: unknown }).relation === "string" ? (data as { relation: string }).relation : null;
         const relation = (["extends", "references", "contradicts", "resolves"] as const).find((r) => r === rawRelation) ?? null;
         const threadId = threadRef ?? `thread_${crypto.randomUUID().slice(0, 8)}`;
+        lastThreadIdRef.current = threadId;
         const span = {
           origin: "utterance" as const,
           latest: cleanLatest.slice(0, 240),
