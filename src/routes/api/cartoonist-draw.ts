@@ -68,7 +68,7 @@ Every screen MUST contain, wherever the product implies it:
 
 Type ladder for wireframes: 11 (meta/caption), 13 (body/labels), 15 (section heads), 22 (screen title). Use text size field accordingly.
 Density: MINIMUM 34 primitives per screen; 45–110 primitives total. If you are under 45 you have not drawn a real screen — go back and add rows, labels, icons, dividers, and states until the screen looks like a product screenshot.
-Use hairline `line` primitives for dividers, `icon` for glyphs, `rect` with fill for filled buttons/active states, and text for every label. Do NOT emit arrows between labeled boxes, a user flow, a system diagram, a conceptual process, or boxes named "User Interaction", "AI Tool", "Canvas Tool", "Workflow", or "Desired Output". For a node-canvas product, draw the application chrome plus the actual node canvas, node cards with titled headers and input/output port ellipses, connector lines between ports, media tray thumbnails, a contextual voice-comment marker, and an output preview panel.
+Use hairline 'line' primitives for dividers, 'icon' for glyphs, 'rect' with fill for filled buttons/active states, and text for every label. Do NOT emit arrows between labeled boxes, a user flow, a system diagram, a conceptual process, or boxes named "User Interaction", "AI Tool", "Canvas Tool", "Workflow", or "Desired Output". For a node-canvas product, draw the application chrome plus the actual node canvas, node cards with titled headers and input/output port ellipses, connector lines between ports, media tray thumbnails, a contextual voice-comment marker, and an output preview panel.
 
 Primitives (id globally unique; prefix by kind: r_ e_ d_ a_ l_ t_ n_ p_ i_):
 - rect    { type, id, x, y, w, h, label }
