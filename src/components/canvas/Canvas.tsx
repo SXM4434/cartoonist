@@ -292,6 +292,20 @@ export function Canvas({
       // Light theme to match the editorial warm-paper surface.
       editor.user.updateUserPreferences({ colorScheme: "light" });
       editor.updateInstanceState({ isGridMode: true }, { history: "ignore" });
+      // Sweep corrupt shapes left behind by older sessions (NaN geometry in
+      // the local store hydrates before us and crashes the whole board).
+      try {
+        const bad: string[] = [];
+        for (const id of editor.getCurrentPageShapeIds()) {
+          const s = editor.getShape(id) as { x?: number; y?: number; props?: Record<string, unknown> } | undefined;
+          if (!s) continue;
+          const nums = [s.x, s.y, ...Object.values(s.props ?? {})];
+          if (nums.some((v) => typeof v === "number" && !Number.isFinite(v))) bad.push(String(id));
+        }
+        if (bad.length) editor.deleteShapes(bad as unknown as Parameters<Editor["deleteShapes"]>[0]);
+      } catch {
+        /* nothing to sweep */
+      }
       editor.setCurrentTool(drawingEnabled ? "draw" : "select");
       const off = editor.store.listen(() => {
         onHasContentChange?.(editor.getCurrentPageShapeIds().size > 0);
@@ -440,7 +454,16 @@ export function Canvas({
   useEffect(() => {
     const editor = editorRef.current;
     if (!mounted || !editor) return;
-    const desired = shapes.flatMap(toTldrawShapes);
+    // Guard: a single malformed primitive (NaN coords from legacy/replayed
+    // events) must never take the whole board down.
+    const finite = (v: unknown): boolean =>
+      typeof v !== "number" || Number.isFinite(v);
+    const isSane = (s: TLShapePartial): boolean => {
+      if (!finite(s.x) || !finite(s.y)) return false;
+      const props = (s.props ?? {}) as Record<string, unknown>;
+      return Object.values(props).every((v) => finite(v));
+    };
+    const desired = shapes.flatMap(toTldrawShapes).filter(isSane);
     const desiredById = new Map(desired.map((s) => [String(s.id), s]));
     // Current AI-authored shapes on the page (anything we created before).
     const currentAiIds = new Set<string>();
@@ -458,12 +481,16 @@ export function Canvas({
       if (!desiredById.has(id)) toDelete.push(id);
     }
     if (!toCreate.length && !toUpdate.length && !toDelete.length) return;
-    editor.run(() => {
-      if (toDelete.length) editor.deleteShapes(toDelete as unknown as Parameters<Editor["deleteShapes"]>[0]);
-      if (toUpdate.length) editor.updateShapes(toUpdate);
-      if (toCreate.length) editor.createShapes(toCreate);
-      toCreate.forEach((s) => createdShapeIdsRef.current.add(String(s.id)));
-    }, { history: "record" });
+    try {
+      editor.run(() => {
+        if (toDelete.length) editor.deleteShapes(toDelete as unknown as Parameters<Editor["deleteShapes"]>[0]);
+        if (toUpdate.length) editor.updateShapes(toUpdate);
+        if (toCreate.length) editor.createShapes(toCreate);
+        toCreate.forEach((s) => createdShapeIdsRef.current.add(String(s.id)));
+      }, { history: "record" });
+    } catch (err) {
+      console.warn("[canvas] skipped a bad shape batch", err);
+    }
     onHasContentChange?.(editor.getCurrentPageShapeIds().size > 0);
   }, [mounted, onHasContentChange, shapes]);
 
