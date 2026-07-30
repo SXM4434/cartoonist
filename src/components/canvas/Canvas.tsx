@@ -210,13 +210,28 @@ function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
   }
   if (shape.type === "icon") {
     const size = shape.size ?? 52;
-    return [{
+    // Small icons are glyphs, not labelled boxes. Cramming a word into a
+    // 16px square makes tldraw wrap it one letter per line ("i-c-o-n"), which
+    // is what made dense wireframes look broken. Label goes beside it instead.
+    const label = (shape.label ?? "").trim();
+    const showInside = size >= 44 && label.length > 0 && label.length <= 10;
+    const out: TLShapePartial[] = [{
       ...common,
       type: "geo",
       x: shape.x,
       y: shape.y,
-      props: { geo: shape.kind === "cloud" || shape.kind === "heart" || shape.kind === "star" ? shape.kind : shape.kind === "user" || shape.kind === "users" ? "ellipse" : "rectangle", w: size, h: size, color: "black", fill: "none", dash: "draw", size: "s", scale: 0.7, font: "draw", align: "middle", verticalAlign: "middle", labelColor: "black", richText: toRichText(shape.label ?? shape.kind) },
+      props: { geo: shape.kind === "cloud" || shape.kind === "heart" || shape.kind === "star" ? shape.kind : shape.kind === "user" || shape.kind === "users" ? "ellipse" : "rectangle", w: size, h: size, color: "black", fill: "none", dash: "draw", size: "s", scale: 0.7, font: "draw", align: "middle", verticalAlign: "middle", labelColor: "black", richText: toRichText(showInside ? label : "") },
     }];
+    if (label && !showInside && size >= 26) {
+      out.push({
+        id: createShapeId(`${shape.id}_lbl`),
+        type: "text",
+        x: shape.x + size + 6,
+        y: shape.y + size / 2 - 8,
+        props: { color: "black", size: "s", font: "draw", textAlign: "start", w: 260, scale: 0.5, richText: toRichText(label), autoSize: true },
+      } as TLShapePartial);
+    }
+    return out;
   }
   return [];
 }
