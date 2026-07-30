@@ -69,7 +69,8 @@ Every screen MUST contain, wherever the product implies it:
 Type ladder for wireframes: 11 (meta/caption), 13 (body/labels), 15 (section heads), 22 (screen title). Use text size field accordingly.
 TEXT RULE (critical): in ui_wireframe mode rects carry NO label — leave label empty and place a separate 'text' primitive at x = rect.x + 10, y = rect.y + (rect.h/2) - 7. Keep labels under 26 characters, one text per rect, and never place two texts within 16px vertically of each other. A rect narrower than 8 * (label length) must get a shorter label.
 NO ARROWS in ui_wireframe except short port-to-port connector 'line' primitives inside a node canvas.
-Density: MINIMUM 34 primitives per screen; 45–110 primitives total. If you are under 45 you have not drawn a real screen — go back and add rows, labels, icons, dividers, and states until the screen looks like a product screenshot.
+Density: MINIMUM 60 primitives per screen; 70–170 primitives total. If you are under 60 you have not drawn a real screen — go back and add rows, labels, icons, dividers, and states until the screen looks like a product screenshot.
+MICRO-DETAIL (required, this is what separates a real screen from boxes): avatar ellipses on rows, count badges (small rect + 11px number), a scrollbar track rect (w 4–6) on scrollable panes, keyboard-shortcut chips, tab underline (2px filled rect) on the active tab, breadcrumb texts separated by "/" texts, hover/selected row fills, disabled rows in a lighter treatment, at least one empty-state or loading placeholder line rect, tooltips or helper text at 11px under a field, checkbox/toggle rects (14x14) with labels, and per-item meta like "3 min ago" or "v2".
 Use hairline 'line' primitives for dividers, 'icon' for glyphs, 'rect' with fill for filled buttons/active states, and text for every label. Do NOT emit arrows between labeled boxes, a user flow, a system diagram, a conceptual process, or boxes named "User Interaction", "AI Tool", "Canvas Tool", "Workflow", or "Desired Output". For a node-canvas product, draw the application chrome plus the actual node canvas, node cards with titled headers and input/output port ellipses, connector lines between ports, media tray thumbnails, a contextual voice-comment marker, and an output preview panel.
 
 Primitives (id globally unique; prefix by kind: r_ e_ d_ a_ l_ t_ n_ p_ i_):
@@ -91,7 +92,7 @@ REVISE MODE:
 - Only touch ids that appear in "Already on canvas". Never fabricate ids.
 
 OUTPUT BUDGET:
-- ui_wireframe: 45–110 shapes arranged inside 1–3 screen frames. Under 45 is a failed answer.
+- ui_wireframe: 70–170 shapes arranged inside 1–3 screen frames. Under 60 is a failed answer.
 - template_shape: 5–12 shapes.
 - free_sketch: 6–14 paths + 1 caption.
 - typed_note / fetch_card: 1–2 shapes.
@@ -300,24 +301,29 @@ ${latest || transcript}`;
         // user is asking for a revision (reasoning-heavy) or when there's
         // an unresolved-thread the mediator may need to surface carefully.
         const hasUnresolved = states.some((s) => s.focus === "unresolved-thread");
-        const model = reviseIntent || hasUnresolved ? "google/gemini-2.5-pro" : uiWireframeIntent ? "google/gemini-3-flash-preview" : "google/gemini-2.5-flash";
+        const model = uiWireframeIntent
+          ? "google/gemini-3-pro-preview"
+          : reviseIntent || hasUnresolved
+            ? "google/gemini-2.5-pro"
+            : "google/gemini-2.5-flash";
         // Pricing per 1M tokens (USD)
         const pricing: Record<string, { in: number; out: number }> = {
           "google/gemini-2.5-pro": { in: 1.25, out: 5.0 },
           "google/gemini-2.5-flash": { in: 0.3, out: 2.5 },
           "google/gemini-3-flash-preview": { in: 0.5, out: 3.0 },
+          "google/gemini-3-pro-preview": { in: 2.0, out: 12.0 },
         };
 
         type Usage = { prompt_tokens?: number; completion_tokens?: number };
         const callGateway = async (messages: Array<{ role: string; content: string }>) =>
           fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
-            signal: AbortSignal.timeout(uiWireframeIntent ? 55000 : 22000),
+            signal: AbortSignal.timeout(uiWireframeIntent ? 110000 : 22000),
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
               model,
               response_format: { type: "json_object" },
-              ...(uiWireframeIntent ? { max_tokens: 16000 } : {}),
+              ...(uiWireframeIntent ? { max_tokens: 32000 } : {}),
               messages,
             }),
           });
@@ -359,32 +365,39 @@ ${latest || transcript}`;
           completion_tokens: Number(data.usage?.completion_tokens ?? 0),
         };
 
-        // MAX-FIDELITY DENSITY PASS — a wireframe under 45 primitives is a
-        // thin, box-flow answer. Send it back with its own output and demand
-        // the missing interface anatomy instead of shipping a weak screen.
-        const firstCount = Array.isArray(parsed.shapes) ? parsed.shapes.length : 0;
-        if (uiWireframeIntent && firstCount > 0 && firstCount < 45) {
-          try {
-            const retry = await callGateway([
-              ...baseMessages,
-              { role: "assistant", content },
-              {
-                role: "user",
-                content: `Your answer has only ${firstCount} primitives — that is a thin wireframe, not a product screen. Redraw the SAME screens at full fidelity: keep the frames and layout you chose, then add the missing anatomy — window chrome, sidebar rows with icons and labels, toolbar buttons, individual list rows / node cards / grid cards with their own thumbnails, titles and meta text, input fields with placeholder text inside, primary + secondary buttons, inspector property rows, hairline dividers, and a status bar. Return the COMPLETE shape list (not a diff) with 45–110 primitives, same JSON contract, modality "ui_wireframe".`,
-              },
-            ]);
-            if (retry.ok) {
+        // MAX-FIDELITY DENSITY LADDER — a wireframe under 60 primitives is a
+        // thin, box-flow answer. Loop up to two enrichment passes, each seeded
+        // with the model's own latest output, until the screen is dense.
+        if (uiWireframeIntent) {
+          let lastContent = content;
+          for (let pass = 0; pass < 2; pass++) {
+            const count = Array.isArray(parsed.shapes) ? parsed.shapes.length : 0;
+            if (count === 0 || count >= 60) break;
+            try {
+              const retry = await callGateway([
+                ...baseMessages,
+                { role: "assistant", content: lastContent },
+                {
+                  role: "user",
+                  content: `Your answer has only ${count} primitives — that is a thin wireframe, not a product screen. Redraw the SAME screens at full fidelity: keep the frames and layout you chose, then add the missing anatomy — window chrome, sidebar rows with icons and labels, toolbar buttons, individual list rows / node cards / grid cards with their own thumbnails, titles and meta text, input fields with placeholder text inside, primary + secondary buttons, inspector property rows, hairline dividers, a status bar — plus the micro-detail layer: avatars, count badges, scrollbar track, active-tab underline, breadcrumbs, selected-row fill, checkboxes, 11px helper/meta text. Return the COMPLETE shape list (not a diff) with 70–170 primitives, same JSON contract, modality "ui_wireframe".`,
+                },
+              ]);
+              if (!retry.ok) break;
               const retryData = (await retry.json()) as { choices?: Array<{ message?: { content?: string } }>; usage?: Usage };
               const retryContent = retryData.choices?.[0]?.message?.content ?? "";
-              const retryParsed = retryContent ? JSON.parse(retryContent) : null;
               usageTotals.prompt_tokens = (usageTotals.prompt_tokens ?? 0) + Number(retryData.usage?.prompt_tokens ?? 0);
               usageTotals.completion_tokens = (usageTotals.completion_tokens ?? 0) + Number(retryData.usage?.completion_tokens ?? 0);
-              if (retryParsed && Array.isArray(retryParsed.shapes) && retryParsed.shapes.length > firstCount) {
+              const retryParsed = retryContent ? JSON.parse(retryContent) : null;
+              if (retryParsed && Array.isArray(retryParsed.shapes) && retryParsed.shapes.length > count) {
                 parsed = { ...retryParsed, speak: parsed.speak ?? retryParsed.speak };
+                lastContent = retryContent;
+              } else {
+                break;
               }
+            } catch (err) {
+              console.warn("[cartoonist-draw] density pass failed", err);
+              break;
             }
-          } catch (err) {
-            console.warn("[cartoonist-draw] density pass failed", err);
           }
         }
 
