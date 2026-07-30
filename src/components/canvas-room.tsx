@@ -230,7 +230,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     })();
   }, [mediatorMuted, speech.finals]);
 
-  const lastHandInviteRef = useRef<string | null>(null);
+  const lastHandInviteRef = useRef<{ pid: string; at: number } | null>(null);
 
   const handInviteLine = useCallback((hand: { pid: string; name: string }) => {
     const participant = participants.find((p) => p.id === hand.pid);
@@ -239,10 +239,15 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   }, [participants]);
 
   const inviteRaisedHand = useCallback((hand: { pid: string; name: string }) => {
-    if (hand.pid === lastHandInviteRef.current) return;
-    lastHandInviteRef.current = hand.pid;
+    // Only debounce a repeat invite for the SAME person within a few seconds —
+    // lowering and re-raising must always speak again.
+    const prev = lastHandInviteRef.current;
+    if (prev && prev.pid === hand.pid && Date.now() - prev.at < 6000) return;
+    lastHandInviteRef.current = { pid: hand.pid, at: Date.now() };
     const line = handInviteLine(hand);
     toast.message(line);
+    // Bypass the "already said this" guard — the same line is expected here.
+    lastSpokenRef.current = null;
     playMediatorLine(line, { localFirst: true });
   }, [handInviteLine, playMediatorLine]);
 
@@ -251,6 +256,8 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       // Speak inside the click gesture for the local user, then let the
       // broadcast queue update every other screen.
       inviteRaisedHand({ pid: handPid, name: selfParticipant?.name || fallbackName });
+    } else if (isRaised) {
+      lastHandInviteRef.current = null;
     }
     toggleHand();
   }, [fallbackName, handPid, inviteRaisedHand, isRaised, selfParticipant?.name, toggleHand]);
@@ -259,9 +266,13 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   // open the floor immediately instead of waiting for the next transcript draw.
   useEffect(() => {
     const next = handQueue[0];
-    if (!next) return;
+    if (!next) {
+      lastHandInviteRef.current = null;
+      return;
+    }
     inviteRaisedHand(next);
   }, [handQueue, inviteRaisedHand]);
+
 
   const emitReaction = useCallback((emoji: string) => {
     const nx = 0.32 + Math.random() * 0.36;
