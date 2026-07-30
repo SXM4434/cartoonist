@@ -467,12 +467,16 @@ export function Canvas({
       if (!desiredById.has(id)) toDelete.push(id);
     }
     if (!toCreate.length && !toUpdate.length && !toDelete.length) return;
-    editor.run(() => {
-      if (toDelete.length) editor.deleteShapes(toDelete as unknown as Parameters<Editor["deleteShapes"]>[0]);
-      if (toUpdate.length) editor.updateShapes(toUpdate);
-      if (toCreate.length) editor.createShapes(toCreate);
-      toCreate.forEach((s) => createdShapeIdsRef.current.add(String(s.id)));
-    }, { history: "record" });
+    try {
+      editor.run(() => {
+        if (toDelete.length) editor.deleteShapes(toDelete as unknown as Parameters<Editor["deleteShapes"]>[0]);
+        if (toUpdate.length) editor.updateShapes(toUpdate);
+        if (toCreate.length) editor.createShapes(toCreate);
+        toCreate.forEach((s) => createdShapeIdsRef.current.add(String(s.id)));
+      }, { history: "record" });
+    } catch (err) {
+      console.warn("[canvas] skipped a bad shape batch", err);
+    }
     onHasContentChange?.(editor.getCurrentPageShapeIds().size > 0);
   }, [mounted, onHasContentChange, shapes]);
 
