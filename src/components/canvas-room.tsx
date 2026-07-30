@@ -1299,6 +1299,39 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
             </div>
           )}
 
+          {/* v2.P6 — cross-session ghost callback. */}
+          {memory.peek && (
+            <div
+              data-testid="memory-peek"
+              className="absolute right-6 top-6 z-20 max-w-sm border border-dashed bg-background/95 px-4 py-3 shadow-sm"
+              style={{ borderColor: "var(--accent-warm, #E07A3E)" }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <p className="eyebrow" style={{ color: "var(--accent-warm, #E07A3E)" }}>
+                  ↗ this came up before — {memory.peek.roomName}
+                </p>
+                <button
+                  type="button"
+                  onClick={memory.dismissPeek}
+                  className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                >
+                  dismiss
+                </button>
+              </div>
+              <p className="mt-1.5 font-serif" style={{ fontSize: "var(--step-1)", lineHeight: 1.35 }}>
+                {memory.peek.text}
+              </p>
+              <a
+                href={`/r/${memory.peek.roomId}`}
+                className="mt-2 inline-block text-[11px] uppercase tracking-wider underline underline-offset-4"
+              >
+                open that session
+              </a>
+            </div>
+          )}
+
+
+
           {shapes.length === 0 && freehand.length === 0 && (
             <div className="pointer-events-none absolute left-8 top-8 max-w-md border border-border bg-background p-5">
               <p className="eyebrow text-primary">Whiteboard ready</p>
