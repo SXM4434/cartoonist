@@ -175,10 +175,20 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     selfColor: selfParticipant?.color,
   });
   // Fallback identity so anyone in the room (even pre-check-in) can raise a hand.
-  const fallbackId = typeof window !== "undefined" ? (localStorage.getItem("cartoonist_user_id") || null) : null;
+  // If no local id exists yet we mint one — otherwise the hand button is a no-op.
+  const [fallbackId] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    let id = localStorage.getItem("cartoonist_user_id");
+    if (!id) {
+      id = (crypto.randomUUID?.() ?? `guest-${Math.random().toString(36).slice(2)}`);
+      localStorage.setItem("cartoonist_user_id", id);
+    }
+    return id;
+  });
   const fallbackName = typeof window !== "undefined" ? (localStorage.getItem("cartoonist_user_name") || "Guest") : "Guest";
   const fallbackColor = typeof window !== "undefined" ? (localStorage.getItem("cartoonist_user_color") || "#E07A3E") : "#E07A3E";
-  const handPid = selfPid ?? fallbackId;
+  const handPid = selfPid ?? (fallbackId || null);
+
   const { queue: handQueue, isRaised, toggle: toggleHand, lower: lowerHand } = useHandQueue({
     roomId,
     selfPid: handPid,
