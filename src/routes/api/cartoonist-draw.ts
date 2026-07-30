@@ -389,8 +389,8 @@ ${latest || transcript}`;
 
 
         // v1 P1.9 — live cost meter. Log usage per room so the HUD can sum.
-        const inputTokens = Math.max(0, Number(data.usage?.prompt_tokens ?? 0) | 0);
-        const outputTokens = Math.max(0, Number(data.usage?.completion_tokens ?? 0) | 0);
+        const inputTokens = Math.max(0, Number(usageTotals.prompt_tokens ?? 0) | 0);
+        const outputTokens = Math.max(0, Number(usageTotals.completion_tokens ?? 0) | 0);
         const price = pricing[model] ?? pricing["google/gemini-2.5-pro"];
         const costUsd = (inputTokens * price.in + outputTokens * price.out) / 1_000_000;
         const roomId = typeof body.roomId === "string" ? body.roomId : null;
