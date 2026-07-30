@@ -51,8 +51,26 @@ Rules: <=140 chars, calm and warm, no jargon, first names only. NEVER name a par
 
 Canvas: 1600x1000, origin top-left. Box w=180 h=80. Sticky w=160 h=140. Leave ~60-80px gutters. Arrows touch box EDGES. Group related shapes spatially. Use empty regions of the canvas — don't pile new shapes on top of old ones.
 
-# UI WIREFRAME MODE — NON-NEGOTIABLE
-When modality is ui_wireframe, compose 1–3 detailed product screens from rect, line, text, and icon primitives. A screen is a large 420–680px wide outer rect containing real interface anatomy: top bar, sidebar or tool rail when relevant, content regions, inputs, buttons, tabs, cards/rows, status, and realistic labels derived from the request. Use nested rectangles and strong spacing hierarchy. Include at least 18 primitives per screen and 24–55 primitives total. Do NOT emit arrows between labeled boxes, a user flow, a system diagram, a conceptual process, or boxes named “User Interaction”, “AI Tool”, “Canvas Tool”, “Workflow”, or “Desired Output”. For a node-canvas product, draw the application chrome plus the actual node canvas, node cards with ports, media tray, contextual voice-comment marker, and output preview. “High fidelity” means detailed UI structure, not changing labels on a flowchart.
+# UI WIREFRAME MODE — NON-NEGOTIABLE, MAX FIDELITY
+When modality is ui_wireframe you are a product designer drawing REAL SCREENS at high fidelity. Never a flowchart, never labelled boxes with arrows, never a process.
+
+Screen frame: outer rect 520–760 wide, 420–620 tall. 1–3 frames laid out left→right with 80px gutters. Everything else nests INSIDE a frame on an 8px rhythm with 16–24px padding.
+
+Every screen MUST contain, wherever the product implies it:
+1. Window chrome: title bar rect (h 34–40) with product name text (size 13) at left, 3 small right-side control rects, and a hairline under it.
+2. Navigation: left sidebar rect (w 120–170) OR a top tab strip. Sidebar gets 4–7 row rects (h 26–30) each with its own icon + text label. Mark the active row with fill.
+3. Toolbar / action rail: 4–8 small rects (28–36 square, or 70x26 buttons) with real verb labels.
+4. Main content: the actual thing — canvas with node cards + ports, table with a header row and 4–6 data rows separated by lines, card grid (3–6 cards each with a thumbnail rect, title text 13, meta text 11), chat thread bubbles, timeline track, or media tray. Draw the rows/cards individually; never one empty box labelled "Content".
+5. Inputs: field rects (h 30–34) with placeholder text INSIDE, a search field with icon, and at least one primary button rect (fill) plus one secondary (outline) with real labels ("Generate", "Publish", "Add node").
+6. Right panel / inspector when relevant: property rows — label text at left, value/field rect at right, separated by hairlines.
+7. Status: footer or status bar with counts, state, or a progress track (two nested rects).
+8. Real copy everywhere, drawn from the conversation. No lorem, no "Label", no "Box 1".
+
+Type ladder for wireframes: 11 (meta/caption), 13 (body/labels), 15 (section heads), 22 (screen title). Use text size field accordingly.
+TEXT RULE (critical): in ui_wireframe mode rects carry NO label — leave label empty and place a separate 'text' primitive at x = rect.x + 10, y = rect.y + (rect.h/2) - 7. Keep labels under 26 characters, one text per rect, and never place two texts within 16px vertically of each other. A rect narrower than 8 * (label length) must get a shorter label.
+NO ARROWS in ui_wireframe except short port-to-port connector 'line' primitives inside a node canvas.
+Density: MINIMUM 34 primitives per screen; 45–110 primitives total. If you are under 45 you have not drawn a real screen — go back and add rows, labels, icons, dividers, and states until the screen looks like a product screenshot.
+Use hairline 'line' primitives for dividers, 'icon' for glyphs, 'rect' with fill for filled buttons/active states, and text for every label. Do NOT emit arrows between labeled boxes, a user flow, a system diagram, a conceptual process, or boxes named "User Interaction", "AI Tool", "Canvas Tool", "Workflow", or "Desired Output". For a node-canvas product, draw the application chrome plus the actual node canvas, node cards with titled headers and input/output port ellipses, connector lines between ports, media tray thumbnails, a contextual voice-comment marker, and an output preview panel.
 
 Primitives (id globally unique; prefix by kind: r_ e_ d_ a_ l_ t_ n_ p_ i_):
 - rect    { type, id, x, y, w, h, label }
@@ -73,7 +91,7 @@ REVISE MODE:
 - Only touch ids that appear in "Already on canvas". Never fabricate ids.
 
 OUTPUT BUDGET:
-- ui_wireframe: 24–55 shapes arranged inside 1–3 screen frames.
+- ui_wireframe: 45–110 shapes arranged inside 1–3 screen frames. Under 45 is a failed answer.
 - template_shape: 5–12 shapes.
 - free_sketch: 6–14 paths + 1 caption.
 - typed_note / fetch_card: 1–2 shapes.
@@ -290,22 +308,28 @@ ${latest || transcript}`;
           "google/gemini-3-flash-preview": { in: 0.5, out: 3.0 },
         };
 
-        let res: Response;
-        try {
-          res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        type Usage = { prompt_tokens?: number; completion_tokens?: number };
+        const callGateway = async (messages: Array<{ role: string; content: string }>) =>
+          fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
-            signal: AbortSignal.timeout(uiWireframeIntent ? 35000 : 22000),
+            signal: AbortSignal.timeout(uiWireframeIntent ? 55000 : 22000),
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
               model,
               response_format: { type: "json_object" },
-              messages: [
-                { role: "system", content: SYSTEM_PROMPT },
-                { role: "user", content: userMsg },
-              ],
+              ...(uiWireframeIntent ? { max_tokens: 16000 } : {}),
+              messages,
             }),
           });
 
+        const baseMessages = [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userMsg },
+        ];
+
+        let res: Response;
+        try {
+          res = await callGateway(baseMessages);
         } catch (error) {
           console.error("AI draw request failed", error);
           const timedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
@@ -320,7 +344,7 @@ ${latest || transcript}`;
 
         const data = (await res.json()) as {
           choices?: Array<{ message?: { content?: string } }>;
-          usage?: { prompt_tokens?: number; completion_tokens?: number };
+          usage?: Usage;
         };
         const content = data.choices?.[0]?.message?.content ?? "{}";
         let parsed: { shapes?: unknown; edits?: unknown; removes?: unknown; rationale?: unknown; modality?: unknown; speak?: unknown; thread_ref?: unknown; relation?: unknown } = {};
@@ -330,9 +354,45 @@ ${latest || transcript}`;
           parsed = {};
         }
 
+        const usageTotals: Usage = {
+          prompt_tokens: Number(data.usage?.prompt_tokens ?? 0),
+          completion_tokens: Number(data.usage?.completion_tokens ?? 0),
+        };
+
+        // MAX-FIDELITY DENSITY PASS — a wireframe under 45 primitives is a
+        // thin, box-flow answer. Send it back with its own output and demand
+        // the missing interface anatomy instead of shipping a weak screen.
+        const firstCount = Array.isArray(parsed.shapes) ? parsed.shapes.length : 0;
+        if (uiWireframeIntent && firstCount > 0 && firstCount < 45) {
+          try {
+            const retry = await callGateway([
+              ...baseMessages,
+              { role: "assistant", content },
+              {
+                role: "user",
+                content: `Your answer has only ${firstCount} primitives — that is a thin wireframe, not a product screen. Redraw the SAME screens at full fidelity: keep the frames and layout you chose, then add the missing anatomy — window chrome, sidebar rows with icons and labels, toolbar buttons, individual list rows / node cards / grid cards with their own thumbnails, titles and meta text, input fields with placeholder text inside, primary + secondary buttons, inspector property rows, hairline dividers, and a status bar. Return the COMPLETE shape list (not a diff) with 45–110 primitives, same JSON contract, modality "ui_wireframe".`,
+              },
+            ]);
+            if (retry.ok) {
+              const retryData = (await retry.json()) as { choices?: Array<{ message?: { content?: string } }>; usage?: Usage };
+              const retryContent = retryData.choices?.[0]?.message?.content ?? "";
+              const retryParsed = retryContent ? JSON.parse(retryContent) : null;
+              usageTotals.prompt_tokens = (usageTotals.prompt_tokens ?? 0) + Number(retryData.usage?.prompt_tokens ?? 0);
+              usageTotals.completion_tokens = (usageTotals.completion_tokens ?? 0) + Number(retryData.usage?.completion_tokens ?? 0);
+              if (retryParsed && Array.isArray(retryParsed.shapes) && retryParsed.shapes.length > firstCount) {
+                parsed = { ...retryParsed, speak: parsed.speak ?? retryParsed.speak };
+              }
+            }
+          } catch (err) {
+            console.warn("[cartoonist-draw] density pass failed", err);
+          }
+        }
+
+
+
         // v1 P1.9 — live cost meter. Log usage per room so the HUD can sum.
-        const inputTokens = Math.max(0, Number(data.usage?.prompt_tokens ?? 0) | 0);
-        const outputTokens = Math.max(0, Number(data.usage?.completion_tokens ?? 0) | 0);
+        const inputTokens = Math.max(0, Number(usageTotals.prompt_tokens ?? 0) | 0);
+        const outputTokens = Math.max(0, Number(usageTotals.completion_tokens ?? 0) | 0);
         const price = pricing[model] ?? pricing["google/gemini-2.5-pro"];
         const costUsd = (inputTokens * price.in + outputTokens * price.out) / 1_000_000;
         const roomId = typeof body.roomId === "string" ? body.roomId : null;
