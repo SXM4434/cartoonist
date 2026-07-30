@@ -306,22 +306,28 @@ ${latest || transcript}`;
           "google/gemini-3-flash-preview": { in: 0.5, out: 3.0 },
         };
 
-        let res: Response;
-        try {
-          res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        type Usage = { prompt_tokens?: number; completion_tokens?: number };
+        const callGateway = async (messages: Array<{ role: string; content: string }>) =>
+          fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
-            signal: AbortSignal.timeout(uiWireframeIntent ? 35000 : 22000),
+            signal: AbortSignal.timeout(uiWireframeIntent ? 55000 : 22000),
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
               model,
               response_format: { type: "json_object" },
-              messages: [
-                { role: "system", content: SYSTEM_PROMPT },
-                { role: "user", content: userMsg },
-              ],
+              ...(uiWireframeIntent ? { max_tokens: 16000 } : {}),
+              messages,
             }),
           });
 
+        const baseMessages = [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userMsg },
+        ];
+
+        let res: Response;
+        try {
+          res = await callGateway(baseMessages);
         } catch (error) {
           console.error("AI draw request failed", error);
           const timedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
@@ -336,7 +342,7 @@ ${latest || transcript}`;
 
         const data = (await res.json()) as {
           choices?: Array<{ message?: { content?: string } }>;
-          usage?: { prompt_tokens?: number; completion_tokens?: number };
+          usage?: Usage;
         };
         const content = data.choices?.[0]?.message?.content ?? "{}";
         let parsed: { shapes?: unknown; edits?: unknown; removes?: unknown; rationale?: unknown; modality?: unknown; speak?: unknown; thread_ref?: unknown; relation?: unknown } = {};
@@ -345,6 +351,42 @@ ${latest || transcript}`;
         } catch {
           parsed = {};
         }
+
+        const usageTotals: Usage = {
+          prompt_tokens: Number(data.usage?.prompt_tokens ?? 0),
+          completion_tokens: Number(data.usage?.completion_tokens ?? 0),
+        };
+
+        // MAX-FIDELITY DENSITY PASS — a wireframe under 45 primitives is a
+        // thin, box-flow answer. Send it back with its own output and demand
+        // the missing interface anatomy instead of shipping a weak screen.
+        const firstCount = Array.isArray(parsed.shapes) ? parsed.shapes.length : 0;
+        if (uiWireframeIntent && firstCount > 0 && firstCount < 45) {
+          try {
+            const retry = await callGateway([
+              ...baseMessages,
+              { role: "assistant", content },
+              {
+                role: "user",
+                content: `Your answer has only ${firstCount} primitives — that is a thin wireframe, not a product screen. Redraw the SAME screens at full fidelity: keep the frames and layout you chose, then add the missing anatomy — window chrome, sidebar rows with icons and labels, toolbar buttons, individual list rows / node cards / grid cards with their own thumbnails, titles and meta text, input fields with placeholder text inside, primary + secondary buttons, inspector property rows, hairline dividers, and a status bar. Return the COMPLETE shape list (not a diff) with 45–110 primitives, same JSON contract, modality "ui_wireframe".`,
+              },
+            ]);
+            if (retry.ok) {
+              const retryData = (await retry.json()) as { choices?: Array<{ message?: { content?: string } }>; usage?: Usage };
+              const retryContent = retryData.choices?.[0]?.message?.content ?? "";
+              const retryParsed = retryContent ? JSON.parse(retryContent) : null;
+              usageTotals.prompt_tokens = (usageTotals.prompt_tokens ?? 0) + Number(retryData.usage?.prompt_tokens ?? 0);
+              usageTotals.completion_tokens = (usageTotals.completion_tokens ?? 0) + Number(retryData.usage?.completion_tokens ?? 0);
+              if (retryParsed && Array.isArray(retryParsed.shapes) && retryParsed.shapes.length > firstCount) {
+                parsed = { ...retryParsed, speak: parsed.speak ?? retryParsed.speak };
+              }
+            }
+          } catch (err) {
+            console.warn("[cartoonist-draw] density pass failed", err);
+          }
+        }
+
+
 
         // v1 P1.9 — live cost meter. Log usage per room so the HUD can sum.
         const inputTokens = Math.max(0, Number(data.usage?.prompt_tokens ?? 0) | 0);
