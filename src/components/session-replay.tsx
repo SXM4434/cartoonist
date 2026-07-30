@@ -160,7 +160,7 @@ export function SessionReplay({
       {open && (
         <div
           data-testid="replay-bar"
-          className="fixed bottom-6 left-1/2 z-50 w-[min(760px,92vw)] -translate-x-1/2 border border-border bg-background/97 px-4 py-3 shadow-sm backdrop-blur"
+          className="fixed bottom-28 left-1/2 z-50 w-[min(760px,92vw)] -translate-x-1/2 border border-border bg-background/97 px-4 py-3 shadow-sm backdrop-blur"
         >
           <div className="flex items-center justify-between gap-3">
             <span className="eyebrow text-primary">
