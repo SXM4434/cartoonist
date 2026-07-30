@@ -31,6 +31,7 @@ import { CursorsOverlay } from "./team-desk/CursorsOverlay";
 import { ReactionsOverlay } from "./team-desk/ReactionsOverlay";
 import { useReactions } from "@/hooks/use-reactions";
 import { useHandQueue } from "@/hooks/use-hand-queue";
+import { useCrossSessionMemory } from "@/hooks/use-cross-session-memory";
 
 type SessionContext = {
   name: string;
