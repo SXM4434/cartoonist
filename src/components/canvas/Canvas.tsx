@@ -292,6 +292,20 @@ export function Canvas({
       // Light theme to match the editorial warm-paper surface.
       editor.user.updateUserPreferences({ colorScheme: "light" });
       editor.updateInstanceState({ isGridMode: true }, { history: "ignore" });
+      // Sweep corrupt shapes left behind by older sessions (NaN geometry in
+      // the local store hydrates before us and crashes the whole board).
+      try {
+        const bad: string[] = [];
+        for (const id of editor.getCurrentPageShapeIds()) {
+          const s = editor.getShape(id) as { x?: number; y?: number; props?: Record<string, unknown> } | undefined;
+          if (!s) continue;
+          const nums = [s.x, s.y, ...Object.values(s.props ?? {})];
+          if (nums.some((v) => typeof v === "number" && !Number.isFinite(v))) bad.push(String(id));
+        }
+        if (bad.length) editor.deleteShapes(bad as unknown as Parameters<Editor["deleteShapes"]>[0]);
+      } catch {
+        /* nothing to sweep */
+      }
       editor.setCurrentTool(drawingEnabled ? "draw" : "select");
       const off = editor.store.listen(() => {
         onHasContentChange?.(editor.getCurrentPageShapeIds().size > 0);
