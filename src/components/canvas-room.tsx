@@ -8,6 +8,7 @@ import type { FreehandStroke, SketchPrimitive } from "@/lib/sketch-types";
 import { EMPTY_HUMAN_LAYER, type HumanLayer } from "@/lib/human-layer";
 import { useSpeech } from "@/lib/use-speech";
 import { useLiveDiarization } from "@/hooks/use-live-diarization";
+import { SessionPack } from "./session-pack";
 import { ArtifactTabs, type Artifacts } from "./artifact-tabs";
 import { SessionRecap } from "./session-recap";
 import { KnownAboutYou } from "./known-about-you";
