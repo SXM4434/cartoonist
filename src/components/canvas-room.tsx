@@ -11,6 +11,7 @@ import { useLiveDiarization } from "@/hooks/use-live-diarization";
 import { SessionPack } from "./session-pack";
 import { ArtifactTabs, type Artifacts } from "./artifact-tabs";
 import { SessionRecap } from "./session-recap";
+import { SessionReplay } from "./session-replay";
 import { KnownAboutYou } from "./known-about-you";
 
 import { IntroModal } from "./intro-modal";
@@ -130,6 +131,8 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [kioskQueue, setKioskQueue] = useState<string[]>([]);
   const [kioskMode, setKioskMode] = useState(false);
   const [shapes, setShapes] = useState<SketchPrimitive[]>([]);
+  // Session replay overrides what the canvas renders while scrubbing.
+  const [replayShapes, setReplayShapes] = useState<SketchPrimitive[] | null>(null);
   const [freehand, setFreehand] = useState<FreehandStroke[]>([]);
   const [drawing, setDrawing] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -1140,6 +1143,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               participants: participants.map((p) => ({ id: p.id, name: p.name, role: p.role ?? null })),
             })}
           />
+          <SessionReplay roomId={roomId} onFrame={setReplayShapes} />
           <SessionRecap
             roomId={roomId}
             buildRequest={() => ({
@@ -1221,7 +1225,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       <div className="flex flex-1 overflow-hidden">
         <div ref={canvasStageRef} className="relative flex-1 overflow-hidden">
           <CanvasProvider>
-            <Canvas shapes={shapes} drawingEnabled={drawing} />
+            <Canvas shapes={replayShapes ?? shapes} drawingEnabled={drawing && replayShapes === null} />
           </CanvasProvider>
           <CursorsOverlay cursors={remoteCursors} />
           <ReactionsOverlay reactions={reactions} />
