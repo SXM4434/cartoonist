@@ -57,6 +57,8 @@ type ParticipantRow = {
   human_layer_complete: boolean | null;
 };
 
+const NON_SPEECH_TRANSCRIPT = /^\s*\[(?:silence|heartbeat|background noise|music|outro jingle|bell dings?|birds chirping|door squeaking)\]\s*$/i;
+
 function rowToParticipant(p: ParticipantRow): ParticipantWithHumanLayer {
   return {
     id: p.id,
@@ -565,14 +567,15 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   }, [shapes]);
 
   const requestDraw = useCallback(async (latest: string): Promise<boolean> => {
-    if (!latest.trim() || drawInFlightRef.current) return false;
+    const cleanLatest = latest.trim();
+    if (!cleanLatest || NON_SPEECH_TRANSCRIPT.test(cleanLatest) || drawInFlightRef.current) return false;
     drawInFlightRef.current = true;
     setThinking(true);
     setDrawError(null);
     try {
       // Send rolling context: last 12 final utterances + the latest delta.
       const recent = speech.finals.slice(-12).join(" ");
-      const fullContext = recent ? `${recent}\n---LATEST---\n${latest}` : latest;
+      const fullContext = recent ? `${recent}\n---LATEST---\n${cleanLatest}` : cleanLatest;
       // v2.P2 — pass live inferred state per participant so mediator can
       // surface unresolved threads / quiet-too-long at natural pauses. Only
       // share flagged fields — respects per-participant privacy.
@@ -602,7 +605,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         method: "POST",
         signal: controller.signal,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId, transcript: fullContext, latest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads, handsUp }),
+        body: JSON.stringify({ roomId, transcript: fullContext, latest: cleanLatest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads, handsUp }),
       });
       window.clearTimeout(timeout);
       const data = await res.json().catch(() => ({}));
@@ -652,7 +655,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         const threadId = threadRef ?? `thread_${crypto.randomUUID().slice(0, 8)}`;
         const span = {
           origin: "utterance" as const,
-          latest: latest.slice(0, 240),
+          latest: cleanLatest.slice(0, 240),
           modality: typeof (data as { modality?: unknown }).modality === "string" ? (data as { modality: string }).modality : null,
           thread_ref: threadRef,
           relation,
@@ -692,7 +695,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                   const existing = prev[idx];
                   const merged: CanvasThread = {
                     ...existing,
-                    latest: latest.slice(0, 240) || existing.latest,
+                    latest: cleanLatest.slice(0, 240) || existing.latest,
                     modality: modality ?? existing.modality,
                     shapeIds: Array.from(new Set([...existing.shapeIds, ...newIds])),
                     at: Date.now(),
@@ -705,7 +708,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                     window.dispatchEvent(new CustomEvent("cartoonist:reopen", {
                       detail: { oldIds: existing.shapeIds, newIds, relation: relation ?? existing.relation ?? null },
                     }));
-                    setReopenPeek({ relation: relation ?? existing.relation ?? null, latest: latest.slice(0, 160), oldLatest: existing.latest });
+                    setReopenPeek({ relation: relation ?? existing.relation ?? null, latest: cleanLatest.slice(0, 160), oldLatest: existing.latest });
                     window.setTimeout(() => setReopenPeek(null), 4200);
                   }
                   return [...prev.slice(0, idx), ...prev.slice(idx + 1), merged];
@@ -713,7 +716,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               }
               return [
                 ...prev.slice(-49),
-                { id: threadId, latest: latest.slice(0, 240), modality, shapeIds: newIds, at: Date.now(), source: "mediator", relation: relation ?? null },
+                { id: threadId, latest: cleanLatest.slice(0, 240), modality, shapeIds: newIds, at: Date.now(), source: "mediator", relation: relation ?? null },
               ];
             });
           }
@@ -743,6 +746,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     const timer = setTimeout(() => {
       const newText = text.slice(lastSentLenRef.current);
       const endLength = text.length;
+      if (NON_SPEECH_TRANSCRIPT.test(newText.trim())) {
+        lastSentLenRef.current = endLength;
+        return;
+      }
       void requestDraw(newText).then((handled) => {
         if (handled) lastSentLenRef.current = Math.max(lastSentLenRef.current, endLength);
       });

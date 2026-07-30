@@ -6,7 +6,7 @@ type SpeechRecognitionLike = {
   lang: string;
   start(): void;
   stop(): void;
-  onresult: ((ev: { results: ArrayLike<ArrayLike<{ transcript: string; isFinal?: boolean }> & { isFinal: boolean }> }) => void) | null;
+  onresult: ((ev: { resultIndex?: number; results: ArrayLike<ArrayLike<{ transcript: string; isFinal?: boolean }> & { isFinal: boolean }> }) => void) | null;
   onerror: ((ev: { error: string }) => void) | null;
   onend: (() => void) | null;
 };
@@ -103,7 +103,10 @@ export function useSpeech(): SpeechState {
     rec.lang = "en-US";
     rec.onresult = (ev) => {
       let interim = "";
-      for (let i = 0; i < ev.results.length; i++) {
+      // SpeechRecognition includes prior results in every event. Starting at
+      // resultIndex prevents old final phrases being appended again whenever
+      // a new phrase arrives.
+      for (let i = ev.resultIndex ?? 0; i < ev.results.length; i++) {
         const r = ev.results[i] as ArrayLike<{ transcript: string }> & { isFinal: boolean };
         const text = r[0]?.transcript ?? "";
         if (r.isFinal) {

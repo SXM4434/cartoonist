@@ -85,6 +85,7 @@ OUTPUT BUDGET:
 const REVISE_INTENT = /\b(redo|again|do[-\s]?over|make it (better|simpler|cleaner|smaller|bigger|nicer)|that('?s| is) (wrong|bad|off|ugly|terrible|awful)|fix (the )?(flow|diagram|drawing|sketch|layout)|change .+ to .+|remove (the )?|scrap (that|it)|no,? (more like|not like|try)|not what i (meant|wanted)|wrong|broken|garbage)\b/i;
 
 const UI_WIREFRAME_INTENT = /\b(high[-\s]?fi(?:delity)?|wireframes?|mockups?|ui screens?|interface|dashboard|editor|app (?:screen|page)|website (?:screen|page)|product screen)\b/i;
+const NON_SPEECH_TRANSCRIPT = /^\s*\[(?:silence|heartbeat|background noise|music|outro jingle|bell dings?|birds chirping|door squeaking)\]\s*$/i;
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -161,6 +162,9 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
 
         const transcript = compactText(body.transcript, 3200);
         const latest = compactText(body.latest, 1200);
+        if (NON_SPEECH_TRANSCRIPT.test(latest)) {
+          return json({ modality: "skip", shapes: [], edits: [], removes: [], rationale: "skip: non-speech audio label" });
+        }
         if ((latest || transcript).length < 12) {
           return json({ shapes: [], edits: [], removes: [], rationale: "not enough transcript" });
         }
@@ -278,11 +282,12 @@ ${latest || transcript}`;
         // user is asking for a revision (reasoning-heavy) or when there's
         // an unresolved-thread the mediator may need to surface carefully.
         const hasUnresolved = states.some((s) => s.focus === "unresolved-thread");
-        const model = reviseIntent || hasUnresolved || uiWireframeIntent ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash";
+        const model = reviseIntent || hasUnresolved ? "google/gemini-2.5-pro" : uiWireframeIntent ? "google/gemini-3-flash-preview" : "google/gemini-2.5-flash";
         // Pricing per 1M tokens (USD)
         const pricing: Record<string, { in: number; out: number }> = {
           "google/gemini-2.5-pro": { in: 1.25, out: 5.0 },
           "google/gemini-2.5-flash": { in: 0.3, out: 2.5 },
+          "google/gemini-3-flash-preview": { in: 0.5, out: 3.0 },
         };
 
         let res: Response;
