@@ -735,6 +735,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         }
         return Array.from(byId.values());
       });
+      // v2.P6 — cross-session recall: if this utterance echoes a thread from an
+      // earlier session, persist the edge and ghost-surface it in the room.
+      try {
+        const hit = memoryRef.current.recall(cleanLatest);
+        if (hit && lastThreadIdRef.current) void memoryRef.current.record(hit, lastThreadIdRef.current);
+      } catch { /* memory is best-effort */ }
       return true;
     } catch (e) {
       const aborted = e instanceof Error && e.name === "AbortError";
