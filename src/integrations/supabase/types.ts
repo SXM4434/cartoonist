@@ -123,6 +123,53 @@ export type Database = {
           },
         ]
       }
+      participant_insights: {
+        Row: {
+          confidence: number
+          created_at: string
+          dismissed: boolean
+          id: string
+          kind: string
+          participant_id: string | null
+          room_id: string
+          source_quote: string
+          subject_name: string
+          text: string
+        }
+        Insert: {
+          confidence?: number
+          created_at?: string
+          dismissed?: boolean
+          id?: string
+          kind?: string
+          participant_id?: string | null
+          room_id: string
+          source_quote: string
+          subject_name: string
+          text: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          dismissed?: boolean
+          id?: string
+          kind?: string
+          participant_id?: string | null
+          room_id?: string
+          source_quote?: string
+          subject_name?: string
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "participant_insights_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "participants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       participants: {
         Row: {
           allow_voice_mention: boolean

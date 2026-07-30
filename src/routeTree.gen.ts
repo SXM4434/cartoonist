@@ -21,6 +21,7 @@ import { Route as ApiSessionRecapRouteImport } from './routes/api/session-recap'
 import { Route as ApiParseIntroRouteImport } from './routes/api/parse-intro'
 import { Route as ApiMediatorTtsRouteImport } from './routes/api/mediator-tts'
 import { Route as ApiLiveblocksAuthRouteImport } from './routes/api/liveblocks-auth'
+import { Route as ApiInferInsightsRouteImport } from './routes/api/infer-insights'
 import { Route as ApiGenerateArtifactsRouteImport } from './routes/api/generate-artifacts'
 import { Route as ApiCartoonistDrawRouteImport } from './routes/api/cartoonist-draw'
 import { Route as ApiCanvasOpsRouteImport } from './routes/api/canvas-ops'
@@ -86,6 +87,11 @@ const ApiLiveblocksAuthRoute = ApiLiveblocksAuthRouteImport.update({
   path: '/api/liveblocks-auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiInferInsightsRoute = ApiInferInsightsRouteImport.update({
+  id: '/api/infer-insights',
+  path: '/api/infer-insights',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiGenerateArtifactsRoute = ApiGenerateArtifactsRouteImport.update({
   id: '/api/generate-artifacts',
   path: '/api/generate-artifacts',
@@ -115,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/api/canvas-ops': typeof ApiCanvasOpsRoute
   '/api/cartoonist-draw': typeof ApiCartoonistDrawRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
+  '/api/infer-insights': typeof ApiInferInsightsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
   '/api/mediator-tts': typeof ApiMediatorTtsRoute
   '/api/parse-intro': typeof ApiParseIntroRoute
@@ -133,6 +140,7 @@ export interface FileRoutesByTo {
   '/api/canvas-ops': typeof ApiCanvasOpsRoute
   '/api/cartoonist-draw': typeof ApiCartoonistDrawRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
+  '/api/infer-insights': typeof ApiInferInsightsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
   '/api/mediator-tts': typeof ApiMediatorTtsRoute
   '/api/parse-intro': typeof ApiParseIntroRoute
@@ -152,6 +160,7 @@ export interface FileRoutesById {
   '/api/canvas-ops': typeof ApiCanvasOpsRoute
   '/api/cartoonist-draw': typeof ApiCartoonistDrawRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
+  '/api/infer-insights': typeof ApiInferInsightsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
   '/api/mediator-tts': typeof ApiMediatorTtsRoute
   '/api/parse-intro': typeof ApiParseIntroRoute
@@ -172,6 +181,7 @@ export interface FileRouteTypes {
     | '/api/canvas-ops'
     | '/api/cartoonist-draw'
     | '/api/generate-artifacts'
+    | '/api/infer-insights'
     | '/api/liveblocks-auth'
     | '/api/mediator-tts'
     | '/api/parse-intro'
@@ -190,6 +200,7 @@ export interface FileRouteTypes {
     | '/api/canvas-ops'
     | '/api/cartoonist-draw'
     | '/api/generate-artifacts'
+    | '/api/infer-insights'
     | '/api/liveblocks-auth'
     | '/api/mediator-tts'
     | '/api/parse-intro'
@@ -208,6 +219,7 @@ export interface FileRouteTypes {
     | '/api/canvas-ops'
     | '/api/cartoonist-draw'
     | '/api/generate-artifacts'
+    | '/api/infer-insights'
     | '/api/liveblocks-auth'
     | '/api/mediator-tts'
     | '/api/parse-intro'
@@ -227,6 +239,7 @@ export interface RootRouteChildren {
   ApiCanvasOpsRoute: typeof ApiCanvasOpsRoute
   ApiCartoonistDrawRoute: typeof ApiCartoonistDrawRoute
   ApiGenerateArtifactsRoute: typeof ApiGenerateArtifactsRoute
+  ApiInferInsightsRoute: typeof ApiInferInsightsRoute
   ApiLiveblocksAuthRoute: typeof ApiLiveblocksAuthRoute
   ApiMediatorTtsRoute: typeof ApiMediatorTtsRoute
   ApiParseIntroRoute: typeof ApiParseIntroRoute
@@ -325,6 +338,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiLiveblocksAuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/infer-insights': {
+      id: '/api/infer-insights'
+      path: '/api/infer-insights'
+      fullPath: '/api/infer-insights'
+      preLoaderRoute: typeof ApiInferInsightsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/generate-artifacts': {
       id: '/api/generate-artifacts'
       path: '/api/generate-artifacts'
@@ -363,6 +383,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCanvasOpsRoute: ApiCanvasOpsRoute,
   ApiCartoonistDrawRoute: ApiCartoonistDrawRoute,
   ApiGenerateArtifactsRoute: ApiGenerateArtifactsRoute,
+  ApiInferInsightsRoute: ApiInferInsightsRoute,
   ApiLiveblocksAuthRoute: ApiLiveblocksAuthRoute,
   ApiMediatorTtsRoute: ApiMediatorTtsRoute,
   ApiParseIntroRoute: ApiParseIntroRoute,
