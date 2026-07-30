@@ -29,6 +29,7 @@ export function useLiveDiarization(opts: {
   const streamRef = useRef<MediaStream | null>(null);
   const cycleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mapRef = useRef<Record<string, string>>({});
+  const busyRef = useRef(false);
 
   useEffect(() => { mapRef.current = speakerMap; }, [speakerMap]);
 
@@ -66,7 +67,8 @@ export function useLiveDiarization(opts: {
   }, [roomId]);
 
   const processBlob = useCallback(async (blob: Blob) => {
-    if (blob.size < 4000) return; // too small / silent
+    if (blob.size < 4000 || busyRef.current) return; // too small, silent, or prior upload still running
+    busyRef.current = true;
     setBusy(true);
     try {
       const fd = new FormData();
@@ -98,6 +100,7 @@ export function useLiveDiarization(opts: {
         setPendingClusters((prev) => Array.from(new Set([...prev, ...unmapped])));
       }
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }, [roomId, startedAtMs]);

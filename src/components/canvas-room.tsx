@@ -57,6 +57,8 @@ type ParticipantRow = {
   human_layer_complete: boolean | null;
 };
 
+const NON_SPEECH_TRANSCRIPT = /^\s*\[(?:silence|heartbeat|background noise|music|outro jingle|bell dings?|birds chirping|door squeaking)\]\s*$/i;
+
 function rowToParticipant(p: ParticipantRow): ParticipantWithHumanLayer {
   return {
     id: p.id,
@@ -152,6 +154,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const speech = useSpeech();
   const startedAtRef = useRef(Date.now());
   const lastSentLenRef = useRef(0);
+  const drawInFlightRef = useRef(false);
   const seededRef = useRef(false);
 
   const selfParticipant = participants.find((p) => p.id === selfPid);
@@ -200,9 +203,13 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     const speak = text.trim();
     if (!speak || mediatorMuted || speak === lastSpokenRef.current || typeof window === "undefined") return;
     lastSpokenRef.current = speak;
+    // Mark only transcript that existed before playback as consumed. Updating
+    // this at playback end swallowed genuine speech made while the mediator
+    // was talking.
+    lastSentLenRef.current = Math.max(lastSentLenRef.current, speech.finals.join(" ").length);
     const onDone = () => {
-      // Suppress self-echo: skip transcript captured during TTS.
-      lastSentLenRef.current = speech.finals.join(" ").length;
+      // Playback completion intentionally does not advance the transcript
+      // cursor; any human speech captured during playback must still draw.
     };
     const playBrowserVoice = () => {
       if (!("speechSynthesis" in window)) return false;
@@ -563,14 +570,16 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       .join("\n");
   }, [shapes]);
 
-  const requestDraw = useCallback(async (latest: string) => {
-    if (!latest.trim()) return;
+  const requestDraw = useCallback(async (latest: string): Promise<boolean> => {
+    const cleanLatest = latest.trim();
+    if (!cleanLatest || NON_SPEECH_TRANSCRIPT.test(cleanLatest) || drawInFlightRef.current) return false;
+    drawInFlightRef.current = true;
     setThinking(true);
     setDrawError(null);
     try {
       // Send rolling context: last 12 final utterances + the latest delta.
       const recent = speech.finals.slice(-12).join(" ");
-      const fullContext = recent ? `${recent}\n---LATEST---\n${latest}` : latest;
+      const fullContext = recent ? `${recent}\n---LATEST---\n${cleanLatest}` : cleanLatest;
       // v2.P2 — pass live inferred state per participant so mediator can
       // surface unresolved threads / quiet-too-long at natural pauses. Only
       // share flagged fields — respects per-participant privacy.
@@ -594,15 +603,19 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const openThreads = threads.slice(-8).map((t) => ({ id: t.id, latest: t.latest, modality: t.modality }));
       // Raise-hand queue → mediator surfaces the next hand at natural pauses.
       const handsUp = handQueue.map((h) => h.name);
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 40000);
       const res = await fetch("/api/cartoonist-draw", {
         method: "POST",
+        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId, transcript: fullContext, latest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads, handsUp }),
+        body: JSON.stringify({ roomId, transcript: fullContext, latest: cleanLatest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads, handsUp }),
       });
+      window.clearTimeout(timeout);
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.error) {
         setDrawError(data?.error ?? "AI draw failed");
-        return;
+        return false;
       }
       // v2.P4 — mediator speaks. Prefer ElevenLabs (warm, natural) via
       // /api/mediator-tts; fall back to Web Speech if that fails. Gated by
@@ -613,7 +626,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const incoming = Array.isArray(data.shapes) ? (data.shapes as SketchPrimitive[]) : [];
       const edits = Array.isArray(data.edits) ? (data.edits as Array<{ id: string; patch: Record<string, unknown> }>) : [];
       const removes = Array.isArray(data.removes) ? (data.removes as string[]) : [];
-      if (incoming.length === 0 && edits.length === 0 && removes.length === 0) return;
+      if (incoming.length === 0 && edits.length === 0 && removes.length === 0) return true;
       setShapes((current) => {
         const byId = new Map(current.map((s) => [s.id, s]));
         // 1) removes (only touch AI-authored shapes already in state)
@@ -646,7 +659,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         const threadId = threadRef ?? `thread_${crypto.randomUUID().slice(0, 8)}`;
         const span = {
           origin: "utterance" as const,
-          latest: latest.slice(0, 240),
+          latest: cleanLatest.slice(0, 240),
           modality: typeof (data as { modality?: unknown }).modality === "string" ? (data as { modality: string }).modality : null,
           thread_ref: threadRef,
           relation,
@@ -686,7 +699,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                   const existing = prev[idx];
                   const merged: CanvasThread = {
                     ...existing,
-                    latest: latest.slice(0, 240) || existing.latest,
+                    latest: cleanLatest.slice(0, 240) || existing.latest,
                     modality: modality ?? existing.modality,
                     shapeIds: Array.from(new Set([...existing.shapeIds, ...newIds])),
                     at: Date.now(),
@@ -699,7 +712,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                     window.dispatchEvent(new CustomEvent("cartoonist:reopen", {
                       detail: { oldIds: existing.shapeIds, newIds, relation: relation ?? existing.relation ?? null },
                     }));
-                    setReopenPeek({ relation: relation ?? existing.relation ?? null, latest: latest.slice(0, 160), oldLatest: existing.latest });
+                    setReopenPeek({ relation: relation ?? existing.relation ?? null, latest: cleanLatest.slice(0, 160), oldLatest: existing.latest });
                     window.setTimeout(() => setReopenPeek(null), 4200);
                   }
                   return [...prev.slice(0, idx), ...prev.slice(idx + 1), merged];
@@ -707,16 +720,20 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               }
               return [
                 ...prev.slice(-49),
-                { id: threadId, latest: latest.slice(0, 240), modality, shapeIds: newIds, at: Date.now(), source: "mediator", relation: relation ?? null },
+                { id: threadId, latest: cleanLatest.slice(0, 240), modality, shapeIds: newIds, at: Date.now(), source: "mediator", relation: relation ?? null },
               ];
             });
           }
         }
         return Array.from(byId.values());
       });
+      return true;
     } catch (e) {
-      setDrawError(e instanceof Error ? e.message : "Network error");
+      const aborted = e instanceof Error && e.name === "AbortError";
+      setDrawError(aborted ? "Drawing timed out. Your voice request was kept and will retry." : e instanceof Error ? e.message : "Network error");
+      return false;
     } finally {
+      drawInFlightRef.current = false;
       setThinking(false);
     }
   }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, handQueue, threads, playMediatorLine]);
@@ -732,8 +749,14 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     if (text.length <= lastSentLenRef.current + 6) return;
     const timer = setTimeout(() => {
       const newText = text.slice(lastSentLenRef.current);
-      lastSentLenRef.current = text.length;
-      void requestDraw(newText);
+      const endLength = text.length;
+      if (NON_SPEECH_TRANSCRIPT.test(newText.trim())) {
+        lastSentLenRef.current = endLength;
+        return;
+      }
+      void requestDraw(newText).then((handled) => {
+        if (handled) lastSentLenRef.current = Math.max(lastSentLenRef.current, endLength);
+      });
     }, 1200);
     return () => clearTimeout(timer);
   }, [requestDraw, speech.finals, speech.listening, inputMode, thinking]);
