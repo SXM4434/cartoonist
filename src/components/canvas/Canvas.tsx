@@ -440,7 +440,16 @@ export function Canvas({
   useEffect(() => {
     const editor = editorRef.current;
     if (!mounted || !editor) return;
-    const desired = shapes.flatMap(toTldrawShapes);
+    // Guard: a single malformed primitive (NaN coords from legacy/replayed
+    // events) must never take the whole board down.
+    const finite = (v: unknown): boolean =>
+      typeof v !== "number" || Number.isFinite(v);
+    const isSane = (s: TLShapePartial): boolean => {
+      if (!finite(s.x) || !finite(s.y)) return false;
+      const props = (s.props ?? {}) as Record<string, unknown>;
+      return Object.values(props).every((v) => finite(v));
+    };
+    const desired = shapes.flatMap(toTldrawShapes).filter(isSane);
     const desiredById = new Map(desired.map((s) => [String(s.id), s]));
     // Current AI-authored shapes on the page (anything we created before).
     const currentAiIds = new Set<string>();
