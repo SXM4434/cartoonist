@@ -203,9 +203,13 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     const speak = text.trim();
     if (!speak || mediatorMuted || speak === lastSpokenRef.current || typeof window === "undefined") return;
     lastSpokenRef.current = speak;
+    // Mark only transcript that existed before playback as consumed. Updating
+    // this at playback end swallowed genuine speech made while the mediator
+    // was talking.
+    lastSentLenRef.current = Math.max(lastSentLenRef.current, speech.finals.join(" ").length);
     const onDone = () => {
-      // Suppress self-echo: skip transcript captured during TTS.
-      lastSentLenRef.current = speech.finals.join(" ").length;
+      // Playback completion intentionally does not advance the transcript
+      // cursor; any human speech captured during playback must still draw.
     };
     const playBrowserVoice = () => {
       if (!("speechSynthesis" in window)) return false;

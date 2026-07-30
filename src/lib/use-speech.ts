@@ -36,6 +36,7 @@ export function useSpeech(): SpeechState {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const rafRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -122,11 +123,22 @@ export function useSpeech(): SpeechState {
       setError(ev.error);
     };
     rec.onend = () => {
-      if (wantListeningRef.current) {
-        try { rec.start(); } catch {}
-      } else {
-        setListening(false);
-      }
+      setListening(false);
+      if (!wantListeningRef.current) return;
+      // Chromium often rejects a synchronous restart while the recognition
+      // service is still tearing down. Retry after a short backoff instead of
+      // leaving the UI falsely stuck on "Listening" with a dead recognizer.
+      if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = setTimeout(() => {
+        if (!wantListeningRef.current || recognitionRef.current !== rec) return;
+        try {
+          rec.start();
+          setListening(true);
+        } catch {
+          setError("Voice recognition paused. Tap Listen to resume.");
+          wantListeningRef.current = false;
+        }
+      }, 300);
     };
     recognitionRef.current = rec;
     wantListeningRef.current = true;
@@ -140,6 +152,8 @@ export function useSpeech(): SpeechState {
 
   const stop = useCallback(() => {
     wantListeningRef.current = false;
+    if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+    restartTimerRef.current = null;
     try { recognitionRef.current?.stop(); } catch {}
     recognitionRef.current = null;
     setListening(false);
