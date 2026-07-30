@@ -8,8 +8,19 @@ type CanvasContextValue = {
 
 const CanvasContext = createContext<CanvasContextValue | null>(null);
 
+// Module-level handle so surfaces rendered outside <CanvasProvider>
+// (header actions, export sheet) can still reach the tldraw editor.
+let editorHandle: Editor | null = null;
+export function getCanvasEditor() {
+  return editorHandle;
+}
+
 export function CanvasProvider({ children }: { children: ReactNode }) {
-  const [editor, setEditor] = useState<Editor | null>(null);
+  const [editor, setEditorState] = useState<Editor | null>(null);
+  const setEditor = (next: Editor | null) => {
+    editorHandle = next;
+    setEditorState(next);
+  };
   return (
     <CanvasContext.Provider value={{ editor, setEditor }}>
       {children}
