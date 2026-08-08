@@ -307,9 +307,12 @@ ${latest || transcript}`;
         // Route to Flash by default for latency; escalate to Pro when the
         // user is asking for a revision (reasoning-heavy) or when there's
         // an unresolved-thread the mediator may need to surface carefully.
+        // Wireframes run on Flash-3 too: the Pro model regularly blew past
+        // 75s and the room saw nothing at all. Fidelity now comes from the
+        // progressive enrichment passes, not from one giant slow call.
         const hasUnresolved = states.some((s) => s.focus === "unresolved-thread");
         const model = uiWireframeIntent
-          ? "google/gemini-3-pro-preview"
+          ? "google/gemini-3-flash-preview"
           : reviseIntent || hasUnresolved
             ? "google/gemini-2.5-pro"
             : "google/gemini-2.5-flash";
