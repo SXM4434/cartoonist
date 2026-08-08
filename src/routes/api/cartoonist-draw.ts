@@ -69,7 +69,7 @@ Every screen MUST contain, wherever the product implies it:
 Type ladder for wireframes: 11 (meta/caption), 13 (body/labels), 15 (section heads), 22 (screen title). Use text size field accordingly.
 TEXT RULE (critical): in ui_wireframe mode rects carry NO label — leave label empty and place a separate 'text' primitive at x = rect.x + 10, y = rect.y + (rect.h/2) - 7. Keep labels under 26 characters, one text per rect, and never place two texts within 16px vertically of each other. A rect narrower than 8 * (label length) must get a shorter label.
 NO ARROWS in ui_wireframe except short port-to-port connector 'line' primitives inside a node canvas.
-Density: MINIMUM 60 primitives per screen; 70–170 primitives total. If you are under 60 you have not drawn a real screen — go back and add rows, labels, icons, dividers, and states until the screen looks like a product screenshot.
+Density: a finished screen is 70–170 primitives. Fidelity is built PROGRESSIVELY — the first pass lays down 45–90 primitives of real structure (frames, chrome, nav, content rows/cards, inputs, buttons) and a follow-up enrichment pass adds the micro-detail layer. Never emit a handful of labelled boxes and call it a screen.
 MICRO-DETAIL (required, this is what separates a real screen from boxes): avatar ellipses on rows, count badges (small rect + 11px number), a scrollbar track rect (w 4–6) on scrollable panes, keyboard-shortcut chips, tab underline (2px filled rect) on the active tab, breadcrumb texts separated by "/" texts, hover/selected row fills, disabled rows in a lighter treatment, at least one empty-state or loading placeholder line rect, tooltips or helper text at 11px under a field, checkbox/toggle rects (14x14) with labels, and per-item meta like "3 min ago" or "v2".
 Use hairline 'line' primitives for dividers, 'icon' for glyphs, 'rect' with fill for filled buttons/active states, and text for every label. Do NOT emit arrows between labeled boxes, a user flow, a system diagram, a conceptual process, or boxes named "User Interaction", "AI Tool", "Canvas Tool", "Workflow", or "Desired Output". For a node-canvas product, draw the application chrome plus the actual node canvas, node cards with titled headers and input/output port ellipses, connector lines between ports, media tray thumbnails, a contextual voice-comment marker, and an output preview panel.
 
@@ -250,7 +250,9 @@ When ready, an 'annotation' anchored on the relevant shape (or a small 'typed_no
 
 
         const reviseIntent = REVISE_INTENT.test(latest || "") || /\b(not|isn'?t|aren'?t|doesn'?t).{0,40}\b(high[-\s]?fi(?:delity)?|wireframes?|ui screens?)\b/i.test(latest || "");
-        const uiWireframeIntent = UI_WIREFRAME_INTENT.test(`${latest}\n${transcript}`);
+        // Progressive enrichment pass requested by the client (1 or 2).
+        const enrichPass = Math.max(0, Math.min(2, Number((body as { enrichPass?: unknown }).enrichPass ?? 0) | 0));
+        const uiWireframeIntent = enrichPass > 0 || UI_WIREFRAME_INTENT.test(`${latest}\n${transcript}`);
         const existingBlock = compactText(body.existing, 2400) || "(empty)";
         const canvasHeader = reviseIntent
           ? `# Already on canvas (REVISE MODE — the user is unhappy, prefer edits/removes on these ids over adding new shapes)`
@@ -283,8 +285,13 @@ ${handsUp.map((n, i) => `${i + 1}. ${n}`).join("\n")}
 `
           : "";
 
-        const intentOverride = uiWireframeIntent ? `# REQUIRED RENDER MODE
+        const intentOverride = enrichPass > 0 ? `# ENRICHMENT PASS ${enrichPass} (additive only)
+The wireframe below is already on the canvas but is still too sparse. Do NOT redraw it and do NOT repeat any existing primitive. Return ONLY the NEW primitives that add missing anatomy inside the frames already placed: sidebar rows with icons and labels, toolbar buttons, individual list rows / node cards / grid cards with thumbnails, titles and 11px meta text, input fields with placeholder text inside, primary + secondary buttons, inspector property rows, hairline dividers, a status bar — plus micro-detail: avatar ellipses, count badges, a scrollbar track, active-tab underline, breadcrumbs, selected-row fill, checkbox rects, helper text. 40–90 new primitives, fresh unique ids, modality "ui_wireframe", empty edits/removes, no "speak".
+
+` : uiWireframeIntent ? `# REQUIRED RENDER MODE
 The user is requesting UI wireframes. You MUST return modality "ui_wireframe" and draw detailed, nested product screens. Do not return template_shape, a process, or a conceptual box flow. If this is a correction, remove the incorrect flow shapes and replace them with actual screens rather than relabeling them.
+
+Draw the full screen structure and layout now — frames, chrome, navigation, main content rows/cards, inputs and buttons. Aim for 45–90 primitives on this pass; a follow-up enrichment pass will add micro-detail, so do NOT stall trying to emit everything at once.
 
 ` : "";
 
@@ -318,12 +325,12 @@ ${latest || transcript}`;
         const callGateway = async (messages: Array<{ role: string; content: string }>) =>
           fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
-            signal: AbortSignal.timeout(uiWireframeIntent ? 110000 : 22000),
+            signal: AbortSignal.timeout(uiWireframeIntent ? 75000 : 22000),
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
               model,
               response_format: { type: "json_object" },
-              ...(uiWireframeIntent ? { max_tokens: 32000 } : {}),
+              ...(uiWireframeIntent ? { max_tokens: 20000 } : {}),
               messages,
             }),
           });
@@ -365,41 +372,12 @@ ${latest || transcript}`;
           completion_tokens: Number(data.usage?.completion_tokens ?? 0),
         };
 
-        // MAX-FIDELITY DENSITY LADDER — a wireframe under 60 primitives is a
-        // thin, box-flow answer. Loop up to two enrichment passes, each seeded
-        // with the model's own latest output, until the screen is dense.
-        if (uiWireframeIntent) {
-          let lastContent = content;
-          for (let pass = 0; pass < 2; pass++) {
-            const count = Array.isArray(parsed.shapes) ? parsed.shapes.length : 0;
-            if (count === 0 || count >= 60) break;
-            try {
-              const retry = await callGateway([
-                ...baseMessages,
-                { role: "assistant", content: lastContent },
-                {
-                  role: "user",
-                  content: `Your answer has only ${count} primitives — that is a thin wireframe, not a product screen. Redraw the SAME screens at full fidelity: keep the frames and layout you chose, then add the missing anatomy — window chrome, sidebar rows with icons and labels, toolbar buttons, individual list rows / node cards / grid cards with their own thumbnails, titles and meta text, input fields with placeholder text inside, primary + secondary buttons, inspector property rows, hairline dividers, a status bar — plus the micro-detail layer: avatars, count badges, scrollbar track, active-tab underline, breadcrumbs, selected-row fill, checkboxes, 11px helper/meta text. Return the COMPLETE shape list (not a diff) with 70–170 primitives, same JSON contract, modality "ui_wireframe".`,
-                },
-              ]);
-              if (!retry.ok) break;
-              const retryData = (await retry.json()) as { choices?: Array<{ message?: { content?: string } }>; usage?: Usage };
-              const retryContent = retryData.choices?.[0]?.message?.content ?? "";
-              usageTotals.prompt_tokens = (usageTotals.prompt_tokens ?? 0) + Number(retryData.usage?.prompt_tokens ?? 0);
-              usageTotals.completion_tokens = (usageTotals.completion_tokens ?? 0) + Number(retryData.usage?.completion_tokens ?? 0);
-              const retryParsed = retryContent ? JSON.parse(retryContent) : null;
-              if (retryParsed && Array.isArray(retryParsed.shapes) && retryParsed.shapes.length > count) {
-                parsed = { ...retryParsed, speak: parsed.speak ?? retryParsed.speak };
-                lastContent = retryContent;
-              } else {
-                break;
-              }
-            } catch (err) {
-              console.warn("[cartoonist-draw] density pass failed", err);
-              break;
-            }
-          }
-        }
+        // PROGRESSIVE DENSITY (was: two blocking full redraws inside this
+        // request — that meant 2–4 minutes of a blank canvas before anything
+        // appeared). Now the first pass returns immediately and the client
+        // asks for additive enrichment passes, so the screen fills in live.
+
+
 
 
 
@@ -465,11 +443,15 @@ ${latest || transcript}`;
         return json({
           modality,
           shapes: cleanShapes,
-          edits: Array.isArray(parsed.edits) ? parsed.edits : [],
-          removes: Array.isArray(parsed.removes) ? parsed.removes : [],
-          speak: safeSpeak,
+          edits: enrichPass > 0 ? [] : Array.isArray(parsed.edits) ? parsed.edits : [],
+          removes: enrichPass > 0 ? [] : Array.isArray(parsed.removes) ? parsed.removes : [],
+          speak: enrichPass > 0 ? "" : safeSpeak,
           thread_ref: threadRef,
           relation,
+          // Progressive fidelity: tell the client it may ask for another
+          // additive pass once these shapes are on screen.
+          enrichPass,
+          enrichable: uiWireframeIntent && enrichPass < 2 && cleanShapes.length > 0,
           rationale: typeof parsed.rationale === "string" ? parsed.rationale : "",
         });
       },
