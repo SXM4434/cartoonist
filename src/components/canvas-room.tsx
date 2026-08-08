@@ -580,7 +580,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       .join("\n");
   }, [shapes]);
 
-  const requestDraw = useCallback(async (latest: string): Promise<boolean> => {
+  const requestDraw = useCallback(async (latest: string, enrichPass = 0): Promise<boolean> => {
     const cleanLatest = latest.trim();
     if (!cleanLatest || NON_SPEECH_TRANSCRIPT.test(cleanLatest) || drawInFlightRef.current) return false;
     drawInFlightRef.current = true;
@@ -614,12 +614,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       // Raise-hand queue → mediator surfaces the next hand at natural pauses.
       const handsUp = handQueue.map((h) => h.name);
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 240000);
+      const timeout = window.setTimeout(() => controller.abort(), 90000);
       const res = await fetch("/api/cartoonist-draw", {
         method: "POST",
         signal: controller.signal,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId, transcript: fullContext, latest: cleanLatest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads, handsUp }),
+        body: JSON.stringify({ roomId, transcript: fullContext, latest: cleanLatest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads, handsUp, enrichPass }),
       });
       window.clearTimeout(timeout);
       const data = await res.json().catch(() => ({}));
@@ -666,7 +666,8 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         const threadRef = typeof (data as { thread_ref?: unknown }).thread_ref === "string" ? (data as { thread_ref: string }).thread_ref : null;
         const rawRelation = typeof (data as { relation?: unknown }).relation === "string" ? (data as { relation: string }).relation : null;
         const relation = (["extends", "references", "contradicts", "resolves"] as const).find((r) => r === rawRelation) ?? null;
-        const threadId = threadRef ?? `thread_${crypto.randomUUID().slice(0, 8)}`;
+        // Enrichment passes belong to the thread the first pass opened.
+        const threadId = threadRef ?? ((enrichPass > 0 && lastThreadIdRef.current) || `thread_${crypto.randomUUID().slice(0, 8)}`);
         lastThreadIdRef.current = threadId;
         const span = {
           origin: "utterance" as const,
@@ -675,24 +676,24 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           thread_ref: threadRef,
           relation,
         };
-        for (const shape of fresh) {
-          void supabase.from("canvas_events").insert({
-            room_id: roomId, op: JSON.parse(JSON.stringify(shape)), t_offset_ms: stamp,
+        // Perf: one batched insert instead of a request per primitive — a
+        // dense wireframe used to fire ~170 individual POSTs and stall the tab.
+        const rows = [
+          ...fresh.map((shape) => ({
+            room_id: roomId, op: JSON.parse(JSON.stringify(shape)) as Record<string, unknown>, t_offset_ms: stamp,
             source: "mediator", transcript_span: span, confidence: 0.8, thread_id: threadId,
-          });
-        }
-        for (const { id, patch } of edits) {
-          if (!byId.has(id)) continue;
-          void supabase.from("canvas_events").insert({
-            room_id: roomId, op: JSON.parse(JSON.stringify({ kind: "edit", id, patch })), t_offset_ms: stamp,
+          })),
+          ...edits.filter(({ id }) => byId.has(id)).map(({ id, patch }) => ({
+            room_id: roomId, op: JSON.parse(JSON.stringify({ kind: "edit", id, patch })) as Record<string, unknown>, t_offset_ms: stamp,
             source: "mediator", transcript_span: span, confidence: 0.9, thread_id: threadId,
-          });
-        }
-        for (const id of removes) {
-          void supabase.from("canvas_events").insert({
-            room_id: roomId, op: { kind: "remove", id } as unknown as Record<string, string>, t_offset_ms: stamp,
+          })),
+          ...removes.map((id) => ({
+            room_id: roomId, op: { kind: "remove", id } as unknown as Record<string, unknown>, t_offset_ms: stamp,
             source: "mediator", transcript_span: span, confidence: 0.9, thread_id: threadId,
-          });
+          })),
+        ];
+        for (let i = 0; i < rows.length; i += 100) {
+          void supabase.from("canvas_events").insert(rows.slice(i, i + 100) as never);
         }
         // Track thread client-side for the Threads rail (jump-to on canvas).
         if (fresh.length || edits.length) {
@@ -744,6 +745,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         const hit = memoryRef.current.recall(cleanLatest);
         if (hit && lastThreadIdRef.current) void memoryRef.current.record(hit, lastThreadIdRef.current);
       } catch { /* memory is best-effort */ }
+      // Progressive fidelity: the structural pass is already on screen; ask
+      // for additive detail so the wireframe thickens live instead of the
+      // room staring at a blank canvas for minutes.
+      if ((data as { enrichable?: boolean }).enrichable && enrichPass < 2) {
+        window.setTimeout(() => { void requestDrawRef.current?.(cleanLatest, enrichPass + 1); }, 120);
+      }
       return true;
     } catch (e) {
       const aborted = e instanceof Error && e.name === "AbortError";
@@ -754,6 +761,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       setThinking(false);
     }
   }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, handQueue, threads, playMediatorLine]);
+
+  // Self-reference so a completed pass can chain the next enrichment pass.
+  const requestDrawRef = useRef<typeof requestDraw | null>(null);
+  useEffect(() => { requestDrawRef.current = requestDraw; }, [requestDraw]);
 
   // Auto-draw from speech: debounce ~1.2s after the last new final utterance,
   // so the mediator reacts as soon as the speaker pauses instead of waiting

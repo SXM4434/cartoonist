@@ -263,6 +263,8 @@ export function Canvas({
   const { setEditor } = useCanvas();
   const editorRef = useRef<Editor | null>(null);
   const createdShapeIdsRef = useRef(new Set<string>());
+  // id → serialized shape, so incremental batches only touch what changed.
+  const shapeSigRef = useRef(new Map<string, string>());
   const [mounted, setMounted] = useState(false);
   // v2.P6 — glow overlay: rects positioned over the shape bounds of a
   // reopened thread, pulse for ~3s so people can see the mediator returning
@@ -386,12 +388,15 @@ export function Canvas({
 
   // Reproject glow rings from page → viewport on each animation frame while
   // the pulse is active. This keeps rings glued to shapes during the
-  // zoomToSelection camera animation.
+  // zoomToSelection camera animation. Perf: only commit to React state when
+  // the projected geometry actually moved — otherwise a 60fps setState storm
+  // re-renders the whole canvas subtree while the room sits idle.
   useEffect(() => {
     if (!glowTargets.length) { setGlow([]); return; }
     const editor = editorRef.current;
     if (!editor) return;
     let raf = 0;
+    let prevKey = "";
     const tick = () => {
       const next: Array<{ id: string; x: number; y: number; w: number; h: number; tone: "old" | "new" }> = [];
       for (const t of glowTargets) {
@@ -399,9 +404,10 @@ export function Canvas({
         if (!bounds) continue;
         const tl = editor.pageToViewport({ x: bounds.x, y: bounds.y });
         const br = editor.pageToViewport({ x: bounds.x + bounds.w, y: bounds.y + bounds.h });
-        next.push({ id: t.id, x: tl.x, y: tl.y, w: br.x - tl.x, h: br.y - tl.y, tone: t.tone });
+        next.push({ id: t.id, x: Math.round(tl.x), y: Math.round(tl.y), w: Math.round(br.x - tl.x), h: Math.round(br.y - tl.y), tone: t.tone });
       }
-      setGlow(next);
+      const key = next.map((n) => `${n.id}:${n.x},${n.y},${n.w},${n.h}`).join("|");
+      if (key !== prevKey) { prevKey = key; setGlow(next); }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -422,25 +428,36 @@ export function Canvas({
     return () => window.removeEventListener("cartoonist:relations", handler as EventListener);
   }, [mounted]);
 
-  // Reproject relation chips per frame. Cheap: at most a few dozen shapes.
+  // Reproject relation chips per frame. Perf: `getCurrentPageShapeIds()` on a
+  // 170-shape wireframe every frame plus an unconditional setState was the
+  // single biggest source of idle jank — recompute the present-set at most
+  // ~7x/sec and only commit when a chip actually moved.
   useEffect(() => {
     if (!mounted || !relationTargets.length) { setRelations([]); return; }
     const editor = editorRef.current;
     if (!editor) return;
     let raf = 0;
+    let prevKey = "";
+    let present = new Set<string>();
+    let lastScan = 0;
     const tick = () => {
+      const now = performance.now();
+      if (now - lastScan > 140) {
+        lastScan = now;
+        const scan = new Set<string>();
+        for (const id of editor.getCurrentPageShapeIds()) scan.add(String(id));
+        present = scan;
+      }
       const next: Array<{ id: string; threadId: string; relation: string; peer: string; x: number; y: number }> = [];
-      const page = editor.getCurrentPageShapeIds();
-      const present = new Set<string>();
-      for (const id of page) present.add(String(id));
       for (const t of relationTargets) {
         if (!present.has(t.id)) continue;
         const bounds = editor.getShapePageBounds(t.id as unknown as Parameters<Editor["getShapePageBounds"]>[0]);
         if (!bounds) continue;
         const tr = editor.pageToViewport({ x: bounds.x + bounds.w, y: bounds.y });
-        next.push({ id: t.id, threadId: t.threadId, relation: t.relation, peer: t.peer, x: tr.x, y: tr.y });
+        next.push({ id: t.id, threadId: t.threadId, relation: t.relation, peer: t.peer, x: Math.round(tr.x), y: Math.round(tr.y) });
       }
-      setRelations(next);
+      const key = next.map((n) => `${n.id}:${n.x},${n.y}`).join("|");
+      if (key !== prevKey) { prevKey = key; setRelations(next); }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -472,14 +489,20 @@ export function Canvas({
     }
     const toCreate: TLShapePartial[] = [];
     const toUpdate: TLShapePartial[] = [];
+    const nextSig = new Map<string, string>();
     for (const [id, shape] of desiredById) {
-      if (currentAiIds.has(id)) toUpdate.push(shape);
-      else toCreate.push(shape);
+      const sig = JSON.stringify(shape);
+      nextSig.set(id, sig);
+      if (!currentAiIds.has(id)) { toCreate.push(shape); continue; }
+      // Perf: only push shapes whose serialized form actually changed. Before
+      // this, every incremental batch re-updated all ~170 wireframe shapes.
+      if (shapeSigRef.current.get(id) !== sig) toUpdate.push(shape);
     }
     const toDelete: string[] = [];
     for (const id of currentAiIds) {
       if (!desiredById.has(id)) toDelete.push(id);
     }
+    shapeSigRef.current = nextSig;
     if (!toCreate.length && !toUpdate.length && !toDelete.length) return;
     try {
       editor.run(() => {
@@ -487,7 +510,9 @@ export function Canvas({
         if (toUpdate.length) editor.updateShapes(toUpdate);
         if (toCreate.length) editor.createShapes(toCreate);
         toCreate.forEach((s) => createdShapeIdsRef.current.add(String(s.id)));
-      }, { history: "record" });
+        // AI batches don't belong in the user's undo stack — recording 170
+        // shape creations made every subsequent interaction sluggish.
+      }, { history: "ignore" });
     } catch (err) {
       console.warn("[canvas] skipped a bad shape batch", err);
     }
