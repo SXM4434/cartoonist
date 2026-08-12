@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { ParticipantWithHumanLayer } from "@/lib/canvas-types";
 import type { FreehandStroke, SketchPrimitive } from "@/lib/sketch-types";
 import { bboxOf, placeBatchClear } from "@/lib/sketch-layout";
+import { createProductionWireframe } from "@/lib/production-wireframe";
 
 import { EMPTY_HUMAN_LAYER, type HumanLayer } from "@/lib/human-layer";
 import { useSpeech } from "@/lib/use-speech";
@@ -598,6 +599,19 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const requestDraw = useCallback(async (latest: string, enrichPass = 0, maxFidelity = false): Promise<boolean> => {
     const cleanLatest = latest.trim();
     if (!cleanLatest || NON_SPEECH_TRANSCRIPT.test(cleanLatest) || drawInFlightRef.current) return false;
+    const requestsUi = /\b(high[-\s]?fi(?:delity)?|wireframes?|mockups?|ui screens?|interface|dashboard|editor|app (?:screen|page)|website (?:screen|page)|production[-\s]?ready)\b/i.test(cleanLatest);
+    // Put a complete production shell on canvas synchronously. This is not a
+    // loading skeleton: it is an editable 100+ primitive screen with semantic
+    // hierarchy. The AI request that follows personalizes and enriches it.
+    if (enrichPass === 0 && requestsUi) {
+      const occupied = bboxOf(shapesRef.current);
+      const seed = createProductionWireframe(cleanLatest, occupied ? occupied.maxX + 280 : 80, 80);
+      setShapes((current) => {
+        const ids = new Set(current.map((shape) => shape.id));
+        const unique = seed.map((shape) => ({ ...shape, id: `${shape.id}_${crypto.randomUUID().slice(0, 6)}` })).filter((shape) => !ids.has(shape.id));
+        return [...current, ...unique];
+      });
+    }
     drawInFlightRef.current = true;
     setThinking(true);
     setDrawError(null);
