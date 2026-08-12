@@ -203,12 +203,12 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
         geo: "rectangle",
         w,
         h,
-        color: geoNoteColor(shape.color),
+        color: rs.fidelity === "lofi" ? "grey" : geoNoteColor(shape.color),
         fill: "solid",
-        dash: "draw",
+        dash,
         size: "s",
         scale: 0.64,
-        font: "draw",
+        font,
         align: "start",
         verticalAlign: "start",
         labelColor: "black",
@@ -229,17 +229,19 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
         h,
         color: "black",
         fill: "none",
-        dash: "draw",
+        dash,
         size: "s",
         scale: 0.64,
-        font: "draw",
+        font,
         align: "start",
         verticalAlign: "start",
         labelColor: "black",
         richText: toRichText(""),
       },
     });
-    return [fill, outline("a", -1.5, -1, -0.006), outline("b", 1, 1.5, 0.008)];
+    // Clean ink gets a single crisp border; pencil ink gets the multi-stroke wobble.
+    return isUi ? [fill, outline("a", 0, 0, 0)] : [fill, outline("a", -1.5, -1, -0.006), outline("b", 1, 1.5, 0.008)];
+
   }
   if (shape.type === "text") {
     return [{
