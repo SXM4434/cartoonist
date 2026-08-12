@@ -134,12 +134,15 @@ const strokeToDraw = (shape: Extract<SketchPrimitive, { type: "stroke" }>): TLSh
   }];
 };
 
-function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
+function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial[] {
   const common = { id: shapeId(shape.id), opacity: 1, isLocked: false };
-  const isUi = shape.style === "ui";
-  const color = toneColor(shape.tone);
+  // "clean" ink always draws geometric shapes; "pencil" always draws by hand,
+  // regardless of what the AI tagged the primitive as.
+  const isUi = rs.ink === "clean";
+  const color = toneColor(shape.tone, rs.fidelity);
   const dash = isUi ? "solid" : "draw";
   const font = isUi ? "sans" : "draw";
+
   if (shape.type === "rect" || shape.type === "ellipse" || shape.type === "diamond") {
     // A label that can't fit the box gets wrapped one letter per line by
     // tldraw. In dense wireframes that reads as garbage, so any label too
