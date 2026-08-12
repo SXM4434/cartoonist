@@ -1119,7 +1119,9 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
 
         <div className="flex items-center justify-end gap-1.5">
+          <StyleSwitch />
           <Button size="sm" variant="outline" onClick={toggleDraw} className={`h-8 gap-1.5 rounded-none border-border ${drawing ? "bg-foreground text-background" : ""}`}>
+
             <Pencil className="h-3.5 w-3.5" /><span className="eyebrow">Draw</span>
           </Button>
           <Button size="sm" variant="outline" onClick={clearCanvas} className="h-8 gap-1.5 rounded-none border-border">
