@@ -563,31 +563,37 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
 
   const summarizeCanvas = useCallback(() => {
-    if (shapes.length === 0) return "(empty)";
-    return shapes
-      .slice(-30)
+    const current = shapesRef.current;
+    if (current.length === 0) return "(empty)";
+    // Detail passes need the complete screen geometry. The old last-30 slice
+    // hid frames and panels from later passes, so components were guessed and
+    // stacked. This compact digest fits hundreds of primitives while retaining
+    // exact bounds, hierarchy cues, copy, and semantic styling.
+    return current
+      .slice(-320)
       .map((s) => {
+        const visual = `${s.style === "ui" ? ":ui" : ""}${s.tone ? `:${s.tone}` : ""}`;
         switch (s.type) {
           case "arrow":
             return `arrow[${s.id}] ${s.x1},${s.y1}→${s.x2},${s.y2}${s.label ? ` "${s.label}"` : ""}`;
           case "line":
             return `line[${s.id}] ${s.x1},${s.y1}→${s.x2},${s.y2}`;
           case "text":
-            return `text[${s.id}] @${s.x},${s.y} "${s.text}"`;
+            return `text[${s.id}${visual}] @${s.x},${s.y} "${s.text.slice(0, 80)}"`;
           case "note":
             return `note[${s.id}] @${s.x},${s.y} "${s.text}"`;
           case "icon":
-            return `icon[${s.id}] ${s.kind} @${s.x},${s.y}${s.label ? ` "${s.label}"` : ""}`;
+            return `icon[${s.id}${visual}] ${s.kind} @${s.x},${s.y} ${s.size ?? 24}${s.label ? ` "${s.label}"` : ""}`;
           case "path":
             return `path[${s.id}] ${s.points.length}pts`;
           case "stroke":
             return `stroke[${s.id}]`;
           default:
-            return `${s.type}[${s.id}] @${s.x},${s.y} ${s.w}x${s.h}${s.label ? ` "${s.label}"` : ""}`;
+            return `${s.type}[${s.id}${visual}] @${s.x},${s.y} ${s.w}x${s.h}${s.label ? ` "${s.label}"` : ""}`;
         }
       })
       .join("\n");
-  }, [shapes]);
+  }, []);
 
   const requestDraw = useCallback(async (latest: string, enrichPass = 0, maxFidelity = false): Promise<boolean> => {
     const cleanLatest = latest.trim();
@@ -643,6 +649,9 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       playMediatorLine(speak);
 
       let incoming = Array.isArray(data.shapes) ? (data.shapes as SketchPrimitive[]) : [];
+      if (data?.modality === "ui_wireframe") {
+        incoming = incoming.map((shape) => ({ ...shape, style: "ui" as const }));
+      }
       const edits = Array.isArray(data.edits) ? (data.edits as Array<{ id: string; patch: Record<string, unknown> }>) : [];
       const removes = Array.isArray(data.removes) ? (data.removes as string[]) : [];
       // Fresh drawings must never land on top of existing marks. Enrichment
