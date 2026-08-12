@@ -3,6 +3,8 @@ import { compressLegacySegments, getIndices, Tldraw, type Editor, type TLShapePa
 import "tldraw/tldraw.css";
 import { useCanvas } from "./canvas-context";
 import type { SketchPrimitive } from "@/lib/sketch-types";
+import { useRenderStyle, type Fidelity, type RenderStyle } from "@/lib/render-style";
+
 import "@/styles/tldraw.css";
 
 type RichText = { type: "doc"; content: Array<{ type: "paragraph"; content?: Array<{ type: "text"; text: string }> }> };
