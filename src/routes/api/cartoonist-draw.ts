@@ -161,6 +161,8 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
           transcript?: string;
           latest?: string;
           existing?: string;
+          occupied?: { minX: number; minY: number; maxX: number; maxY: number } | null;
+
           sessionContext?: { name?: string; goal?: string; outputs?: string[]; facilitation?: string; hostRole?: string } | null;
           participants?: Array<{
             name: string;
@@ -322,8 +324,21 @@ LAYER 1 — STRUCTURE. Draw the full screen skeleton now: outer frame(s), window
 
 ` : "";
 
-        const userMsg = `${intentOverride}${ctxBlock}${participantsBlock}${liveStatesBlock}${voiceBlock}${openThreadsBlock}${handsBlock}${canvasHeader}
+        // Hard placement rule: brand-new drawings go in empty canvas space to
+        // the right of everything already drawn. Enrichment passes nest inside.
+        const occ = body.occupied && typeof body.occupied === "object" ? body.occupied : null;
+        const placementBlock =
+          enrichPass === 0 && occ && Number.isFinite(occ.maxX)
+            ? `# PLACEMENT (HARD RULE)
+The canvas is infinite and the region x ${Math.round(occ.minX)}..${Math.round(occ.maxX)}, y ${Math.round(occ.minY)}..${Math.round(occ.maxY)} is ALREADY OCCUPIED.
+Every NEW primitive this turn must start at x >= ${Math.round(occ.maxX) + 280}. Never draw on top of, or overlapping, existing work. Lay new screens/diagrams out side by side, left to right.
+
+`
+            : "";
+
+        const userMsg = `${intentOverride}${placementBlock}${ctxBlock}${participantsBlock}${liveStatesBlock}${voiceBlock}${openThreadsBlock}${handsBlock}${canvasHeader}
 ${existingBlock}
+
 
 # Full recent conversation
 ${transcript}

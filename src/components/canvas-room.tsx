@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import type { ParticipantWithHumanLayer } from "@/lib/canvas-types";
 import type { FreehandStroke, SketchPrimitive } from "@/lib/sketch-types";
+import { bboxOf, placeBatchClear } from "@/lib/sketch-layout";
+
 import { EMPTY_HUMAN_LAYER, type HumanLayer } from "@/lib/human-layer";
 import { useSpeech } from "@/lib/use-speech";
 import { useLiveDiarization } from "@/hooks/use-live-diarization";
@@ -131,6 +133,11 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [kioskQueue, setKioskQueue] = useState<string[]>([]);
   const [kioskMode, setKioskMode] = useState(false);
   const [shapes, setShapes] = useState<SketchPrimitive[]>([]);
+  const shapesRef = useRef<SketchPrimitive[]>([]);
+  useEffect(() => {
+    shapesRef.current = shapes;
+  }, [shapes]);
+
   // Session replay overrides what the canvas renders while scrubbing.
   const [replayShapes, setReplayShapes] = useState<SketchPrimitive[] | null>(null);
   const [freehand, setFreehand] = useState<FreehandStroke[]>([]);
@@ -621,7 +628,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         method: "POST",
         signal: controller.signal,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId, transcript: fullContext, latest: cleanLatest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads, handsUp, enrichPass, maxFidelity }),
+        body: JSON.stringify({ roomId, transcript: fullContext, latest: cleanLatest, existing: summarizeCanvas(), occupied: bboxOf(shapesRef.current), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads, handsUp, enrichPass, maxFidelity }),
       });
       window.clearTimeout(timeout);
       const data = await res.json().catch(() => ({}));
@@ -635,10 +642,16 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const speak = typeof data?.speak === "string" ? data.speak.trim() : "";
       playMediatorLine(speak);
 
-      const incoming = Array.isArray(data.shapes) ? (data.shapes as SketchPrimitive[]) : [];
+      let incoming = Array.isArray(data.shapes) ? (data.shapes as SketchPrimitive[]) : [];
       const edits = Array.isArray(data.edits) ? (data.edits as Array<{ id: string; patch: Record<string, unknown> }>) : [];
       const removes = Array.isArray(data.removes) ? (data.removes as string[]) : [];
+      // Fresh drawings must never land on top of existing marks. Enrichment
+      // passes (enrichPass > 0) intentionally draw *inside* existing frames.
+      if (enrichPass === 0 && incoming.length > 0) {
+        incoming = placeBatchClear(shapesRef.current, incoming);
+      }
       if (incoming.length === 0 && edits.length === 0 && removes.length === 0) return true;
+
       setShapes((current) => {
         const byId = new Map(current.map((s) => [s.id, s]));
         // 1) removes (only touch AI-authored shapes already in state)
