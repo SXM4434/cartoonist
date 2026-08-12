@@ -629,7 +629,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       // Raise-hand queue → mediator surfaces the next hand at natural pauses.
       const handsUp = handQueue.map((h) => h.name);
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 90000);
+      // Stay beyond the server's dense-wireframe allowance. A shorter client
+      // timer previously aborted the response while the detail model was still
+      // producing valid structured geometry.
+      const timeout = window.setTimeout(() => controller.abort(), 225000);
       const res = await fetch("/api/cartoonist-draw", {
         method: "POST",
         signal: controller.signal,

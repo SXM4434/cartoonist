@@ -379,7 +379,10 @@ ${latest || transcript}`;
         const callGateway = async (messages: Array<{ role: string; content: string }>) =>
           fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
-            signal: AbortSignal.timeout(uiWireframeIntent ? 75000 : 16000),
+            // Dense structured JSON can legitimately take longer than a chat
+            // turn. The old 75s server abort killed valid wireframes before
+            // the gateway could deliver them, producing a blank canvas.
+            signal: AbortSignal.timeout(uiWireframeIntent ? 210000 : 16000),
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
               model,
