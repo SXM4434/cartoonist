@@ -19,6 +19,9 @@ import { KnownAboutYou } from "./known-about-you";
 
 import { IntroModal } from "./intro-modal";
 import { Canvas } from "./canvas/Canvas";
+import { StyleSwitch } from "./canvas/style-switch";
+import { getRenderStyle } from "@/lib/render-style";
+
 import { CanvasProvider } from "./canvas/canvas-context";
 import { ChatPanel } from "./chat-panel";
 import { CostMeter } from "./cost-meter";
