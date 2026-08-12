@@ -161,6 +161,8 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
           transcript?: string;
           latest?: string;
           existing?: string;
+          occupied?: { minX: number; minY: number; maxX: number; maxY: number } | null;
+
           sessionContext?: { name?: string; goal?: string; outputs?: string[]; facilitation?: string; hostRole?: string } | null;
           participants?: Array<{
             name: string;
