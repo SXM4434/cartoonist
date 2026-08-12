@@ -326,7 +326,7 @@ Do NOT redraw the screen and do NOT repeat any primitive already listed on the c
 ` : uiWireframeIntent ? `# REQUIRED RENDER MODE${maxFidelity ? " — MAXIMUM FIDELITY REQUESTED" : ""}
 The user is requesting UI wireframes. You MUST return modality "ui_wireframe" and draw detailed, nested product screens. Do not return template_shape, a process, or a conceptual box flow. If this is a correction, remove the incorrect flow shapes and replace them with actual screens rather than relabeling them.
 
-LAYER 1 — STRUCTURE. Draw the full screen skeleton now: outer frame(s), window chrome, navigation (sidebar or tab strip), toolbars, the main content region with its real sub-panels, right inspector when relevant, and the primary buttons. Aim for ${maxFidelity ? "55–100" : "45–90"} primitives on this pass. ${maxPasses} further additive passes will layer components, micro-detail${maxFidelity ? ", copy/states and polish" : ""} on top — so do NOT stall trying to emit everything at once.
+LAYER 1 — STRUCTURE. Draw the full screen skeleton now: outer frame(s), window chrome, navigation (sidebar or tab strip), toolbars, the main content region with its real sub-panels, right inspector when relevant, and the primary buttons. Emit 28–45 carefully aligned primitives on this pass so a complete screen appears immediately. ${maxPasses} further additive passes will layer components, micro-detail${maxFidelity ? ", copy/states and polish" : ""} on top. Do not include row-by-row micro-detail yet.
 
 ` : "";
 
@@ -359,11 +359,11 @@ ${latest || transcript}`;
         // not from one giant slow Pro call.
         const hasUnresolved = states.some((s) => s.focus === "unresolved-thread");
         // Max fidelity is achieved by the complete-geometry additive ladder,
-        // not by holding the first visible frame behind a slow model. Flash
-        // reliably returns the structural screen before the request window;
-        // four semantic passes then build it to production density.
+        // not by holding the first visible frame behind a slow model. 2.5
+        // Flash produces the bounded structure quickly; Gemini 3 handles the
+        // geometry-aware detail layers once users already have a screen.
         const model = uiWireframeIntent
-          ? "google/gemini-3-flash-preview"
+          ? enrichPass > 0 ? "google/gemini-3-flash-preview" : "google/gemini-2.5-flash"
           : reviseIntent || hasUnresolved
             ? "google/gemini-2.5-pro"
             : "google/gemini-2.5-flash";
@@ -384,7 +384,7 @@ ${latest || transcript}`;
             body: JSON.stringify({
               model,
               response_format: { type: "json_object" },
-              ...(uiWireframeIntent ? { max_tokens: 24000 } : { max_tokens: 3000 }),
+              ...(uiWireframeIntent ? { max_tokens: enrichPass > 0 ? 14000 : 8000 } : { max_tokens: 3000 }),
               messages,
             }),
           });
