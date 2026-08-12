@@ -573,7 +573,7 @@ export function Canvas({
       console.warn("[canvas] skipped a bad shape batch", err);
     }
     onHasContentChange?.(editor.getCurrentPageShapeIds().size > 0);
-  }, [mounted, onHasContentChange, shapes]);
+  }, [mounted, onHasContentChange, shapes, renderStyle]);
 
   return (
     <div className="absolute inset-0 bg-background">
