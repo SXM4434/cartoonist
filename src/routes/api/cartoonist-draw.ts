@@ -278,6 +278,19 @@ When ready, an 'annotation' anchored on the relevant shape (or a small 'typed_no
         // "max fidelity" language unlocks the full 4-layer ladder; otherwise 2.
         const maxFidelity = clientMaxFidelity || MAX_FIDELITY_INTENT.test(`${latest}\n${transcript}`);
         const maxPasses = maxFidelity ? 4 : 2;
+        // The client's render system (lofi | mid | hifi) sets how much visual
+        // information each primitive should carry.
+        const rawFidelity = String((body as { fidelity?: unknown }).fidelity ?? "mid");
+        const renderFidelity: "lofi" | "mid" | "hifi" =
+          rawFidelity === "lofi" || rawFidelity === "hifi" ? rawFidelity : "mid";
+        const fidelityBlock =
+          renderFidelity === "lofi"
+            ? `# RENDER FIDELITY — LO-FI\nThink in blocks. No tones except "ink"/"muted", no fills, no micro-copy. Placeholder labels are fine.`
+            : renderFidelity === "hifi"
+              ? `# RENDER FIDELITY — HI-FI\nUse the full semantic tone set (surface, subtle, accent, success, danger), real product copy, real numbers, and component-level detail.`
+              : `# RENDER FIDELITY — MID\nReal structure and real labels, but restrained color: "accent" only for the single primary action, state tones only for status.`;
+
+
 
         const existingBlock = compactText(body.existing, 18000) || "(empty)";
         const canvasHeader = reviseIntent
