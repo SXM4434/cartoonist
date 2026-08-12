@@ -315,6 +315,8 @@ export function Canvas({
   onHasContentChange?: (hasContent: boolean) => void;
 }) {
   const { setEditor } = useCanvas();
+  const renderStyle = useRenderStyle();
+
   const editorRef = useRef<Editor | null>(null);
   const createdShapeIdsRef = useRef(new Set<string>());
   // id → serialized shape, so incremental batches only touch what changed.
