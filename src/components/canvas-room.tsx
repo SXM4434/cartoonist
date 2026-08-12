@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import type { ParticipantWithHumanLayer } from "@/lib/canvas-types";
 import type { FreehandStroke, SketchPrimitive } from "@/lib/sketch-types";
+import { bboxOf, placeBatchClear } from "@/lib/sketch-layout";
+
 import { EMPTY_HUMAN_LAYER, type HumanLayer } from "@/lib/human-layer";
 import { useSpeech } from "@/lib/use-speech";
 import { useLiveDiarization } from "@/hooks/use-live-diarization";
