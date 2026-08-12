@@ -167,7 +167,7 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
         w: bw,
         h: bh,
         color,
-        fill: isUi ? uiFill(shape) : shape.fill ? "semi" : "none",
+        fill: toneFill(shape, rs.fidelity),
         dash,
         size: "s",
         scale: isUi ? 1 : 0.72,
