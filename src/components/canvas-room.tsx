@@ -635,10 +635,16 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const speak = typeof data?.speak === "string" ? data.speak.trim() : "";
       playMediatorLine(speak);
 
-      const incoming = Array.isArray(data.shapes) ? (data.shapes as SketchPrimitive[]) : [];
+      let incoming = Array.isArray(data.shapes) ? (data.shapes as SketchPrimitive[]) : [];
       const edits = Array.isArray(data.edits) ? (data.edits as Array<{ id: string; patch: Record<string, unknown> }>) : [];
       const removes = Array.isArray(data.removes) ? (data.removes as string[]) : [];
+      // Fresh drawings must never land on top of existing marks. Enrichment
+      // passes (enrichPass > 0) intentionally draw *inside* existing frames.
+      if (enrichPass === 0 && incoming.length > 0) {
+        incoming = placeBatchClear(shapesRef.current, incoming);
+      }
       if (incoming.length === 0 && edits.length === 0 && removes.length === 0) return true;
+
       setShapes((current) => {
         const byId = new Map(current.map((s) => [s.id, s]));
         // 1) removes (only touch AI-authored shapes already in state)
