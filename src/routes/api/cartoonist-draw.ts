@@ -355,7 +355,7 @@ Every NEW primitive this turn must start at x >= ${Math.round(occ.maxX) + 280}. 
 `
             : "";
 
-        const userMsg = `${intentOverride}${placementBlock}${ctxBlock}${participantsBlock}${liveStatesBlock}${voiceBlock}${openThreadsBlock}${handsBlock}${canvasHeader}
+        const userMsg = `${intentOverride}${placementBlock}${fidelityBlock}\n\n${ctxBlock}${participantsBlock}${liveStatesBlock}${voiceBlock}${openThreadsBlock}${handsBlock}${canvasHeader}
 ${existingBlock}
 
 
