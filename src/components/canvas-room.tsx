@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { ParticipantWithHumanLayer } from "@/lib/canvas-types";
 import type { FreehandStroke, SketchPrimitive } from "@/lib/sketch-types";
 import { bboxOf, placeBatchClear } from "@/lib/sketch-layout";
+import { createProductionWireframe } from "@/lib/production-wireframe";
 
 import { EMPTY_HUMAN_LAYER, type HumanLayer } from "@/lib/human-layer";
 import { useSpeech } from "@/lib/use-speech";
@@ -563,35 +564,54 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
 
   const summarizeCanvas = useCallback(() => {
-    if (shapes.length === 0) return "(empty)";
-    return shapes
-      .slice(-30)
+    const current = shapesRef.current;
+    if (current.length === 0) return "(empty)";
+    // Detail passes need the complete screen geometry. The old last-30 slice
+    // hid frames and panels from later passes, so components were guessed and
+    // stacked. This compact digest fits hundreds of primitives while retaining
+    // exact bounds, hierarchy cues, copy, and semantic styling.
+    return current
+      .slice(-320)
       .map((s) => {
+        const visual = `${s.style === "ui" ? ":ui" : ""}${s.tone ? `:${s.tone}` : ""}`;
         switch (s.type) {
           case "arrow":
             return `arrow[${s.id}] ${s.x1},${s.y1}→${s.x2},${s.y2}${s.label ? ` "${s.label}"` : ""}`;
           case "line":
             return `line[${s.id}] ${s.x1},${s.y1}→${s.x2},${s.y2}`;
           case "text":
-            return `text[${s.id}] @${s.x},${s.y} "${s.text}"`;
+            return `text[${s.id}${visual}] @${s.x},${s.y} "${s.text.slice(0, 80)}"`;
           case "note":
             return `note[${s.id}] @${s.x},${s.y} "${s.text}"`;
           case "icon":
-            return `icon[${s.id}] ${s.kind} @${s.x},${s.y}${s.label ? ` "${s.label}"` : ""}`;
+            return `icon[${s.id}${visual}] ${s.kind} @${s.x},${s.y} ${s.size ?? 24}${s.label ? ` "${s.label}"` : ""}`;
           case "path":
             return `path[${s.id}] ${s.points.length}pts`;
           case "stroke":
             return `stroke[${s.id}]`;
           default:
-            return `${s.type}[${s.id}] @${s.x},${s.y} ${s.w}x${s.h}${s.label ? ` "${s.label}"` : ""}`;
+            return `${s.type}[${s.id}${visual}] @${s.x},${s.y} ${s.w}x${s.h}${s.label ? ` "${s.label}"` : ""}`;
         }
       })
       .join("\n");
-  }, [shapes]);
+  }, []);
 
   const requestDraw = useCallback(async (latest: string, enrichPass = 0, maxFidelity = false): Promise<boolean> => {
     const cleanLatest = latest.trim();
     if (!cleanLatest || NON_SPEECH_TRANSCRIPT.test(cleanLatest) || drawInFlightRef.current) return false;
+    const requestsUi = /\b(high[-\s]?fi(?:delity)?|wireframes?|mockups?|ui screens?|interface|dashboard|editor|app (?:screen|page)|website (?:screen|page)|production[-\s]?ready)\b/i.test(cleanLatest);
+    // Put a complete production shell on canvas synchronously. This is not a
+    // loading skeleton: it is an editable 100+ primitive screen with semantic
+    // hierarchy. The AI request that follows personalizes and enriches it.
+    if (enrichPass === 0 && requestsUi) {
+      const occupied = bboxOf(shapesRef.current);
+      const seed = createProductionWireframe(cleanLatest, occupied ? occupied.maxX + 280 : 80, 80);
+      setShapes((current) => {
+        const ids = new Set(current.map((shape) => shape.id));
+        const unique = seed.map((shape) => ({ ...shape, id: `${shape.id}_${crypto.randomUUID().slice(0, 6)}` })).filter((shape) => !ids.has(shape.id));
+        return [...current, ...unique];
+      });
+    }
     drawInFlightRef.current = true;
     setThinking(true);
     setDrawError(null);
@@ -623,7 +643,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       // Raise-hand queue → mediator surfaces the next hand at natural pauses.
       const handsUp = handQueue.map((h) => h.name);
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 90000);
+      // Stay beyond the server's dense-wireframe allowance. A shorter client
+      // timer previously aborted the response while the detail model was still
+      // producing valid structured geometry.
+      const timeout = window.setTimeout(() => controller.abort(), 225000);
       const res = await fetch("/api/cartoonist-draw", {
         method: "POST",
         signal: controller.signal,
@@ -643,6 +666,9 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       playMediatorLine(speak);
 
       let incoming = Array.isArray(data.shapes) ? (data.shapes as SketchPrimitive[]) : [];
+      if (data?.modality === "ui_wireframe") {
+        incoming = incoming.map((shape) => ({ ...shape, style: "ui" as const }));
+      }
       const edits = Array.isArray(data.edits) ? (data.edits as Array<{ id: string; patch: Record<string, unknown> }>) : [];
       const removes = Array.isArray(data.removes) ? (data.removes as string[]) : [];
       // Fresh drawings must never land on top of existing marks. Enrichment

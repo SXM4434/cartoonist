@@ -38,6 +38,23 @@ const textSize = (size?: number): "s" | "m" | "l" => {
   return "s";
 };
 
+type CanvasTone = NonNullable<SketchPrimitive["tone"]>;
+
+const toneColor = (tone?: CanvasTone) => {
+  if (tone === "accent") return "orange";
+  if (tone === "muted") return "grey";
+  if (tone === "success") return "green";
+  if (tone === "danger") return "red";
+  if (tone === "subtle") return "grey";
+  if (tone === "surface") return "white";
+  return "black";
+};
+
+const uiFill = (shape: SketchPrimitive): "none" | "solid" =>
+  ("fill" in shape && shape.fill) || shape.tone === "surface" || shape.tone === "subtle" || shape.tone === "accent" || shape.tone === "success" || shape.tone === "danger"
+    ? "solid"
+    : "none";
+
 const clampNoteSize = (w?: number, h?: number) => ({
   w: Math.min(Math.max(w ?? 154, 120), 178),
   h: Math.min(Math.max(h ?? 104, 82), 116),
@@ -106,6 +123,10 @@ const strokeToDraw = (shape: Extract<SketchPrimitive, { type: "stroke" }>): TLSh
 
 function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
   const common = { id: shapeId(shape.id), opacity: 1, isLocked: false };
+  const isUi = shape.style === "ui";
+  const color = toneColor(shape.tone);
+  const dash = isUi ? "solid" : "draw";
+  const font = isUi ? "sans" : "draw";
   if (shape.type === "rect" || shape.type === "ellipse" || shape.type === "diamond") {
     // A label that can't fit the box gets wrapped one letter per line by
     // tldraw. In dense wireframes that reads as garbage, so any label too
@@ -127,15 +148,15 @@ function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
         geo: shape.type === "rect" ? "rectangle" : shape.type,
         w: bw,
         h: bh,
-        color: "black",
-        fill: shape.fill ? "semi" : "none",
-        dash: "draw",
+        color,
+        fill: isUi ? uiFill(shape) : shape.fill ? "semi" : "none",
+        dash,
         size: "s",
-        scale: 0.72,
-        font: "draw",
+        scale: isUi ? 1 : 0.72,
+        font,
         align: "start",
         verticalAlign: "start",
-        labelColor: "black",
+        labelColor: shape.tone === "accent" ? "white" : color,
         richText: toRichText(fitsInside ? label : ""),
       },
     };
@@ -145,7 +166,7 @@ function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
         type: "text",
         x: num(shape.x, 0) + bw + 6,
         y: num(shape.y, 0) + Math.max(0, bh / 2 - 8),
-        props: { color: "black", size: "s", font: "draw", textAlign: "start", w: 260, scale: 0.5, richText: toRichText(label), autoSize: true },
+        props: { color, size: "s", font, textAlign: "start", w: 260, scale: isUi ? 0.72 : 0.5, richText: toRichText(label), autoSize: true },
       } as TLShapePartial];
     }
     return [box];
@@ -208,7 +229,7 @@ function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
       type: "text",
       x: shape.x,
       y: shape.y,
-      props: { color: "black", size: textSize(shape.size), font: "draw", textAlign: shape.align === "center" ? "middle" : shape.align === "right" ? "end" : "start", w: 360, scale: 0.58, richText: toRichText(shape.text), autoSize: true },
+      props: { color, size: textSize(shape.size), font, textAlign: shape.align === "center" ? "middle" : shape.align === "right" ? "end" : "start", w: 360, scale: isUi ? 0.72 : 0.58, richText: toRichText(shape.text), autoSize: true },
     }];
   }
   if (shape.type === "arrow") {
@@ -221,7 +242,14 @@ function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
     }];
   }
   if (shape.type === "line") {
-    return [sketchLine(shape.id, shape.x1, shape.y1, shape.x2, shape.y2, shape.dashed)];
+    if (!isUi) return [sketchLine(shape.id, shape.x1, shape.y1, shape.x2, shape.y2, shape.dashed)];
+    return [{
+      ...common,
+      type: "arrow",
+      x: shape.x1,
+      y: shape.y1,
+      props: { kind: "arc", color, fill: "none", dash: shape.dashed ? "dashed" : "solid", size: "s", arrowheadStart: "none", arrowheadEnd: "none", font: "sans", labelColor: color, start: { x: 0, y: 0 }, end: { x: shape.x2 - shape.x1, y: shape.y2 - shape.y1 }, bend: 0, richText: toRichText(""), labelPosition: 0.5, scale: 1, elbowMidPoint: 0.5 },
+    }];
   }
   if (shape.type === "path") {
     return pathToLine(shape);
@@ -241,7 +269,7 @@ function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
       type: "geo",
       x: shape.x,
       y: shape.y,
-      props: { geo: shape.kind === "cloud" || shape.kind === "heart" || shape.kind === "star" ? shape.kind : shape.kind === "user" || shape.kind === "users" ? "ellipse" : "rectangle", w: size, h: size, color: "black", fill: "none", dash: "draw", size: "s", scale: 0.7, font: "draw", align: "middle", verticalAlign: "middle", labelColor: "black", richText: toRichText(showInside ? label : "") },
+      props: { geo: shape.kind === "cloud" || shape.kind === "heart" || shape.kind === "star" ? shape.kind : shape.kind === "user" || shape.kind === "users" ? "ellipse" : "rectangle", w: size, h: size, color, fill: "none", dash, size: "s", scale: isUi ? 1 : 0.7, font, align: "middle", verticalAlign: "middle", labelColor: color, richText: toRichText(showInside ? label : "") },
     }];
     if (label && !showInside && size >= 26) {
       out.push({
@@ -249,7 +277,7 @@ function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
         type: "text",
         x: shape.x + size + 6,
         y: shape.y + size / 2 - 8,
-        props: { color: "black", size: "s", font: "draw", textAlign: "start", w: 260, scale: 0.5, richText: toRichText(label), autoSize: true },
+        props: { color, size: "s", font, textAlign: "start", w: 260, scale: isUi ? 0.72 : 0.5, richText: toRichText(label), autoSize: true },
       } as TLShapePartial);
     }
     return out;

@@ -63,6 +63,10 @@ Primitives (id globally unique; prefix by kind: r_ e_ d_ a_ l_ t_ n_ p_ i_):
 - path    { type, id, points: [[x,y],...], closed?, fill? }
 - icon    { type, id, kind, x, y, size?, label? }
 
+Visual fields available on every primitive:
+- style: "sketch" | "ui". REQUIRED as "ui" for every ui_wireframe primitive.
+- tone: "ink" | "surface" | "subtle" | "accent" | "muted" | "success" | "danger". Use semantic tones to establish real UI hierarchy.
+
 REVISE MODE:
 - If the latest chunk expresses dissatisfaction ("redo", "again", "make it simpler", "that's wrong", "fix the flow", "change X to Y", "remove the …", "scrap that", "no, more like …") — DO NOT append a fresh diagram beside the broken one.
   * Prefer 'edits' with { id, patch } to nudge positions, relabel, resize, recolor.
@@ -81,16 +85,18 @@ OUTPUT BUDGET:
 - Return ONLY valid JSON, no commentary.`;
 
 const WIREFRAME_SPEC = `# UI WIREFRAME MODE — NON-NEGOTIABLE, MAX FIDELITY
-When modality is ui_wireframe you are a product designer drawing REAL SCREENS at high fidelity. Never a flowchart, never labelled boxes with arrows, never a process.
+When modality is ui_wireframe you are a product designer drawing REAL, PRODUCTION-READY SCREENS at high fidelity. Never a flowchart, never labelled boxes with arrows, never a process. Every primitive MUST include "style":"ui".
+
+VISUAL SYSTEM (required): use tone:"surface" for the screen and raised controls, tone:"subtle" for sidebars/selected rows/input wells, tone:"accent" only for the primary action and active indicators, tone:"muted" for secondary copy/icons, tone:"danger" only for destructive/error state, and tone:"ink" for outlines/headings. Filled regions need fill:"solid". The result must read like a polished product mockup, not monochrome boxes.
 
 Screen frame: outer rect 520–760 wide, 420–620 tall. 1–3 frames laid out left→right with 80px gutters. Everything else nests INSIDE a frame on an 8px rhythm with 16–24px padding.
 
 Every screen MUST contain, wherever the product implies it:
 1. Window chrome: title bar rect (h 34–40) with product name text (size 13) at left, 3 small right-side control rects, and a hairline under it.
-2. Navigation: left sidebar rect (w 120–170) OR a top tab strip. Sidebar gets 4–7 row rects (h 26–30) each with its own icon + text label. Mark the active row with fill.
+2. Navigation: left sidebar rect (w 120–170, tone subtle) OR a top tab strip. Sidebar gets 4–7 row rects (h 26–30) each with its own icon + text label. Mark the active row with tone accent or a 3px accent rail.
 3. Toolbar / action rail: 4–8 small rects (28–36 square, or 70x26 buttons) with real verb labels.
 4. Main content: the actual thing — canvas with node cards + ports, table with a header row and 4–6 data rows separated by lines, card grid (3–6 cards each with a thumbnail rect, title text 13, meta text 11), chat thread bubbles, timeline track, or media tray. Draw the rows/cards individually; never one empty box labelled "Content".
-5. Inputs: field rects (h 30–34) with placeholder text INSIDE, a search field with icon, and at least one primary button rect (fill) plus one secondary (outline) with real labels ("Generate", "Publish", "Add node").
+5. Inputs: field rects (h 30–34, tone surface/subtle) with placeholder text INSIDE, a search field with icon, and at least one primary button rect (tone accent, fill solid) plus one secondary (outline) with real labels ("Generate", "Publish", "Add node").
 6. Right panel / inspector when relevant: property rows — label text at left, value/field rect at right, separated by hairlines.
 7. Status: footer or status bar with counts, state, or a progress track (two nested rects).
 8. Real copy everywhere, drawn from the conversation. No lorem, no "Label", no "Box 1".
@@ -98,7 +104,7 @@ Every screen MUST contain, wherever the product implies it:
 Type ladder for wireframes: 11 (meta/caption), 13 (body/labels), 15 (section heads), 22 (screen title). Use text size field accordingly.
 TEXT RULE (critical): in ui_wireframe mode rects carry NO label — leave label empty and place a separate 'text' primitive at x = rect.x + 10, y = rect.y + (rect.h/2) - 7. Keep labels under 26 characters, one text per rect, and never place two texts within 16px vertically of each other. A rect narrower than 8 * (label length) must get a shorter label.
 NO ARROWS in ui_wireframe except short port-to-port connector 'line' primitives inside a node canvas.
-Density: a finished screen is 70–170 primitives. Fidelity is built PROGRESSIVELY — the first pass lays down 45–90 primitives of real structure (frames, chrome, nav, content rows/cards, inputs, buttons) and a follow-up enrichment pass adds the micro-detail layer. Never emit a handful of labelled boxes and call it a screen.
+Density: a finished screen is 140–320 coherent primitives across passes. Fidelity is built PROGRESSIVELY — the first pass lays down real structure and later passes add components, micro-detail, copy, and states. Coherence, realistic hierarchy, and precise alignment matter more than raw count. Never emit a handful of labelled boxes and call it a screen.
 MICRO-DETAIL (required, this is what separates a real screen from boxes): avatar ellipses on rows, count badges (small rect + 11px number), a scrollbar track rect (w 4–6) on scrollable panes, keyboard-shortcut chips, tab underline (2px filled rect) on the active tab, breadcrumb texts separated by "/" texts, hover/selected row fills, disabled rows in a lighter treatment, at least one empty-state or loading placeholder line rect, tooltips or helper text at 11px under a field, checkbox/toggle rects (14x14) with labels, and per-item meta like "3 min ago" or "v2".
 Use hairline 'line' primitives for dividers, 'icon' for glyphs, 'rect' with fill for filled buttons/active states, and text for every label. Do NOT emit arrows between labeled boxes, a user flow, a system diagram, a conceptual process, or boxes named "User Interaction", "AI Tool", "Canvas Tool", "Workflow", or "Desired Output". For a node-canvas product, draw the application chrome plus the actual node canvas, node cards with titled headers and input/output port ellipses, connector lines between ports, media tray thumbnails, a contextual voice-comment marker, and an output preview panel.
 
@@ -273,7 +279,7 @@ When ready, an 'annotation' anchored on the relevant shape (or a small 'typed_no
         const maxFidelity = clientMaxFidelity || MAX_FIDELITY_INTENT.test(`${latest}\n${transcript}`);
         const maxPasses = maxFidelity ? 4 : 2;
 
-        const existingBlock = compactText(body.existing, 2400) || "(empty)";
+        const existingBlock = compactText(body.existing, 18000) || "(empty)";
         const canvasHeader = reviseIntent
           ? `# Already on canvas (REVISE MODE — the user is unhappy, prefer edits/removes on these ids over adding new shapes)`
           : `# Already on canvas (extend, don't repeat; you may reference these ids in edits/removes if the user asks to change them)`;
@@ -308,19 +314,19 @@ ${handsUp.map((n, i) => `${i + 1}. ${n}`).join("\n")}
         // Layered enrichment briefs — each pass thickens one layer only, so
         // every call stays fast and the screen fills in live.
         const LAYER_BRIEFS: Record<number, string> = {
-          1: `LAYER 2 — COMPONENTS. Draw every row, card, node, table row, list item, tab and toolbar button INDIVIDUALLY inside the frames already placed: each with its own container rect, title text (13), meta text (11) and any control it owns. Add inputs with placeholder text inside, primary + secondary buttons with real verbs, inspector property rows (label left, field right), hairline dividers between rows.`,
+          1: `LAYER 2 — COMPONENTS. Use the COMPLETE geometry digest below. Reuse the exact frame/panel coordinates as boundaries. Draw every row, card, node, table row, list item, tab and toolbar button INDIVIDUALLY inside those existing panels: each with its own container rect, title text (13), meta text (11) and any control it owns. Add inputs with placeholder text inside, primary + secondary buttons with real verbs, inspector property rows (label left, field right), hairline dividers between rows.`,
           2: `LAYER 3 — MICRO-DETAIL. Add the detail layer only: avatar ellipses, count badges (small rect + 11px number), scrollbar track rects (w 4–6), active-tab underline (2px filled rect), breadcrumb texts separated by "/", selected/hover row fills, checkbox and toggle rects (14x14) with labels, node input/output port ellipses with connector lines, thumbnail rects inside cards, icon glyphs beside every nav and toolbar label.`,
           3: `LAYER 4 — COPY + STATES. Replace nothing; ADD real product copy and state affordances: helper text (11) under fields, tooltips, keyboard-shortcut chips, timestamps and version tags on items ("3 min ago", "v2"), counts in section headers, one empty-state line group, one loading placeholder row group, one disabled/error row treatment, status-bar text with live counts.`,
           4: `LAYER 5 — POLISH. Final tightening pass: fill any remaining visual gaps inside the frames — section header texts, group labels, sub-dividers, corner controls, resize handles, minimap or overview rect, legend, and any missing labels on unlabeled rects. Keep everything inside existing frames.`,
         };
         const intentOverride = enrichPass > 0 ? `# ENRICHMENT PASS ${enrichPass} of ${maxPasses} (ADDITIVE ONLY)
 ${LAYER_BRIEFS[enrichPass] ?? LAYER_BRIEFS[2]}
-Do NOT redraw the screen and do NOT repeat any primitive already listed on the canvas below. Return ONLY NEW primitives with fresh unique ids, modality "ui_wireframe", empty edits/removes, no "speak". Emit ${maxFidelity ? "60–120" : "40–90"} new primitives. Nothing may overlap an existing primitive except as proper nesting.
+Do NOT redraw the screen and do NOT repeat any primitive already listed on the canvas below. Return ONLY NEW primitives with fresh unique ids, modality "ui_wireframe", empty edits/removes, no "speak". Emit ${maxFidelity ? "35–75" : "30–60"} new primitives. Every primitive must include style:"ui". Children may nest inside their owning panel; siblings and text baselines must not collide.
 
 ` : uiWireframeIntent ? `# REQUIRED RENDER MODE${maxFidelity ? " — MAXIMUM FIDELITY REQUESTED" : ""}
 The user is requesting UI wireframes. You MUST return modality "ui_wireframe" and draw detailed, nested product screens. Do not return template_shape, a process, or a conceptual box flow. If this is a correction, remove the incorrect flow shapes and replace them with actual screens rather than relabeling them.
 
-LAYER 1 — STRUCTURE. Draw the full screen skeleton now: outer frame(s), window chrome, navigation (sidebar or tab strip), toolbars, the main content region with its real sub-panels, right inspector when relevant, and the primary buttons. Aim for ${maxFidelity ? "55–100" : "45–90"} primitives on this pass. ${maxPasses} further additive passes will layer components, micro-detail${maxFidelity ? ", copy/states and polish" : ""} on top — so do NOT stall trying to emit everything at once.
+LAYER 1 — STRUCTURE. Draw the full screen skeleton now: outer frame(s), window chrome, navigation (sidebar or tab strip), toolbars, the main content region with its real sub-panels, right inspector when relevant, and the primary buttons. Emit 28–45 carefully aligned primitives on this pass so a complete screen appears immediately. ${maxPasses} further additive passes will layer components, micro-detail${maxFidelity ? ", copy/states and polish" : ""} on top. Do not include row-by-row micro-detail yet.
 
 ` : "";
 
@@ -352,8 +358,12 @@ ${latest || transcript}`;
         // Wireframes run on Flash-3: fidelity comes from the layered passes,
         // not from one giant slow Pro call.
         const hasUnresolved = states.some((s) => s.focus === "unresolved-thread");
+        // Max fidelity is achieved by the complete-geometry additive ladder,
+        // not by holding the first visible frame behind a slow model. 2.5
+        // Flash produces the bounded structure quickly; Gemini 3 handles the
+        // geometry-aware detail layers once users already have a screen.
         const model = uiWireframeIntent
-          ? "google/gemini-3-flash-preview"
+          ? enrichPass > 0 ? "google/gemini-3-flash-preview" : "google/gemini-2.5-flash"
           : reviseIntent || hasUnresolved
             ? "google/gemini-2.5-pro"
             : "google/gemini-2.5-flash";
@@ -369,12 +379,15 @@ ${latest || transcript}`;
         const callGateway = async (messages: Array<{ role: string; content: string }>) =>
           fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
-            signal: AbortSignal.timeout(uiWireframeIntent ? 75000 : 16000),
+            // Dense structured JSON can legitimately take longer than a chat
+            // turn. The old 75s server abort killed valid wireframes before
+            // the gateway could deliver them, producing a blank canvas.
+            signal: AbortSignal.timeout(uiWireframeIntent ? 210000 : 16000),
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
               model,
               response_format: { type: "json_object" },
-              ...(uiWireframeIntent ? { max_tokens: 24000 } : { max_tokens: 3000 }),
+              ...(uiWireframeIntent ? { max_tokens: enrichPass > 0 ? 14000 : 8000 } : { max_tokens: 3000 }),
               messages,
             }),
           });

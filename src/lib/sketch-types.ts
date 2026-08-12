@@ -31,7 +31,14 @@ export type IconKind =
   | "tree"
   | "house";
 
-export type SketchPrimitive =
+export type SketchVisualStyle = {
+  /** Sketch is expressive whiteboard ink; ui is a production interface mock. */
+  style?: "sketch" | "ui";
+  /** Semantic visual role used by the renderer instead of arbitrary colors. */
+  tone?: "ink" | "surface" | "subtle" | "accent" | "muted" | "success" | "danger";
+};
+
+export type SketchPrimitive = SketchVisualStyle & (
   | { type: "rect"; id: string; x: number; y: number; w: number; h: number; label?: string; fill?: string }
   | { type: "ellipse"; id: string; x: number; y: number; w: number; h: number; label?: string; fill?: string }
   | { type: "diamond"; id: string; x: number; y: number; w: number; h: number; label?: string; fill?: string }
@@ -41,6 +48,7 @@ export type SketchPrimitive =
   | { type: "note"; id: string; x: number; y: number; w?: number; h?: number; text: string; color?: "yellow" | "pink" | "blue" | "green" }
   | { type: "path"; id: string; points: Array<[number, number]>; closed?: boolean; fill?: string; color?: string }
   | { type: "icon"; id: string; kind: IconKind; x: number; y: number; size?: number; label?: string }
-  | { type: "stroke"; id: string; points: Array<[number, number]>; color?: string };
+  | { type: "stroke"; id: string; points: Array<[number, number]>; color?: string }
+);
 
 export type FreehandStroke = { id: string; points: Array<[number, number, number]>; color: string };
