@@ -69,3 +69,9 @@ export function addSession(s: StoredSession) {
     window.localStorage.setItem(SESSIONS_KEY, JSON.stringify(all.slice(0, 50)));
   }
 }
+
+export function removeSession(roomId: string) {
+  if (typeof window === "undefined") return;
+  const all = loadSessions().filter((x) => x.roomId !== roomId);
+  window.localStorage.setItem(SESSIONS_KEY, JSON.stringify(all));
+}
