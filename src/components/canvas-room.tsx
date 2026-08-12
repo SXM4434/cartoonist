@@ -131,6 +131,11 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [kioskQueue, setKioskQueue] = useState<string[]>([]);
   const [kioskMode, setKioskMode] = useState(false);
   const [shapes, setShapes] = useState<SketchPrimitive[]>([]);
+  const shapesRef = useRef<SketchPrimitive[]>([]);
+  useEffect(() => {
+    shapesRef.current = shapes;
+  }, [shapes]);
+
   // Session replay overrides what the canvas renders while scrubbing.
   const [replayShapes, setReplayShapes] = useState<SketchPrimitive[] | null>(null);
   const [freehand, setFreehand] = useState<FreehandStroke[]>([]);
