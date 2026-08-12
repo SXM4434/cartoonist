@@ -19,6 +19,9 @@ import { KnownAboutYou } from "./known-about-you";
 
 import { IntroModal } from "./intro-modal";
 import { Canvas } from "./canvas/Canvas";
+import { StyleSwitch } from "./canvas/style-switch";
+import { getRenderStyle } from "@/lib/render-style";
+
 import { CanvasProvider } from "./canvas/canvas-context";
 import { ChatPanel } from "./chat-panel";
 import { CostMeter } from "./cost-meter";
@@ -651,7 +654,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         method: "POST",
         signal: controller.signal,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId, transcript: fullContext, latest: cleanLatest, existing: summarizeCanvas(), occupied: bboxOf(shapesRef.current), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads, handsUp, enrichPass, maxFidelity }),
+        body: JSON.stringify({ roomId, transcript: fullContext, latest: cleanLatest, existing: summarizeCanvas(), occupied: bboxOf(shapesRef.current), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads, handsUp, enrichPass, maxFidelity, fidelity: getRenderStyle().fidelity, ink: getRenderStyle().ink }),
       });
       window.clearTimeout(timeout);
       const data = await res.json().catch(() => ({}));
@@ -1119,7 +1122,9 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
 
         <div className="flex items-center justify-end gap-1.5">
+          <StyleSwitch />
           <Button size="sm" variant="outline" onClick={toggleDraw} className={`h-8 gap-1.5 rounded-none border-border ${drawing ? "bg-foreground text-background" : ""}`}>
+
             <Pencil className="h-3.5 w-3.5" /><span className="eyebrow">Draw</span>
           </Button>
           <Button size="sm" variant="outline" onClick={clearCanvas} className="h-8 gap-1.5 rounded-none border-border">
