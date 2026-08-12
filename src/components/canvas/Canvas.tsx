@@ -45,13 +45,13 @@ const toneColor = (tone?: CanvasTone) => {
   if (tone === "muted") return "grey";
   if (tone === "success") return "green";
   if (tone === "danger") return "red";
-  if (tone === "subtle") return "light-grey";
+  if (tone === "subtle") return "grey";
   if (tone === "surface") return "white";
   return "black";
 };
 
 const uiFill = (shape: SketchPrimitive): "none" | "solid" =>
-  shape.fill || shape.tone === "surface" || shape.tone === "subtle" || shape.tone === "accent" || shape.tone === "success" || shape.tone === "danger"
+  ("fill" in shape && shape.fill) || shape.tone === "surface" || shape.tone === "subtle" || shape.tone === "accent" || shape.tone === "success" || shape.tone === "danger"
     ? "solid"
     : "none";
 
