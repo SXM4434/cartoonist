@@ -358,8 +358,12 @@ ${latest || transcript}`;
         // Wireframes run on Flash-3: fidelity comes from the layered passes,
         // not from one giant slow Pro call.
         const hasUnresolved = states.some((s) => s.focus === "unresolved-thread");
+        // Max fidelity is achieved by the complete-geometry additive ladder,
+        // not by holding the first visible frame behind a slow model. Flash
+        // reliably returns the structural screen before the request window;
+        // four semantic passes then build it to production density.
         const model = uiWireframeIntent
-          ? maxFidelity ? "google/gemini-3-pro-preview" : "google/gemini-3-flash-preview"
+          ? "google/gemini-3-flash-preview"
           : reviseIntent || hasUnresolved
             ? "google/gemini-2.5-pro"
             : "google/gemini-2.5-flash";
