@@ -40,20 +40,33 @@ const textSize = (size?: number): "s" | "m" | "l" => {
 
 type CanvasTone = NonNullable<SketchPrimitive["tone"]>;
 
-const toneColor = (tone?: CanvasTone) => {
+// Color depends on fidelity: lo-fi is a pure graphite sketch, mid keeps one
+// accent plus state colors, hi-fi uses the full semantic palette.
+const toneColor = (tone: CanvasTone | undefined, fidelity: Fidelity) => {
+  if (fidelity === "lofi") return tone === "surface" ? "white" : tone === "muted" || tone === "subtle" ? "grey" : "black";
   if (tone === "accent") return "orange";
   if (tone === "muted") return "grey";
-  if (tone === "success") return "green";
+  if (tone === "success") return fidelity === "hifi" ? "green" : "black";
   if (tone === "danger") return "red";
   if (tone === "subtle") return "grey";
   if (tone === "surface") return "white";
   return "black";
 };
 
-const uiFill = (shape: SketchPrimitive): "none" | "solid" =>
-  ("fill" in shape && shape.fill) || shape.tone === "surface" || shape.tone === "subtle" || shape.tone === "accent" || shape.tone === "success" || shape.tone === "danger"
+// Never "semi" — tldraw's semi fill is the translucent wash that made shapes
+// look like ghosts. Fills are either fully opaque or absent.
+const toneFill = (shape: SketchPrimitive, fidelity: Fidelity): "none" | "solid" => {
+  if (fidelity === "lofi") return "none";
+  const tone = shape.tone;
+  const explicit = "fill" in shape && Boolean(shape.fill);
+  if (fidelity === "mid") {
+    return explicit || tone === "accent" || tone === "danger" || tone === "success" ? "solid" : "none";
+  }
+  return explicit || tone === "surface" || tone === "subtle" || tone === "accent" || tone === "success" || tone === "danger"
     ? "solid"
     : "none";
+};
+
 
 const clampNoteSize = (w?: number, h?: number) => ({
   w: Math.min(Math.max(w ?? 154, 120), 178),
