@@ -111,16 +111,22 @@ function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
     // tldraw. In dense wireframes that reads as garbage, so any label too
     // wide for its box is lifted out into a free text primitive beside it.
     const label = (shape.label ?? "").trim();
-    const fitsInside = label.length > 0 && shape.w >= label.length * 6.2 + 14 && shape.h >= 22;
+    // Hard guard: the model occasionally omits w/h or emits NaN, and tldraw's
+    // validator throws (crashing the whole canvas) instead of skipping it.
+    const num = (v: unknown, fallback: number) =>
+      typeof v === "number" && Number.isFinite(v) ? v : fallback;
+    const bw = Math.max(2, num(shape.w, 160));
+    const bh = Math.max(2, num(shape.h, 60));
+    const fitsInside = label.length > 0 && bw >= label.length * 6.2 + 14 && bh >= 22;
     const box: TLShapePartial = {
       ...common,
       type: "geo",
-      x: shape.x,
-      y: shape.y,
+      x: num(shape.x, 0),
+      y: num(shape.y, 0),
       props: {
         geo: shape.type === "rect" ? "rectangle" : shape.type,
-        w: shape.w,
-        h: shape.h,
+        w: bw,
+        h: bh,
         color: "black",
         fill: shape.fill ? "semi" : "none",
         dash: "draw",
@@ -137,8 +143,8 @@ function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
       return [box, {
         id: shapeId(`${shape.id}-lbl`),
         type: "text",
-        x: shape.x + shape.w + 6,
-        y: shape.y + Math.max(0, shape.h / 2 - 8),
+        x: num(shape.x, 0) + bw + 6,
+        y: num(shape.y, 0) + Math.max(0, bh / 2 - 8),
         props: { color: "black", size: "s", font: "draw", textAlign: "start", w: 260, scale: 0.5, richText: toRichText(label), autoSize: true },
       } as TLShapePartial];
     }

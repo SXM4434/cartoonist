@@ -165,6 +165,8 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const startedAtRef = useRef(Date.now());
   const lastSentLenRef = useRef(0);
   const drawInFlightRef = useRef(false);
+  const retryTimerRef = useRef<number | null>(null);
+  const [retryTick, setRetryTick] = useState(0);
   const seededRef = useRef(false);
 
   const selfParticipant = participants.find((p) => p.id === selfPid);
@@ -580,7 +582,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       .join("\n");
   }, [shapes]);
 
-  const requestDraw = useCallback(async (latest: string, enrichPass = 0): Promise<boolean> => {
+  const requestDraw = useCallback(async (latest: string, enrichPass = 0, maxFidelity = false): Promise<boolean> => {
     const cleanLatest = latest.trim();
     if (!cleanLatest || NON_SPEECH_TRANSCRIPT.test(cleanLatest) || drawInFlightRef.current) return false;
     drawInFlightRef.current = true;
@@ -619,7 +621,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         method: "POST",
         signal: controller.signal,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId, transcript: fullContext, latest: cleanLatest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads, handsUp, enrichPass }),
+        body: JSON.stringify({ roomId, transcript: fullContext, latest: cleanLatest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads, handsUp, enrichPass, maxFidelity }),
       });
       window.clearTimeout(timeout);
       const data = await res.json().catch(() => ({}));
@@ -748,8 +750,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       // Progressive fidelity: the structural pass is already on screen; ask
       // for additive detail so the wireframe thickens live instead of the
       // room staring at a blank canvas for minutes.
-      if ((data as { enrichable?: boolean }).enrichable && enrichPass < 2) {
-        window.setTimeout(() => { void requestDrawRef.current?.(cleanLatest, enrichPass + 1); }, 120);
+      const maxPasses = Number((data as { maxPasses?: unknown }).maxPasses ?? 2) || 2;
+      const wantsMax = maxFidelity || (data as { maxFidelity?: boolean }).maxFidelity === true;
+      if ((data as { enrichable?: boolean }).enrichable && enrichPass < maxPasses) {
+        window.setTimeout(() => { void requestDrawRef.current?.(cleanLatest, enrichPass + 1, wantsMax); }, 120);
       }
       return true;
     } catch (e) {
@@ -783,11 +787,20 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         return;
       }
       void requestDraw(newText).then((handled) => {
-        if (handled) lastSentLenRef.current = Math.max(lastSentLenRef.current, endLength);
+        if (handled) {
+          lastSentLenRef.current = Math.max(lastSentLenRef.current, endLength);
+        } else if (drawInFlightRef.current) {
+          // Lane busy (a wireframe ladder is running). Retry shortly instead of
+          // waiting for brand-new speech — that was the "limbo" stall.
+          retryTimerRef.current = window.setTimeout(() => setRetryTick((n) => n + 1), 900);
+        }
       });
-    }, 1200);
-    return () => clearTimeout(timer);
-  }, [requestDraw, speech.finals, speech.listening, inputMode, thinking]);
+    }, 600);
+    return () => {
+      clearTimeout(timer);
+      if (retryTimerRef.current) { window.clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
+    };
+  }, [requestDraw, speech.finals, speech.listening, inputMode, thinking, retryTick]);
 
   // v2.P6 — publish a per-shape relations map to Canvas so it can render
   // persistent ↗ chips glued to any shape belonging to a reopened / related
