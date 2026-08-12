@@ -536,7 +536,7 @@ export function Canvas({
       const props = (s.props ?? {}) as Record<string, unknown>;
       return Object.values(props).every((v) => finite(v));
     };
-    const desired = shapes.flatMap(toTldrawShapes).filter(isSane);
+    const desired = shapes.flatMap((s) => toTldrawShapes(s, renderStyle)).filter(isSane);
     const desiredById = new Map(desired.map((s) => [String(s.id), s]));
     // Current AI-authored shapes on the page (anything we created before).
     const currentAiIds = new Set<string>();
