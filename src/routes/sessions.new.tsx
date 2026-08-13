@@ -19,9 +19,9 @@ const HOST_ROLES = [
   { id: "observer", label: "Observer", sub: "Mostly listening" },
 ];
 const FACILITATION = [
-  { id: "scribe", label: "Quiet scribe", emoji: "✍️", sub: "Listens, draws, stays out of the way" },
-  { id: "facilitator", label: "Active facilitator", emoji: "🎤", sub: "Prompts, summarizes, nudges decisions" },
-  { id: "devils-advocate", label: "Devil's advocate", emoji: "🔥", sub: "Pushes back, surfaces risks & gaps" },
+  { id: "scribe", label: "Quiet scribe", sub: "Listens, draws, stays out of the way" },
+  { id: "facilitator", label: "Active facilitator", sub: "Prompts, summarizes, nudges decisions" },
+  { id: "devils-advocate", label: "Devil's advocate", sub: "Pushes back, surfaces risks and gaps" },
 ];
 
 export const Route = createFileRoute("/sessions/new")({
