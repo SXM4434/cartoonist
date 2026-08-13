@@ -1085,10 +1085,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
   return (
     <div className="flex h-screen flex-col bg-background">
-      <header className="z-10 grid grid-cols-[1fr_auto_1fr] items-center border-b border-border bg-background px-5 py-2.5">
-        <div className="flex items-baseline gap-3">
-          <span className="eyebrow text-foreground">Cartoonist</span>
-          <span className="eyebrow text-muted-foreground" data-numeric>№ {roomId.slice(0, 6).toUpperCase()}</span>
+      <header className="z-10 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center border-b border-border bg-background px-5 py-2.5">
+        <div className="flex min-w-0 items-baseline gap-3">
+          <span className="eyebrow shrink-0 text-foreground">Cartoonist</span>
+          <span className="eyebrow hidden text-muted-foreground min-[1150px]:inline" data-numeric>№ {roomId.slice(0, 6).toUpperCase()}</span>
           {speech.listening && (
             <span className="eyebrow flex items-center gap-1.5 text-primary">
               <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
