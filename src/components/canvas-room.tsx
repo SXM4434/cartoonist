@@ -1312,6 +1312,28 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
           <CanvasToolbar drawing={drawing} onToggleDraw={toggleDraw} />
 
+          {frames.length > 1 && replayShapes === null && (
+            <div className="absolute left-4 top-4 z-30 flex max-w-[60%] items-center gap-1 overflow-x-auto border border-border bg-background/90 px-2 py-1.5">
+              <span className="eyebrow mr-1 shrink-0 text-muted-foreground">frames</span>
+              {frames.map((f) => (
+                <button
+                  key={f.index}
+                  type="button"
+                  onClick={() => jumpToFrame(f.index)}
+                  title={f.topic}
+                  className={`shrink-0 border px-2 py-1 text-[12px] transition-colors ${
+                    f.index === activeFrame
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span className="tabular-nums">{f.index + 1}</span>
+                  <span className="ml-1.5 hidden max-w-[120px] truncate align-middle md:inline-block">{f.topic}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
           {handQueue.length > 0 && (
             <div className="absolute bottom-24 right-4 z-30 max-w-[200px] border border-border bg-background/90 px-2.5 py-2">
               <div className="eyebrow mb-1 text-muted-foreground">hands up · {handQueue.length}</div>
