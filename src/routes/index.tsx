@@ -77,9 +77,10 @@ function Landing() {
       <section className="mx-auto max-w-[1240px] px-6 pb-16 pt-12">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)] lg:items-start">
           <div className="lg:sticky lg:top-24">
-            <h1 className="statement" style={{ fontSize: "var(--step-5)" }}>
-              Cartoonist is<br />drawing while<br />you talk.
+            <h1 className="statement max-w-[13ch]" style={{ fontSize: "var(--step-5)" }}>
+              Cartoonist is{"\u00a0"}<br className="hidden sm:inline" />drawing while{"\u00a0"}<br className="hidden sm:inline" />you talk.
             </h1>
+
 
             <p className="mt-6 max-w-[46ch] text-muted-foreground" style={{ fontSize: "var(--step-2)", lineHeight: 1.6 }}>
               It listens to the room, marks the phrases that carry weight, and builds the
@@ -239,13 +240,13 @@ function SpeechFlow() {
     { who: "SAM", t: "00:21", text: "Then we have to seed it with their data.", drop: 58 },
   ];
   return (
-    <div className="mt-10 overflow-x-auto pb-2">
-      <ul className="flex min-w-[860px] items-start gap-0">
+    <div className="mt-10 md:overflow-x-auto md:pb-2">
+      <ul className="flex flex-col gap-6 md:min-w-[860px] md:flex-row md:items-start md:gap-0">
         {lines.map((l, i) => (
           <li
             key={l.who}
-            className="relative flex-1 border-l border-foreground pl-4 pr-6"
-            style={{ marginTop: l.drop }}
+            className="relative border-l border-foreground pl-4 md:flex-1 md:pr-6 md:[margin-top:var(--drop)]"
+            style={{ "--drop": `${l.drop}px` } as React.CSSProperties}
           >
             <div className="flex items-baseline gap-2 font-mono text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
               <span className="tnum">{l.t}</span>
@@ -259,6 +260,7 @@ function SpeechFlow() {
       </ul>
     </div>
   );
+
 }
 
 function ListenStrip() {
