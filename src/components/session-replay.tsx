@@ -265,7 +265,7 @@ export function SessionReplay({
           </div>
 
           {current && (
-            <div className="mt-2 flex items-start gap-2 border-t border-border pt-2">
+            <div className={`mt-2 border-t border-border pt-2 ${embedded ? "space-y-1" : "flex items-start gap-2"}`}>
               <span
                 className="eyebrow shrink-0"
                 style={{ color: current.source === "seed" ? "var(--muted-foreground)" : "var(--accent-warm, #E07A3E)" }}
@@ -273,7 +273,7 @@ export function SessionReplay({
                 {current.op} · {current.source}
                 {current.modality ? ` · ${current.modality}` : ""}
               </span>
-              <p className="truncate font-serif text-foreground" style={{ fontSize: "var(--step-1)" }}>
+              <p className={`font-serif text-foreground ${embedded ? "" : "truncate"}`} style={{ fontSize: "var(--step-1)" }}>
                 {current.latest || "(no transcript for this step)"}
               </p>
             </div>
