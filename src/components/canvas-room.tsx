@@ -893,7 +893,8 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   }, []);
 
   const generateArtifacts = useCallback(async () => {
-    setExportOpen(true);
+    setPanelTab("artifacts");
+    setPanelOpen(true);
     const transcript = speech.finals.length ? speech.finals.join("\n") : "(no transcript yet — start the mic or type to Cartoonist)";
     setGenerating(true);
     setArtifacts({});
