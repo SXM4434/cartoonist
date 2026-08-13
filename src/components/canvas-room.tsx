@@ -1122,7 +1122,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
             <Pencil className="h-3.5 w-3.5" /><span className="eyebrow max-[1150px]:sr-only">Draw</span>
           </Button>
           <Button size="sm" variant="outline" onClick={() => setChatOpen((v) => !v)} className={`h-8 gap-1.5 rounded-none border-border ${chatOpen ? "bg-foreground text-background" : ""}`}>
-            <MessageSquare className="h-3.5 w-3.5" /><span className="eyebrow">Chat</span>
+            <MessageSquare className="h-3.5 w-3.5" /><span className="eyebrow max-[1150px]:sr-only">Chat</span>
           </Button>
           <ThreadRail threads={threads} echoes={memory.echoes} />
           <Button
