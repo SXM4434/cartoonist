@@ -174,7 +174,10 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
         font,
         align: "start",
         verticalAlign: "start",
-        labelColor: shape.tone === "accent" ? "white" : color,
+        // tldraw's "solid" fill is a pale tint of the ink color, so white
+        // label text on an accent/danger fill disappears. Always keep labels
+        // in the ink color so text stays legible on every fill.
+        labelColor: color === "white" ? "black" : color,
         richText: toRichText(fitsInside ? label : ""),
       },
     };
