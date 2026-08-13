@@ -156,7 +156,7 @@ function Dashboard() {
         {sessions.length === 0 ? (
           <div className="mt-10 border border-dashed border-foreground/40 px-8 py-20">
             <p className="eyebrow font-mono text-muted-foreground">EMPTY DESK</p>
-            <h2 className="mt-3 max-w-[16ch] font-display" style={{ fontSize: "var(--step-4)" }}>
+            <h2 className="statement mt-3 max-w-[26ch]" style={{ fontSize: "var(--step-4)" }}>
               The first session is the one that teaches it your room.
             </h2>
             <Button onClick={() => navigate({ to: "/sessions/new" })} size="lg" className="mt-6 rounded-none">
