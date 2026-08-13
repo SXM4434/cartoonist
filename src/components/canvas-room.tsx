@@ -16,7 +16,7 @@ import { SessionPack } from "./session-pack";
 import { ArtifactTabs, type Artifacts } from "./artifact-tabs";
 import { SessionRecap } from "./session-recap";
 import { SessionReplay } from "./session-replay";
-import { KnownAboutYou } from "./known-about-you";
+import { MemoryPanel } from "./known-about-you";
 
 import { IntroModal } from "./intro-modal";
 import { Canvas } from "./canvas/Canvas";
