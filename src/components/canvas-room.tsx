@@ -20,7 +20,6 @@ import { KnownAboutYou } from "./known-about-you";
 
 import { IntroModal } from "./intro-modal";
 import { Canvas } from "./canvas/Canvas";
-import { StyleSwitch } from "./canvas/style-switch";
 import { getRenderStyle } from "@/lib/render-style";
 
 import { CanvasProvider } from "./canvas/canvas-context";
@@ -152,7 +151,6 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [copied, setCopied] = useState(false);
   const [artifacts, setArtifacts] = useState<Artifacts>({});
   const [generating, setGenerating] = useState(false);
-  const [exportOpen, setExportOpen] = useState(false);
   const [askText, setAskText] = useState("");
   const [thinking, setThinking] = useState(false);
   const [drawError, setDrawError] = useState<string | null>(null);
@@ -1087,130 +1085,59 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
   return (
     <div className="flex h-screen flex-col bg-background">
-      <header className="z-10 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center border-b border-border bg-background px-5 py-2.5">
+      <header className="z-10 flex items-center justify-between gap-4 border-b border-border bg-background px-5 py-2.5">
         <div className="flex min-w-0 items-baseline gap-3">
           <span className="eyebrow shrink-0 text-foreground">Cartoonist</span>
-          <span className="eyebrow hidden text-muted-foreground min-[1150px]:inline" data-numeric>№ {roomId.slice(0, 6).toUpperCase()}</span>
+          {sessionCtx?.name && (
+            <span className="truncate text-foreground" style={{ fontSize: "var(--step-1)" }}>{sessionCtx.name}</span>
+          )}
+          <span className="eyebrow hidden shrink-0 text-muted-foreground min-[900px]:inline" data-numeric>№ {roomId.slice(0, 6).toUpperCase()}</span>
           {speech.listening && (
-            <span className="eyebrow flex items-center gap-1.5 text-primary">
+            <span className="eyebrow flex shrink-0 items-center gap-1.5 text-primary">
               <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
               Listening
             </span>
           )}
-          {thinking && <span className="eyebrow text-muted-foreground">Drawing…</span>}
+          {thinking && <span className="eyebrow shrink-0 text-muted-foreground">Drawing…</span>}
         </div>
 
-        <div className="flex items-center gap-1.5">
-          {participants.map((p) => (
-            <div key={p.id} className="flex h-6 w-6 items-center justify-center border border-border font-medium uppercase text-background" style={{ backgroundColor: p.color, fontSize: "var(--step-0)" }} title={p.name}>
-              {p.name.slice(0, 1)}
-            </div>
-          ))}
+        <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
-            onClick={openAddPerson}
-            title="Add someone on this device"
-            className="flex h-6 w-6 items-center justify-center border border-dashed border-border text-muted-foreground transition hover:border-foreground hover:text-foreground"
+            onClick={() => { setPanelTab("people"); setPanelOpen(true); }}
+            title="People in this room"
+            className="flex items-center gap-1"
           >
-            <UserPlus className="h-3 w-3" />
+            {participants.slice(0, 5).map((p) => (
+              <span key={p.id} className="flex h-6 w-6 items-center justify-center border border-border font-medium uppercase text-background" style={{ backgroundColor: p.color, fontSize: "var(--step-0)" }} title={p.name}>
+                {p.name.slice(0, 1)}
+              </span>
+            ))}
+            {participants.length > 5 && (
+              <span className="eyebrow tabular-nums text-muted-foreground">+{participants.length - 5}</span>
+            )}
           </button>
-        </div>
-
-
-        <div className="flex items-center justify-end gap-1.5">
-          <StyleSwitch />
-          <Button size="sm" variant="outline" onClick={toggleDraw} className={`h-8 gap-1.5 rounded-none border-border ${drawing ? "bg-foreground text-background" : ""}`}>
-
-            <Pencil className="h-3.5 w-3.5" /><span className="eyebrow max-[1150px]:sr-only">Draw</span>
+          <Button size="sm" variant="outline" onClick={copyLink} className="h-8 gap-1.5 rounded-none border-border">
+            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            <span className="eyebrow max-[900px]:sr-only">Share</span>
           </Button>
-          <Button size="sm" variant="outline" onClick={() => setChatOpen((v) => !v)} className={`h-8 gap-1.5 rounded-none border-border ${chatOpen ? "bg-foreground text-background" : ""}`}>
-            <MessageSquare className="h-3.5 w-3.5" /><span className="eyebrow max-[1150px]:sr-only">Chat</span>
-          </Button>
-          <ThreadRail threads={threads} echoes={memory.echoes} />
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              setMediatorMuted((v) => {
-                const next = !v;
-                if (next && typeof window !== "undefined") {
-                  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-                  if (ttsAudioRef.current) { try { ttsAudioRef.current.pause(); } catch { /* noop */ } }
-                }
-                return next;
-              });
-            }}
-            title={mediatorMuted ? "Unmute mediator voice" : "Mute mediator voice"}
-            className={`h-8 gap-1.5 rounded-none border-border ${mediatorMuted ? "" : "bg-foreground text-background"}`}
-          >
-            {mediatorMuted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
-            <span className="eyebrow">{mediatorMuted ? "Muted" : "Voice"}</span>
-          </Button>
-          {inputMode === "voice" ? (
-            speech.listening ? (
-              <Button size="sm" onClick={speech.stop} className="h-8 gap-1.5 rounded-none bg-foreground text-background hover:bg-foreground/90">
-                <MicOff className="h-3.5 w-3.5" /><span className="eyebrow">Stop</span>
-              </Button>
-            ) : (
-              <Button size="sm" onClick={() => void speech.start()} className="h-8 gap-1.5 rounded-none bg-primary text-primary-foreground hover:bg-primary/90">
-                <Mic className="h-3.5 w-3.5" /><span className="eyebrow">Listen</span>
-              </Button>
-            )
-          ) : (
-            <Button size="sm" onClick={() => {
-              setInputMode("voice");
-              window.localStorage.setItem(`cartoonist_input_mode_${roomId}`, "voice");
-              if (selfPid) void supabase.from("participants").update({ input_mode: "both" } as never).eq("id", selfPid);
-              void speech.start();
-            }} className="h-8 gap-1.5 rounded-none bg-primary text-primary-foreground hover:bg-primary/90">
-              <Mic className="h-3.5 w-3.5" /><span className="eyebrow">Add voice</span>
-            </Button>
-          )}
           <Popover>
             <PopoverTrigger asChild>
-              <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-none border-border" aria-label="More session tools">
-                <MoreHorizontal className="h-3.5 w-3.5" /><span className="eyebrow max-[1150px]:sr-only">More</span>
+              <Button size="sm" variant="outline" className="h-8 w-8 rounded-none border-border p-0" aria-label="Session menu">
+                <MoreHorizontal className="h-3.5 w-3.5" />
               </Button>
             </PopoverTrigger>
             <PopoverContent
               align="end"
               sideOffset={6}
-              className="w-56 rounded-none border-foreground p-1.5 [&_button]:w-full [&_button]:justify-start"
+              className="w-60 rounded-none border-foreground p-1.5 [&_button]:w-full [&_button]:justify-start"
             >
-              <Button size="sm" variant="ghost" onClick={clearCanvas} className="h-8 gap-2 rounded-none">
-                <Eraser className="h-3.5 w-3.5" /><span className="eyebrow">Clear canvas</span>
+              <Button size="sm" variant="ghost" onClick={openAddPerson} className="h-8 gap-2 rounded-none">
+                <UserPlus className="h-3.5 w-3.5" /><span className="eyebrow">Add someone here</span>
               </Button>
-              <Button size="sm" variant="ghost" onClick={copyLink} className="h-8 gap-2 rounded-none">
-                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}<span className="eyebrow">Share link</span>
+              <Button size="sm" variant="ghost" onClick={() => { setPanelTab("artifacts"); setPanelOpen(true); void generateArtifacts(); }} className="h-8 gap-2 rounded-none">
+                <FileDown className="h-3.5 w-3.5" /><span className="eyebrow">Export artifacts</span>
               </Button>
-              <Sheet open={exportOpen} onOpenChange={setExportOpen}>
-                <SheetTrigger asChild>
-                  <Button size="sm" variant="ghost" onClick={generateArtifacts} className="h-8 gap-2 rounded-none">
-                    <FileDown className="h-3.5 w-3.5" /><span className="eyebrow">Export artifacts</span>
-                  </Button>
-                </SheetTrigger>
-                <SheetContent className="w-[90vw] overflow-y-auto sm:max-w-2xl">
-                  <SheetHeader>
-                    <SheetTitle className="font-display" style={{ fontSize: "var(--step-3)" }}>Meeting artifacts</SheetTitle>
-                  </SheetHeader>
-                  <div className="mt-4">
-                    <SessionPack
-                      build={() => ({
-                        roomId,
-                        sessionName: sessionCtx?.name ?? null,
-                        goal: sessionCtx?.goal ?? null,
-                        outputs: Array.isArray(sessionCtx?.outputs) ? sessionCtx.outputs.join(", ") : (sessionCtx?.outputs ?? null),
-                        participants: participants.map((p) => ({ name: p.name, role: p.role ?? null })),
-                        threads: threads.map((t) => ({ id: t.id, latest: t.latest, modality: t.modality })),
-                        transcript: speech.finals.join("\n"),
-                        canvasSummary: summarizeCanvas(),
-                        artifacts,
-                      })}
-                    />
-                  </div>
-                  <div className="mt-4"><ArtifactTabs artifacts={artifacts} loading={generating} /></div>
-                </SheetContent>
-              </Sheet>
               <KnownAboutYou
                 roomId={roomId}
                 buildRequest={() => ({
@@ -1228,39 +1155,20 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                   participants: participants.map((p) => ({ name: p.name, role: p.role ?? null })),
                 })}
               />
+              <span className="my-1 block h-px bg-border" />
+              <Button size="sm" variant="ghost" onClick={clearCanvas} className="h-8 gap-2 rounded-none text-destructive hover:text-destructive">
+                <Eraser className="h-3.5 w-3.5" /><span className="eyebrow">Clear canvas</span>
+              </Button>
             </PopoverContent>
           </Popover>
         </div>
       </header>
 
-      {/* Live mic feedback bar — impossible to miss */}
-      {(speech.listening || speech.error || !speech.supported) && (
-        <div className="flex items-center gap-3 border-b border-border bg-background px-5 py-2">
-          {speech.listening && (
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
-              </span>
-              <div className="flex h-5 items-end gap-[2px]">
-                {micBars.map((_, i) => {
-                  const threshold = (i + 1) / micBarCount;
-                  const active = speech.level > threshold * 0.8;
-                  const h = active ? 4 + Math.min(16, speech.level * 20) : 3;
-                  return <span key={i} className="w-[3px] bg-foreground/80 transition-all" style={{ height: `${h}px`, opacity: active ? 1 : 0.25 }} />;
-                })}
-              </div>
-            </div>
-          )}
-          <span className="eyebrow text-muted-foreground shrink-0">
-            {speech.listening ? "Hearing" : speech.error ? "Mic error" : "Mic"}
-          </span>
-          <span className="truncate text-foreground" style={{ fontSize: "var(--step-1)" }}>
-            {speech.error
-              ? speech.error
-              : !speech.supported
-              ? "Voice transcription works in Chrome / Edge. Use the prompt below to draw."
-              : recentTranscript || "say something — Cartoonist will draw it…"}
+      {(speech.error || !speech.supported) && (
+        <div className="flex items-center gap-3 border-b border-border bg-background px-5 py-1.5">
+          <span className="eyebrow shrink-0 text-muted-foreground">{speech.error ? "Mic error" : "Mic"}</span>
+          <span className="truncate text-foreground/80" style={{ fontSize: "var(--step-0)" }}>
+            {speech.error ? speech.error : "Voice transcription works in Chrome / Edge. Use the prompt below to draw."}
           </span>
         </div>
       )}
@@ -1306,56 +1214,19 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           <CursorsOverlay cursors={remoteCursors} />
           <ReactionsOverlay reactions={reactions} />
 
-          {/* Live reactions strip — click an emoji to broadcast a floating burst */}
-          <div className="absolute bottom-20 right-5 z-30 flex items-center gap-1 border border-border bg-background/95 px-2 py-1.5 shadow-sm">
-            <span className="eyebrow mr-1 text-muted-foreground">react</span>
-            {(["👍", "💡", "❓", "🔥", "❤️", "😂"] as const).map((e) => (
-              <button
-                key={e}
-                type="button"
-                onClick={() => emitReaction(e)}
-                aria-label={`React ${e}`}
-                className="h-7 w-7 text-lg leading-none transition hover:scale-125"
-                style={{ fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif' }}
-              >
-                {e}
-              </button>
-            ))}
-            <span className="mx-1 h-5 w-px bg-border" />
-            <button
-              type="button"
-              onClick={handleToggleHand}
-              aria-label={isRaised ? "Lower hand" : "Raise hand"}
-              title={isRaised ? "Lower hand" : "Raise hand"}
-              className={`h-7 px-2 text-lg leading-none transition hover:scale-110 ${isRaised ? "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]" : ""}`}
-              style={{ fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif' }}
-            >
-              ✋
-            </button>
-          </div>
+          <CanvasToolbar drawing={drawing} onToggleDraw={toggleDraw} />
 
-          {/* Raise-hand queue: quieter voices get a lane. Ordered by ts. */}
           {handQueue.length > 0 && (
-            <div className="absolute bottom-32 right-5 z-30 max-w-[240px] border border-border bg-background/95 px-2.5 py-2 shadow-sm">
-              <div className="eyebrow mb-1 flex items-center justify-between text-muted-foreground">
-                <span>hands up · {handQueue.length}</span>
-              </div>
+            <div className="absolute bottom-24 right-4 z-30 max-w-[220px] border border-border bg-background/95 px-2.5 py-2">
+              <div className="eyebrow mb-1 text-muted-foreground">hands up · {handQueue.length}</div>
               <ul className="flex flex-col gap-1">
                 {handQueue.map((h, i) => (
                   <li key={h.pid} className="flex items-center gap-2 text-[13px]">
                     <span className="tabular-nums text-muted-foreground">{i + 1}.</span>
-                    <span
-                      className="inline-block h-2 w-2 shrink-0 rounded-full"
-                      style={{ background: h.color }}
-                      aria-hidden
-                    />
+                    <span className="inline-block h-2 w-2 shrink-0" style={{ background: h.color }} aria-hidden />
                     <span className="truncate" style={{ color: h.color }}>{h.name}</span>
                     {h.pid === handPid && (
-                      <button
-                        type="button"
-                        onClick={() => lowerHand()}
-                        className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
-                      >
+                      <button type="button" onClick={() => lowerHand()} className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground">
                         lower
                       </button>
                     )}
@@ -1367,58 +1238,38 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
           {reopenPeek && (
             <div
-              className="pointer-events-none absolute left-1/2 top-6 z-20 -translate-x-1/2 border border-primary bg-background px-4 py-2 shadow-sm"
+              className="pointer-events-none absolute left-1/2 top-6 z-20 -translate-x-1/2 border border-primary bg-background px-4 py-2"
               style={{ animation: "cartoonistPeek 4.2s ease-out forwards" }}
             >
-              <p className="eyebrow text-primary">
-                ↺ {reopenPeek.relation ? reopenPeek.relation : "returning"} — earlier thread
-              </p>
-              <p className="mt-1 max-w-sm truncate font-serif" style={{ fontSize: "var(--step-0)" }}>
-                {reopenPeek.oldLatest}
-              </p>
+              <p className="eyebrow text-primary">↺ {reopenPeek.relation ? reopenPeek.relation : "returning"} — earlier thread</p>
+              <p className="mt-1 max-w-sm truncate" style={{ fontSize: "var(--step-0)" }}>{reopenPeek.oldLatest}</p>
             </div>
           )}
 
-          {/* v2.P6 — cross-session ghost callback. */}
           {memory.peek && (
             <div
               data-testid="memory-peek"
-              className="absolute right-6 top-6 z-20 max-w-sm border border-dashed bg-background/95 px-4 py-3 shadow-sm"
+              className="absolute right-6 top-6 z-20 max-w-sm border border-dashed bg-background/95 px-4 py-3"
               style={{ borderColor: "var(--accent-warm, #E07A3E)" }}
             >
               <div className="flex items-start justify-between gap-3">
-                <p className="eyebrow" style={{ color: "var(--accent-warm, #E07A3E)" }}>
-                  ↗ this came up before — {memory.peek.roomName}
-                </p>
-                <button
-                  type="button"
-                  onClick={memory.dismissPeek}
-                  className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
-                >
+                <p className="eyebrow" style={{ color: "var(--accent-warm, #E07A3E)" }}>↗ this came up before — {memory.peek.roomName}</p>
+                <button type="button" onClick={memory.dismissPeek} className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground">
                   dismiss
                 </button>
               </div>
-              <p className="mt-1.5 font-serif" style={{ fontSize: "var(--step-1)", lineHeight: 1.35 }}>
-                {memory.peek.text}
-              </p>
-              <a
-                href={`/r/${memory.peek.roomId}`}
-                className="mt-2 inline-block text-[11px] uppercase tracking-wider underline underline-offset-4"
-              >
+              <p className="mt-1.5" style={{ fontSize: "var(--step-1)", lineHeight: 1.35 }}>{memory.peek.text}</p>
+              <a href={`/r/${memory.peek.roomId}`} className="mt-2 inline-block text-[11px] uppercase tracking-wider underline underline-offset-4">
                 open that session
               </a>
             </div>
           )}
 
-
-
           {shapes.length === 0 && freehand.length === 0 && (
-            <div className="pointer-events-none absolute left-8 top-8 max-w-md border border-border bg-background p-5">
+            <div className="pointer-events-none absolute left-4 top-16 max-w-md border border-border bg-background p-5">
               <p className="eyebrow text-primary">Whiteboard ready</p>
-              <p className="mt-2 font-serif" style={{ fontSize: "var(--step-3)" }}>
-                {inputMode === "chat"
-                  ? "Type in the Stream on the right, or ask Cartoonist to draw below."
-                  : "Hit Listen and start talking, or ask Cartoonist to draw something below."}
+              <p className="mt-2" style={{ fontSize: "var(--step-3)", lineHeight: 1.15 }}>
+                Talk, or ask Cartoonist to draw.
               </p>
               <p className="mt-2 text-foreground/70" style={{ fontSize: "var(--step-0)" }}>
                 Try: "draw the signup flow with email, Google, and a verify-email step."
@@ -1426,52 +1277,183 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
             </div>
           )}
 
-          <form
-            onSubmit={(e) => { e.preventDefault(); void askDraw(); }}
-            className="absolute bottom-5 left-1/2 z-10 flex w-[min(640px,calc(100%-2.5rem))] -translate-x-1/2 items-center gap-2 border border-border bg-background px-3 py-2"
-          >
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
-            <input
-              value={askText}
-              onChange={(e) => setAskText(e.target.value)}
-              placeholder="Ask Cartoonist to draw something…"
-              className="flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
-              style={{ fontSize: "var(--step-1)" }}
-            />
-            <Button type="submit" size="sm" variant="outline" disabled={!askText.trim() || thinking} className="h-7 rounded-none border-border">
-              <Send className="h-3.5 w-3.5" />
-            </Button>
-          </form>
+          {/* One control zone: Cartoonist prompt with the meeting controls attached. */}
+          <div className="absolute bottom-4 left-1/2 z-20 w-[min(720px,calc(100%-2rem))] -translate-x-1/2">
+            {speech.listening && (
+              <div className="mb-1.5 flex items-center gap-2 border border-border bg-background px-3 py-1.5">
+                <div className="flex h-4 items-end gap-[2px]">
+                  {micBars.map((_, i) => {
+                    const threshold = (i + 1) / micBarCount;
+                    const active = speech.level > threshold * 0.8;
+                    const h = active ? 4 + Math.min(12, speech.level * 16) : 3;
+                    return <span key={i} className="w-[3px] bg-foreground/80 transition-all" style={{ height: `${h}px`, opacity: active ? 1 : 0.25 }} />;
+                  })}
+                </div>
+                <span className="truncate text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
+                  {recentTranscript || "hearing the room…"}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center gap-px border border-foreground bg-background">
+              <button
+                type="button"
+                onClick={() => {
+                  if (speech.listening) { speech.stop(); return; }
+                  if (inputMode !== "voice") {
+                    setInputMode("voice");
+                    window.localStorage.setItem(`cartoonist_input_mode_${roomId}`, "voice");
+                    if (selfPid) void supabase.from("participants").update({ input_mode: "both" } as never).eq("id", selfPid);
+                  }
+                  void speech.start();
+                }}
+                title={speech.listening ? "Stop listening to the room" : "Let Cartoonist hear the room"}
+                className={`flex h-10 items-center gap-1.5 px-3 transition ${speech.listening ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {speech.listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                <span className="eyebrow">{speech.listening ? "Stop" : "Hear room"}</span>
+              </button>
+              <span className="h-6 w-px bg-border" aria-hidden />
+              <form onSubmit={(e) => { e.preventDefault(); void askDraw(); }} className="flex min-w-0 flex-1 items-center gap-2 px-3">
+                <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
+                <input
+                  value={askText}
+                  onChange={(e) => setAskText(e.target.value)}
+                  placeholder="Ask Cartoonist to draw something…"
+                  className="h-10 min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
+                  style={{ fontSize: "var(--step-1)" }}
+                />
+                <button type="submit" disabled={!askText.trim() || thinking} className="text-muted-foreground transition hover:text-foreground disabled:opacity-30">
+                  <Send className="h-4 w-4" />
+                </button>
+              </form>
+              <span className="h-6 w-px bg-border" aria-hidden />
+              <button
+                type="button"
+                onClick={handleToggleHand}
+                title={isRaised ? "Lower hand" : "Raise hand"}
+                className={`flex h-10 w-10 items-center justify-center transition ${isRaised ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <Hand className="h-4 w-4" />
+              </button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button type="button" title="React" className="flex h-10 w-10 items-center justify-center text-muted-foreground transition hover:text-foreground">
+                    <Smile className="h-4 w-4" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" side="top" sideOffset={8} className="flex w-auto gap-1 rounded-none border-foreground p-1.5">
+                  {(["👍", "💡", "❓", "🔥", "❤️", "😂"] as const).map((e) => (
+                    <button
+                      key={e}
+                      type="button"
+                      onClick={() => emitReaction(e)}
+                      aria-label={`React ${e}`}
+                      className="h-8 w-8 text-lg leading-none transition hover:scale-125"
+                      style={{ fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif' }}
+                    >
+                      {e}
+                    </button>
+                  ))}
+                </PopoverContent>
+              </Popover>
+              <button
+                type="button"
+                onClick={() => {
+                  setMediatorMuted((v) => {
+                    const next = !v;
+                    if (next && typeof window !== "undefined") {
+                      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+                      if (ttsAudioRef.current) { try { ttsAudioRef.current.pause(); } catch { /* noop */ } }
+                    }
+                    return next;
+                  });
+                }}
+                title={mediatorMuted ? "Cartoonist voice is off" : "Cartoonist speaks back"}
+                className={`flex h-10 w-10 items-center justify-center transition ${mediatorMuted ? "text-muted-foreground hover:text-foreground" : "bg-foreground text-background"}`}
+              >
+                {mediatorMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
 
           <CostMeter roomId={roomId} />
         </div>
 
-
-        <div className="flex w-[280px] shrink-0 flex-col">
-          <TeamDesk
-            roomId={roomId}
-            participants={participants}
-            selfPid={selfPid}
-            selfSpeaking={speech.listening}
-            selfTyping={false}
-            onInferredStates={(s) => { inferredStatesRef.current = s; }}
-            onEditProfile={() => { if (selfPid) openCheckInFor(selfPid); }}
-            onCheckInAs={openCheckInFor}
-            onStartKiosk={startKiosk}
-            kioskActive={kioskMode}
-          />
-          {chatOpen && (
-            <div className="min-h-0 flex-1 border-t border-border">
-              <ChatPanel
-                roomId={roomId}
-                selfParticipantId={selfPid}
-                selfName={participants[0]?.name ?? "You"}
-                selfColor={participants[0]?.color ?? "#E07A3E"}
-                onChatMessage={handleChatMessage}
-              />
-            </div>
-          )}
-        </div>
+        <RoomPanel
+          open={panelOpen}
+          onOpen={setPanelOpen}
+          active={panelTab}
+          onActive={(id) => setPanelTab(id as typeof panelTab)}
+          tabs={[
+            {
+              id: "people",
+              label: "People",
+              icon: Users,
+              count: participants.length,
+              node: (
+                <TeamDesk
+                  embedded
+                  roomId={roomId}
+                  participants={participants}
+                  selfPid={selfPid}
+                  selfSpeaking={speech.listening}
+                  selfTyping={false}
+                  onInferredStates={(s) => { inferredStatesRef.current = s; }}
+                  onEditProfile={() => { if (selfPid) openCheckInFor(selfPid); }}
+                  onCheckInAs={openCheckInFor}
+                  onStartKiosk={startKiosk}
+                  kioskActive={kioskMode}
+                />
+              ),
+            },
+            {
+              id: "transcript",
+              label: "Talk",
+              icon: MessageSquare,
+              node: (
+                <div className="h-full min-h-0">
+                  <ChatPanel
+                    roomId={roomId}
+                    selfParticipantId={selfPid}
+                    selfName={participants[0]?.name ?? "You"}
+                    selfColor={participants[0]?.color ?? "#E07A3E"}
+                    onChatMessage={handleChatMessage}
+                  />
+                </div>
+              ),
+            },
+            {
+              id: "threads",
+              label: "Threads",
+              icon: Layers,
+              count: threads.length,
+              node: <ThreadList threads={threads} echoes={memory.echoes} />,
+            },
+            {
+              id: "artifacts",
+              label: "Artifacts",
+              icon: FileDown,
+              node: (
+                <div className="space-y-4 px-2.5 py-2.5">
+                  <SessionPack
+                    build={() => ({
+                      roomId,
+                      sessionName: sessionCtx?.name ?? null,
+                      goal: sessionCtx?.goal ?? null,
+                      outputs: Array.isArray(sessionCtx?.outputs) ? sessionCtx.outputs.join(", ") : (sessionCtx?.outputs ?? null),
+                      participants: participants.map((p) => ({ name: p.name, role: p.role ?? null })),
+                      threads: threads.map((t) => ({ id: t.id, latest: t.latest, modality: t.modality })),
+                      transcript: speech.finals.join("\n"),
+                      canvasSummary: summarizeCanvas(),
+                      artifacts,
+                    })}
+                  />
+                  <ArtifactTabs artifacts={artifacts} loading={generating} />
+                </div>
+              ),
+            },
+          ] satisfies RoomPanelTab[]}
+        />
       </div>
 
       <IntroModal
