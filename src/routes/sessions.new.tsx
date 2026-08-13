@@ -19,9 +19,9 @@ const HOST_ROLES = [
   { id: "observer", label: "Observer", sub: "Mostly listening" },
 ];
 const FACILITATION = [
-  { id: "scribe", label: "Quiet scribe", emoji: "✍️", sub: "Listens, draws, stays out of the way" },
-  { id: "facilitator", label: "Active facilitator", emoji: "🎤", sub: "Prompts, summarizes, nudges decisions" },
-  { id: "devils-advocate", label: "Devil's advocate", emoji: "🔥", sub: "Pushes back, surfaces risks & gaps" },
+  { id: "scribe", label: "Quiet scribe", sub: "Listens, draws, stays out of the way" },
+  { id: "facilitator", label: "Active facilitator", sub: "Prompts, summarizes, nudges decisions" },
+  { id: "devils-advocate", label: "Devil's advocate", sub: "Pushes back, surfaces risks and gaps" },
 ];
 
 export const Route = createFileRoute("/sessions/new")({
@@ -152,94 +152,127 @@ function NewSession() {
   };
 
   return (
-    <main className="min-h-screen bg-background px-4 py-6">
+    <main className="min-h-screen bg-background">
       <CartoonistHeader />
-      <div className="mx-auto max-w-2xl">
-        <span className="eyebrow text-primary">Step 2 of 2</span>
-        <h1 className="font-serif font-medium" style={{ fontSize: "var(--step-5)", lineHeight: 1 }}>What's this session about?</h1>
-        <p className="text-muted-foreground" style={{ fontSize: "var(--step-2)" }}>
-          Tell Cartoonist the goal so it can draw the right things.
-        </p>
+      <div className="mx-auto grid max-w-[1240px] gap-10 px-6 py-14 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)] lg:items-start">
+        <div className="lg:sticky lg:top-24">
+          <span className="eyebrow font-mono text-muted-foreground">STEP 2 / 2</span>
+          <h1 className="statement mt-3 max-w-[13ch]" style={{ fontSize: "var(--step-4)" }}>
+            What is the room trying to settle?
+          </h1>
+          <p className="mt-4 max-w-[42ch] text-muted-foreground" style={{ fontSize: "var(--step-2)", lineHeight: 1.6 }}>
+            The goal decides what Cartoonist draws when the talking starts, and what it
+            hands back at the end. Say the brief out loud and it fills the rest in.
+          </p>
+        </div>
 
-        <div className="mt-6 rounded-2xl border-2 border-foreground bg-card p-6 space-y-6">
-          {/* Voice */}
-          <div className="rounded-xl border-2 border-foreground bg-yellow-50 p-4 flex items-center justify-between gap-3">
+        <div className="border border-foreground bg-card">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-foreground px-5 py-4">
             <div>
-              <p className="font-medium" style={{ fontSize: "var(--step-2)" }}>Just describe it out loud</p>
-              <p className="text-muted-foreground" style={{ fontSize: "var(--step-1)" }}>
-                20 sec mic — autofills goal, outputs, your role, and Cartoonist's mode.
+              <p className="eyebrow font-mono text-muted-foreground">SPOKEN BRIEF</p>
+              <p className="mt-1.5" style={{ fontSize: "var(--step-2)" }}>
+                {recording ? "Listening — what are you working on?" : "Twenty seconds. It writes goal, outputs and roles."}
               </p>
             </div>
             {recording ? (
-              <Button onClick={stopMic} className="gap-2 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                <Square className="h-4 w-4" /> Stop
+              <Button onClick={stopMic} variant="destructive" className="gap-2 rounded-none">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-60" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-current" />
+                </span>
+                <Square className="h-3.5 w-3.5" /> Stop
               </Button>
             ) : (
-              <Button onClick={startMic} disabled={parsing} className="gap-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90">
+              <Button onClick={startMic} disabled={parsing} className="gap-2 rounded-none">
                 {parsing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
                 {parsing ? "Reading…" : "Record brief"}
               </Button>
             )}
           </div>
 
-          <div>
-            <Label className="mb-1.5 block">Goal — what are we trying to do?</Label>
-            <Textarea
-              value={goal}
-              onChange={(e) => setGoal(e.target.value)}
-              rows={2}
-              placeholder="Plan the v1 onboarding flow for our new app"
-              className="rounded-xl border-2 border-foreground"
-            />
-          </div>
-
-          <div>
-            <Label className="mb-1.5 block">Session name (optional)</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Auto-filled from goal" className="rounded-full border-2 border-foreground" />
-          </div>
-
-          <div>
-            <Label className="mb-2 block">What do you want to walk away with?</Label>
-            <div className="flex flex-wrap gap-2">
-              {OUTPUTS.map((o) => (
-                <button key={o} type="button" onClick={() => toggleOutput(o)}
-                  className={`rounded-full border-2 px-3 py-1 text-sm transition ${outputs.includes(o) ? "border-foreground bg-foreground text-background" : "border-border bg-background hover:border-foreground/60"}`}>
-                  {o}
-                </button>
-              ))}
+          <div className="space-y-7 p-5">
+            <div>
+              <Label className="eyebrow mb-2 block font-mono text-muted-foreground">GOAL</Label>
+              <Textarea
+                value={goal}
+                onChange={(e) => setGoal(e.target.value)}
+                rows={2}
+                placeholder="Plan the v1 onboarding flow for our new app"
+                className="rounded-none border-foreground shadow-none"
+              />
             </div>
-          </div>
 
-          <div>
-            <Label className="mb-2 block">Your role in this session</Label>
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-              {HOST_ROLES.map((r) => (
-                <button key={r.id} type="button" onClick={() => setHostRole(r.id)}
-                  className={`rounded-xl border-2 p-3 text-left transition ${hostRole === r.id ? "border-foreground bg-secondary" : "border-border bg-background hover:border-foreground/60"}`}>
-                  <div className="font-medium">{r.label}</div>
-                  <div className="text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>{r.sub}</div>
-                </button>
-              ))}
+            <div>
+              <Label className="eyebrow mb-2 block font-mono text-muted-foreground">SESSION NAME — OPTIONAL</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Taken from the goal" className="h-11 rounded-none border-foreground shadow-none" />
             </div>
-          </div>
 
-          <div>
-            <Label className="mb-2 block">How should Cartoonist show up?</Label>
-            <div className="grid gap-2 md:grid-cols-3">
-              {FACILITATION.map((f) => (
-                <button key={f.id} type="button" onClick={() => setFacilitation(f.id)}
-                  className={`rounded-xl border-2 p-3 text-left transition ${facilitation === f.id ? "border-foreground bg-primary text-primary-foreground" : "border-border bg-background hover:border-foreground/60"}`}>
-                  <div className="text-xl">{f.emoji}</div>
-                  <div className="mt-1 font-medium">{f.label}</div>
-                  <div className={facilitation === f.id ? "text-primary-foreground/80" : "text-muted-foreground"} style={{ fontSize: "var(--step-0)" }}>{f.sub}</div>
-                </button>
-              ))}
+            <div>
+              <Label className="eyebrow mb-2 block font-mono text-muted-foreground">DELIVERABLES</Label>
+              <div className="flex flex-wrap gap-2">
+                {OUTPUTS.map((o) => (
+                  <button
+                    key={o}
+                    type="button"
+                    onClick={() => toggleOutput(o)}
+                    aria-pressed={outputs.includes(o)}
+                    className={`press border px-3 py-1.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+                      outputs.includes(o) ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
+                    }`}
+                    style={{ fontSize: "var(--step-1)" }}
+                  >
+                    {o}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <Button onClick={create} disabled={creating} className="w-full rounded-full bg-primary py-6 text-base font-medium text-primary-foreground hover:bg-primary/90">
-            {creating ? "Creating…" : "Create session"}
-          </Button>
+            <div>
+              <Label className="eyebrow mb-2 block font-mono text-muted-foreground">YOUR ROLE</Label>
+              <div className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-4">
+                {HOST_ROLES.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => setHostRole(r.id)}
+                    aria-pressed={hostRole === r.id}
+                    className={`press bg-card p-3 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary ${
+                      hostRole === r.id ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <div className="text-foreground" style={{ fontSize: "var(--step-2)" }}>{r.label}</div>
+                    <div className="mt-0.5" style={{ fontSize: "var(--step-1)" }}>{r.sub}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label className="eyebrow mb-2 block font-mono text-muted-foreground">HOW CARTOONIST SHOWS UP</Label>
+              <div className="grid gap-px bg-border md:grid-cols-3">
+                {FACILITATION.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setFacilitation(f.id)}
+                    aria-pressed={facilitation === f.id}
+                    className={`press bg-card p-3 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary ${
+                      facilitation === f.id ? "bg-primary text-primary-foreground" : "hover:bg-secondary"
+                    }`}
+                  >
+                    <div style={{ fontSize: "var(--step-2)" }}>{f.label}</div>
+                    <div className={facilitation === f.id ? "mt-0.5 text-primary-foreground/80" : "mt-0.5 text-muted-foreground"} style={{ fontSize: "var(--step-1)" }}>
+                      {f.sub}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Button onClick={create} disabled={creating} size="lg" className="w-full rounded-none">
+              {creating ? "Creating…" : "Create session"}
+            </Button>
+          </div>
         </div>
       </div>
     </main>

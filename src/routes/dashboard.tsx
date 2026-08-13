@@ -79,68 +79,74 @@ function Dashboard() {
   ), [sessions]);
 
   return (
-    <main className="min-h-screen bg-background px-4 py-6">
+    <main className="min-h-screen bg-background">
       <CartoonistHeader />
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div className="mx-auto max-w-[1240px] px-6 py-14">
+        <div className="flex flex-wrap items-end justify-between gap-x-10 gap-y-5">
           <div>
-            <h1 className="font-serif font-medium" style={{ fontSize: "var(--step-5)", lineHeight: 1 }}>Your studio</h1>
-            <p className="text-muted-foreground mt-1" style={{ fontSize: "var(--step-2)" }}>
+            <h1 className="statement max-w-[10ch]" style={{ fontSize: "var(--step-4)" }}>Your studio</h1>
+            <p className="mt-3 max-w-[46ch] text-muted-foreground" style={{ fontSize: "var(--step-2)", lineHeight: 1.6 }}>
               {sessions.length === 0
-                ? "Start a session or hop into one."
-                : (
-                  <span className="tabular-nums">
-                    {sessions.length} session{sessions.length === 1 ? "" : "s"} · {totals.shapes} marks · {totals.messages} utterances · {totals.people} people
-                  </span>
-                )}
+                ? "Nothing on the desk yet. Start a session and Cartoonist will meet you there."
+                : "Every session you've run, with what the room actually produced."}
             </p>
           </div>
-          <div className="flex items-center gap-2 rounded-full border-2 border-foreground bg-card p-1.5">
-            <Input
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-              placeholder="JOIN CODE"
-              onKeyDown={(e) => e.key === "Enter" && join()}
-              className="h-9 w-40 border-0 bg-transparent font-mono tracking-widest shadow-none focus-visible:ring-0"
-              maxLength={10}
-            />
-            <Button onClick={join} disabled={joining || !joinCode} className="rounded-full bg-primary px-5 text-primary-foreground hover:bg-primary/90">
-              Join
-            </Button>
-            <Button onClick={() => navigate({ to: "/sessions/new" })} className="ml-2 gap-1.5 rounded-full bg-foreground px-5 text-background hover:bg-foreground/90">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center border border-foreground bg-card">
+              <Input
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                placeholder="JOIN CODE"
+                aria-label="Session join code"
+                onKeyDown={(e) => e.key === "Enter" && join()}
+                className="h-10 w-36 rounded-none border-0 bg-transparent font-mono tracking-[0.3em] shadow-none focus-visible:ring-0"
+                maxLength={10}
+              />
+              <Button onClick={join} disabled={joining || !joinCode} variant="ghost" className="h-10 rounded-none border-l border-foreground">
+                Join
+              </Button>
+            </div>
+            <Button onClick={() => navigate({ to: "/sessions/new" })} className="h-10 gap-1.5 rounded-none">
               <Plus className="h-4 w-4" /> Start session
             </Button>
           </div>
         </div>
 
         {sessions.length > 0 && (
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <div className="flex flex-1 min-w-[220px] items-center gap-2 border-2 border-foreground bg-card px-3 py-1.5 rounded-full">
-              <Search className="h-3.5 w-3.5 text-muted-foreground" />
+          <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 border-y border-foreground py-2.5 font-mono text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
+            <span className="tabular-nums uppercase tracking-[0.16em]">
+              {sessions.length} session{sessions.length === 1 ? "" : "s"} · {totals.shapes} marks · {totals.messages} utterances · {totals.people} people
+            </span>
+            <span className="flex min-w-[180px] flex-1 items-center gap-2">
+              <Search className="h-3.5 w-3.5" />
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Search sessions, goals, codes…"
-                className="w-full bg-transparent outline-none"
+                aria-label="Search sessions"
+                className="w-full bg-transparent font-sans outline-none placeholder:text-muted-foreground"
                 style={{ fontSize: "var(--step-1)" }}
               />
-            </div>
-            <div className="flex items-center gap-1 rounded-full border-2 border-foreground bg-card p-1">
+            </span>
+            <span className="flex items-center gap-3">
+              <span className="uppercase tracking-[0.16em]">sort</span>
               {(["recent", "busiest", "name"] as SortKey[]).map((k) => (
                 <button
                   key={k}
                   onClick={() => setSort(k)}
-                  className={`rounded-full px-3 py-1 capitalize transition ${sort === k ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
-                  style={{ fontSize: "var(--step-0)" }}
+                  aria-pressed={sort === k}
+                  className={`press uppercase tracking-[0.16em] underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+                    sort === k ? "text-foreground underline" : "hover:text-foreground"
+                  }`}
                 >
                   {k}
                 </button>
               ))}
-            </div>
+            </span>
             <button
               onClick={() => void refresh()}
-              title="Refresh stats"
-              className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-foreground bg-card text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+              aria-label="Refresh stats"
+              className="press flex h-8 w-8 items-center justify-center hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
             </button>
@@ -148,79 +154,83 @@ function Dashboard() {
         )}
 
         {sessions.length === 0 ? (
-          <div className="rounded-3xl border-2 border-foreground bg-card p-16 text-center">
-            <div className="mx-auto mb-4 text-7xl">🙂</div>
-            <h2 className="font-serif" style={{ fontSize: "var(--step-3)" }}>No sessions yet</h2>
-            <p className="mx-auto mt-2 max-w-md text-muted-foreground" style={{ fontSize: "var(--step-2)" }}>
-              Let's draw up your first one — Cartoonist will meet you there.
-            </p>
-            <Button onClick={() => navigate({ to: "/sessions/new" })} className="mt-5 rounded-full bg-primary px-6 py-5 text-primary-foreground hover:bg-primary/90">
+          <div className="mt-10 border border-dashed border-foreground/40 px-8 py-20">
+            <p className="eyebrow font-mono text-muted-foreground">EMPTY DESK</p>
+            <h2 className="statement mt-3 max-w-[26ch]" style={{ fontSize: "var(--step-4)" }}>
+              The first session is the one that teaches it your room.
+            </h2>
+            <Button onClick={() => navigate({ to: "/sessions/new" })} size="lg" className="mt-6 rounded-none">
               Start a session
             </Button>
           </div>
         ) : shown.length === 0 ? (
-          <p className="border-2 border-dashed border-border p-10 text-center text-muted-foreground" style={{ fontSize: "var(--step-2)" }}>
+          <p className="mt-10 border border-dashed border-foreground/40 px-8 py-16 text-muted-foreground" style={{ fontSize: "var(--step-2)" }}>
             Nothing matches “{q}”.
           </p>
         ) : (
-          <div className="grid gap-3 md:grid-cols-2">
+          <ul className="mt-px grid list-none gap-px bg-border md:grid-cols-2">
             {shown.map((s) => {
               const live = s.stats.lastActivity !== null && Date.now() - s.stats.lastActivity < 5 * 60 * 1000;
+              const open = () => navigate({ to: "/sessions/$sessionId", params: { sessionId: s.roomId } });
               return (
-                <div
+                <li
                   key={s.roomId}
                   role="button"
                   tabIndex={0}
-                  onClick={() => navigate({ to: "/sessions/$sessionId", params: { sessionId: s.roomId } })}
-                  onKeyDown={(e) => e.key === "Enter" && navigate({ to: "/sessions/$sessionId", params: { sessionId: s.roomId } })}
-                  className="group cursor-pointer rounded-2xl border-2 border-foreground bg-card p-5 text-left transition hover:bg-secondary"
+                  onClick={open}
+                  onKeyDown={(e) => e.key === "Enter" && open()}
+                  className="group cursor-pointer bg-card p-5 text-left transition-colors hover:bg-secondary focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
                 >
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center justify-between gap-2 font-mono" style={{ fontSize: "var(--step-0)" }}>
                     <span className="flex items-center gap-2">
-                      <span className="rounded-full border border-border bg-background px-2.5 py-0.5 font-mono tracking-widest" style={{ fontSize: "var(--step-0)" }}>
-                        {s.joinCode}
-                      </span>
+                      <span className="border border-border px-2 py-0.5 tracking-[0.2em]">{s.joinCode}</span>
                       <button
-                        title="Copy join code"
+                        aria-label="Copy join code"
                         onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(s.joinCode ?? ""); toast.success("Join code copied"); }}
-                        className="text-muted-foreground opacity-0 transition group-hover:opacity-100 hover:text-foreground"
+                        className="press text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground"
                       >
                         <Copy className="h-3.5 w-3.5" />
                       </button>
                       {live && (
-                        <span className="flex items-center gap-1 text-[color:var(--accent,#3fb56b)]" style={{ fontSize: "var(--step-0)" }}>
-                          <span className="h-1.5 w-1.5 rounded-full bg-current" /> live
+                        <span className="flex items-center gap-1.5 uppercase tracking-[0.16em] text-primary">
+                          <span className="relative flex h-1.5 w-1.5">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-70" />
+                            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-current" />
+                          </span>
+                          live
                         </span>
                       )}
                     </span>
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex items-center gap-2">
                       <button
-                        title="Remove from studio"
+                        aria-label="Remove from studio"
                         onClick={(e) => { e.stopPropagation(); removeSession(s.roomId); void refresh(); toast("Removed from your studio"); }}
-                        className="text-muted-foreground opacity-0 transition group-hover:opacity-100 hover:text-foreground"
+                        className="press text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>
-                      <ArrowRight className="h-4 w-4 opacity-0 transition group-hover:opacity-100" />
+                      <ArrowRight className="h-4 w-4 -translate-x-1 opacity-0 transition-[opacity,transform] group-hover:translate-x-0 group-hover:opacity-100" />
                     </span>
                   </div>
-                  <h3 className="mt-3 font-serif" style={{ fontSize: "var(--step-3)" }}>{s.name}</h3>
+                  <h3 className="mt-3 font-display" style={{ fontSize: "var(--step-3)" }}>{s.name}</h3>
                   {(s.goalFromDb ?? s.goal) && (
-                    <p className="mt-1 text-foreground/70 line-clamp-2" style={{ fontSize: "var(--step-1)" }}>{s.goalFromDb ?? s.goal}</p>
+                    <p className="mt-1 line-clamp-2 max-w-[52ch] text-muted-foreground" style={{ fontSize: "var(--step-2)", lineHeight: 1.5 }}>
+                      {s.goalFromDb ?? s.goal}
+                    </p>
                   )}
-                  <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground tabular-nums" style={{ fontSize: "var(--step-0)" }}>
+                  <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono tabular-nums text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
                     <span>{s.stats.participants} people</span>
-                    <span>·</span>
+                    <span aria-hidden>·</span>
                     <span>{s.stats.shapes} marks</span>
-                    <span>·</span>
+                    <span aria-hidden>·</span>
                     <span>{s.stats.messages} utterances</span>
-                    <span>·</span>
+                    <span aria-hidden>·</span>
                     <span>{relativeTime(s.stats.lastActivity ?? s.createdAt)}</span>
                   </div>
-                </div>
+                </li>
               );
             })}
-          </div>
+          </ul>
         )}
       </div>
     </main>
