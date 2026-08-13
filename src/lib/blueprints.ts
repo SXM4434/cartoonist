@@ -39,7 +39,7 @@ const billing: Builder = (ox, oy) => {
     k.text(`b_nav_${i}`, x, oy + 30, label, 13, label === "Billing" ? "ink" : "muted");
     if (label === "Billing") k.line("b_nav_active", x, oy + 52, x + 58, oy + 52, "accent");
   });
-  k.line("b_nav_rule", ox, oy + 56, ox + 900, oy + 56);
+  k.line("b_nav_rule", ox, oy + 56, ox + 940, oy + 56);
 
   k.text("b_title", ox, oy + 84, "Invoices", 22);
   k.text("b_sub", ox, oy + 116, "Studio plan — 12 of 20 seats", 13, "muted");
