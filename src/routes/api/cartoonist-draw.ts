@@ -361,7 +361,11 @@ Every NEW primitive this turn must start at x >= ${Math.round(occ.maxX) + 280}. 
 `
             : "";
 
-        const userMsg = `${intentOverride}${placementBlock}${fidelityBlock}\n\n${ctxBlock}${participantsBlock}${liveStatesBlock}${voiceBlock}${openThreadsBlock}${handsBlock}${canvasHeader}
+        // v1 P2.2 — rolling session memory: the whole session's state, cheap.
+        const memoryRaw = typeof (body as { memoryBlock?: unknown }).memoryBlock === "string" ? (body as { memoryBlock?: string }).memoryBlock!.trim() : "";
+        const memoryBlock = memoryRaw ? `${compactText(memoryRaw, 2400)}\n\n` : "";
+
+        const userMsg = `${intentOverride}${placementBlock}${fidelityBlock}\n\n${ctxBlock}${memoryBlock}${participantsBlock}${liveStatesBlock}${voiceBlock}${openThreadsBlock}${handsBlock}${canvasHeader}
 ${existingBlock}
 
 
