@@ -1173,7 +1173,6 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               >
                 <Brain className="h-3.5 w-3.5" /><span className="eyebrow">Memory</span>
               </Button>
-              <SessionReplay roomId={roomId} onFrame={setReplayShapes} />
               <SessionRecap
                 roomId={roomId}
                 buildRequest={() => ({
@@ -1470,6 +1469,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                   })}
                 />
               ),
+            },
+            {
+              id: "replay",
+              label: "Replay",
+              icon: History,
+              node: <SessionReplay embedded roomId={roomId} onFrame={setReplayShapes} />,
             },
             {
               id: "artifacts",
