@@ -209,15 +209,40 @@ export function WorkingSurface({ stage, index }: { stage: Stage; index: number }
       {drawing && links.length > 0 && (
         <svg className="pointer-events-none absolute inset-0 hidden h-full w-full md:block" aria-hidden>
           {links.map((l, i) => {
-            const mx = (l.from.x + l.to.x) / 2;
+            const dx = l.to.x - l.from.x;
+            // Asymmetric control points: the line leaves the phrase decisively
+            // and eases into its target, rather than a symmetric textbook curve.
+            const c1 = l.from.x + dx * 0.58;
+            const c2 = l.from.x + dx * 0.82;
+            const delay = i * 140;
             return (
               <g key={i}>
+                {/* departure tick: the connector is anchored to the phrase */}
+                <path
+                  className="connector-anchor"
+                  style={{ animationDelay: `${delay}ms` }}
+                  d={`M${l.from.x - 1} ${l.from.y - 4}v8`}
+                />
                 <path
                   className="connector"
-                  style={{ ["--len" as string]: l.len, animationDelay: `${i * 140}ms` }}
-                  d={`M${l.from.x} ${l.from.y} C ${mx} ${l.from.y}, ${mx} ${l.to.y}, ${l.to.x} ${l.to.y}`}
+                  style={{ ["--len" as string]: l.len, animationDelay: `${delay + 90}ms` }}
+                  d={`M${l.from.x} ${l.from.y} C ${c1} ${l.from.y}, ${c2} ${l.to.y}, ${l.to.x} ${l.to.y}`}
                 />
-                <circle cx={l.to.x} cy={l.to.y} r="2.5" fill="var(--color-primary)" className="fade-up-in" style={{ animationDelay: `${600 + i * 140}ms` }} />
+                {/* landing: a ring settles onto the point it produced */}
+                <circle
+                  className="connector-land-ring"
+                  cx={l.to.x}
+                  cy={l.to.y}
+                  r="6"
+                  style={{ animationDelay: `${delay + 690}ms` }}
+                />
+                <circle
+                  className="connector-land"
+                  cx={l.to.x}
+                  cy={l.to.y}
+                  r="2.5"
+                  style={{ animationDelay: `${delay + 690}ms` }}
+                />
               </g>
             );
           })}
