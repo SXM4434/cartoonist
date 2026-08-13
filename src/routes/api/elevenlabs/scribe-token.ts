@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { guardExpensiveRoute } from "@/lib/room-guard.server";
 
 export const Route = createFileRoute("/api/elevenlabs/scribe-token")({
   server: {
     handlers: {
-      POST: async () => {
+      POST: async ({ request }) => {
         const apiKey = process.env.ELEVENLABS_API_KEY;
         if (!apiKey) {
           return new Response(
@@ -11,6 +12,13 @@ export const Route = createFileRoute("/api/elevenlabs/scribe-token")({
             { status: 500, headers: { "Content-Type": "application/json" } },
           );
         }
+
+        // Minting a realtime token is billable — cap it per caller.
+        const blocked = await guardExpensiveRoute(request, {
+          route: "scribe-token", maxBytes: 4_000, limit: 10, requireRoom: false,
+        });
+        if (blocked) return blocked;
+
 
         const res = await fetch(
           "https://api.elevenlabs.io/v1/single-use-token/realtime_scribe",
