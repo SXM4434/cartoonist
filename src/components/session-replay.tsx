@@ -24,11 +24,14 @@ const SPEEDS = [1, 2, 4] as const;
 export function SessionReplay({
   roomId,
   onFrame,
+  embedded = false,
 }: {
   roomId: string;
   onFrame: (shapes: SketchPrimitive[] | null) => void;
+  embedded?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(embedded);
+
   const [loading, setLoading] = useState(false);
   const [frames, setFrames] = useState<Frame[]>([]);
   const [idx, setIdx] = useState(0);
