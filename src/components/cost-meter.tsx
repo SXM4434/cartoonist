@@ -54,7 +54,7 @@ export function CostMeter({ roomId }: { roomId: string }) {
 
   return (
     <div
-      className="pointer-events-none absolute bottom-5 right-5 z-10 flex items-center gap-1.5 border border-border bg-background/95 px-2 py-1 backdrop-blur"
+      className="pointer-events-none absolute right-5 top-4 z-10 flex items-center gap-1.5 border border-border bg-background/95 px-2 py-1 backdrop-blur"
       title={`${calls} AI call${calls === 1 ? "" : "s"} this session`}
     >
       <Coins className="h-3 w-3 text-primary" />

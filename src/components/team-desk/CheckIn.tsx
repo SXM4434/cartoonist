@@ -173,6 +173,22 @@ export function CheckIn({
             />
           </div>
 
+          <PrivateField
+            label="Need today"
+            placeholder="a decision on the cutover · align on scope · unblock the mock"
+            value={state.needs_today}
+            onChange={(v) => set("needs_today", v)}
+            shared={state.share_needs}
+            onToggleShare={() => set("share_needs", !state.share_needs)}
+          />
+
+          <details className="group border border-border">
+            <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2">
+              <span className="eyebrow text-foreground">More about how you work</span>
+              <span className="eyebrow text-muted-foreground group-open:hidden">optional</span>
+              <span className="eyebrow hidden text-muted-foreground group-open:inline">hide</span>
+            </summary>
+            <div className="space-y-3 border-t border-border px-3 py-3">
           <div>
             <Label className="mb-1 block eyebrow">Strong at (1–3)</Label>
             <Input
@@ -222,15 +238,6 @@ export function CheckIn({
               })}
             </div>
           </div>
-
-          <PrivateField
-            label="Need today"
-            placeholder="a decision on the cutover · align on scope · unblock the mock"
-            value={state.needs_today}
-            onChange={(v) => set("needs_today", v)}
-            shared={state.share_needs}
-            onToggleShare={() => set("share_needs", !state.share_needs)}
-          />
           <PrivateField
             label="Blocker / worry"
             placeholder="overbuilding · ops risk · timeline"
@@ -262,6 +269,9 @@ export function CheckIn({
               <span className="text-muted-foreground">Uncheck if you'd rather not be called out by voice.</span>
             </span>
           </label>
+            </div>
+          </details>
+
         </div>
 
         <DialogFooter className="mt-4 flex-row items-center justify-between gap-2 sm:justify-between">
