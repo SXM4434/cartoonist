@@ -174,7 +174,10 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
         font,
         align: "start",
         verticalAlign: "start",
-        labelColor: shape.tone === "accent" ? "white" : color,
+        // tldraw's "solid" fill is a pale tint of the ink color, so white
+        // label text on an accent/danger fill disappears. Always keep labels
+        // in the ink color so text stays legible on every fill.
+        labelColor: color === "white" ? "black" : color,
         richText: toRichText(fitsInside ? label : ""),
       },
     };
@@ -249,7 +252,9 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
       type: "text",
       x: shape.x,
       y: shape.y,
-      props: { color, size: textSize(shape.size), font, textAlign: shape.align === "center" ? "middle" : shape.align === "right" ? "end" : "start", w: 360, scale: isUi ? 0.72 : 0.58, richText: toRichText(shape.text), autoSize: true },
+      // Text tagged "surface" means "sits on a filled chip". Our fills are
+      // pale tints, so render it as ink rather than invisible white.
+      props: { color: color === "white" ? "black" : color, size: textSize(shape.size), font, textAlign: shape.align === "center" ? "middle" : shape.align === "right" ? "end" : "start", w: 360, scale: isUi ? 0.72 : 0.58, richText: toRichText(shape.text), autoSize: true },
     }];
   }
   if (shape.type === "arrow") {
