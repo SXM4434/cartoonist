@@ -362,6 +362,47 @@ export type Database = {
         }
         Relationships: []
       }
+      session_summaries: {
+        Row: {
+          chars_covered: number
+          decisions: string[]
+          entities: string[]
+          open_questions: string[]
+          room_id: string
+          summary: string
+          topics: string[]
+          updated_at: string
+        }
+        Insert: {
+          chars_covered?: number
+          decisions?: string[]
+          entities?: string[]
+          open_questions?: string[]
+          room_id: string
+          summary?: string
+          topics?: string[]
+          updated_at?: string
+        }
+        Update: {
+          chars_covered?: number
+          decisions?: string[]
+          entities?: string[]
+          open_questions?: string[]
+          room_id?: string
+          summary?: string
+          topics?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_summaries_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: true
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       speaker_map: {
         Row: {
           cluster_label: string
