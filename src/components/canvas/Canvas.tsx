@@ -75,15 +75,33 @@ const clampNoteSize = (w?: number, h?: number) => ({
   h: Math.min(Math.max(h ?? 104, 82), 116),
 });
 
-const sketchLine = (id: string, x1: number, y1: number, x2: number, y2: number, dashed?: boolean): TLShapePartial => ({
-  id: shapeId(id),
-  type: "arrow",
-  x: x1,
-  y: y1,
-  opacity: 1,
-  isLocked: false,
-  props: { kind: "arc", color: "black", fill: "none", dash: dashed ? "dashed" : "draw", size: "s", arrowheadStart: "none", arrowheadEnd: "none", font: "draw", labelColor: "black", start: { x: 0, y: 0 }, end: { x: x2 - x1, y: y2 - y1 }, bend: 0, richText: toRichText(""), labelPosition: 0.5, scale: 0.72, elbowMidPoint: 0.5 },
-});
+// A rule is a rule in both inks. Keeping it a `line` in pencil AND clean means
+// toggling ink never flips the tldraw type behind a stable shape id — a flip
+// made tldraw merge line props into an arrow record ("props.spline: Unexpected
+// property") and remount its shape component mid-render.
+const sketchLine = (id: string, x1: number, y1: number, x2: number, y2: number, dashed?: boolean): TLShapePartial => {
+  const idx = getIndices(2);
+  return {
+    id: shapeId(id),
+    type: "line",
+    x: x1,
+    y: y1,
+    opacity: 1,
+    isLocked: false,
+    props: {
+      color: "black",
+      dash: dashed ? "dashed" : "draw",
+      size: "s",
+      spline: "line",
+      scale: 1,
+      points: {
+        [idx[0]]: { id: idx[0], index: idx[0], x: 0, y: 0 },
+        [idx[1]]: { id: idx[1], index: idx[1], x: x2 - x1, y: y2 - y1 },
+      },
+    },
+  };
+};
+
 
 const pathToLine = (shape: Extract<SketchPrimitive, { type: "path" }>): TLShapePartial[] => {
   const rawPoints = shape.points.filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
@@ -563,21 +581,35 @@ export function Canvas({
     }
     const toCreate: TLShapePartial[] = [];
     const toUpdate: TLShapePartial[] = [];
+    const toRecreate: TLShapePartial[] = [];
+
     const nextSig = new Map<string, string>();
+    const toDelete: string[] = [];
     for (const [id, shape] of desiredById) {
       const sig = JSON.stringify(shape);
       nextSig.set(id, sig);
       if (!currentAiIds.has(id)) { toCreate.push(shape); continue; }
+      // Switching ink (pencil ↔ clean) or fidelity can change the tldraw type
+      // behind the same primitive id — e.g. a rule renders as `arrow` in pencil
+      // and `line` in clean. updateShapes merges props into the existing
+      // record, so a type flip produces an invalid shape ("arrow.props.spline:
+      // Unexpected property") and kills the whole batch. Recreate instead.
+      const existing = editor.getShape(id as unknown as Parameters<Editor["getShape"]>[0]);
+      if (existing && existing.type !== shape.type) {
+        toDelete.push(id);
+        toRecreate.push(shape);
+        continue;
+      }
       // Perf: only push shapes whose serialized form actually changed. Before
       // this, every incremental batch re-updated all ~170 wireframe shapes.
       if (shapeSigRef.current.get(id) !== sig) toUpdate.push(shape);
     }
-    const toDelete: string[] = [];
     for (const id of currentAiIds) {
       if (!desiredById.has(id)) toDelete.push(id);
     }
+
     shapeSigRef.current = nextSig;
-    if (!toCreate.length && !toUpdate.length && !toDelete.length) return;
+    if (!toCreate.length && !toUpdate.length && !toDelete.length && !toRecreate.length) return;
     try {
       editor.run(() => {
         if (toDelete.length) editor.deleteShapes(toDelete as unknown as Parameters<Editor["deleteShapes"]>[0]);
@@ -587,9 +619,28 @@ export function Canvas({
         // AI batches don't belong in the user's undo stack — recording 170
         // shape creations made every subsequent interaction sluggish.
       }, { history: "ignore" });
+      // Type-flipped shapes are recreated on the next frame. Deleting and
+      // recreating the same shape id in one transaction makes React reuse the
+      // shape component across two different shape utils, which throws
+      // "Rendered more hooks than during the previous render".
+      if (toRecreate.length) {
+        requestAnimationFrame(() => {
+          const ed = editorRef.current;
+          if (!ed) return;
+          try {
+            ed.run(() => {
+              ed.createShapes(toRecreate);
+              toRecreate.forEach((s) => createdShapeIdsRef.current.add(String(s.id)));
+            }, { history: "ignore" });
+          } catch (err) {
+            console.warn("[canvas] skipped a recreate batch", err);
+          }
+        });
+      }
     } catch (err) {
       console.warn("[canvas] skipped a bad shape batch", err);
     }
+
     onHasContentChange?.(editor.getCurrentPageShapeIds().size > 0);
   }, [mounted, onHasContentChange, shapes, renderStyle]);
 
