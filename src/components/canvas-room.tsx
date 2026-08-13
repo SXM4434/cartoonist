@@ -1159,13 +1159,15 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               <Button size="sm" variant="ghost" onClick={() => { setPanelTab("artifacts"); setPanelOpen(true); void generateArtifacts(); }} className="h-8 gap-2 rounded-none">
                 <FileDown className="h-3.5 w-3.5" /><span className="eyebrow">Export artifacts</span>
               </Button>
-              <KnownAboutYou
-                roomId={roomId}
-                buildRequest={() => ({
-                  transcript: speech.finals.length ? speech.finals.join("\n") : "",
-                  participants: participants.map((p) => ({ id: p.id, name: p.name, role: p.role ?? null })),
-                })}
-              />
+              <Button
+                size="sm"
+                variant="ghost"
+                data-testid="memory-trigger"
+                onClick={() => { setPanelTab("memory"); setPanelOpen(true); }}
+                className="h-8 gap-2 rounded-none"
+              >
+                <Brain className="h-3.5 w-3.5" /><span className="eyebrow">Memory</span>
+              </Button>
               <SessionReplay roomId={roomId} onFrame={setReplayShapes} />
               <SessionRecap
                 roomId={roomId}
