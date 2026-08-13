@@ -77,10 +77,10 @@ function Landing() {
       <section className="mx-auto max-w-[1240px] px-6 pb-16 pt-12">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)] lg:items-start">
           <div className="lg:sticky lg:top-24">
-            <span className="eyebrow font-mono text-muted-foreground">Real-time meeting canvas</span>
-            <h1 className="statement mt-4" style={{ fontSize: "var(--step-5)" }}>
+            <h1 className="statement" style={{ fontSize: "var(--step-5)" }}>
               Cartoonist is<br />drawing while<br />you talk.
             </h1>
+
             <p className="mt-6 max-w-[46ch] text-muted-foreground" style={{ fontSize: "var(--step-2)", lineHeight: 1.6 }}>
               It listens to the room, marks the phrases that carry weight, and builds the
               structure underneath them — live, on a canvas everyone shares.
