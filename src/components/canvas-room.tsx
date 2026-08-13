@@ -1120,12 +1120,6 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
             <Pencil className="h-3.5 w-3.5" /><span className="eyebrow">Draw</span>
           </Button>
-          <Button size="sm" variant="outline" onClick={clearCanvas} className="h-8 gap-1.5 rounded-none border-border">
-            <Eraser className="h-3.5 w-3.5" /><span className="eyebrow">Clear</span>
-          </Button>
-          <Button size="sm" variant="outline" onClick={copyLink} className="h-8 gap-1.5 rounded-none border-border">
-            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}<span className="eyebrow">Share</span>
-          </Button>
           <Button size="sm" variant="outline" onClick={() => setChatOpen((v) => !v)} className={`h-8 gap-1.5 rounded-none border-border ${chatOpen ? "bg-foreground text-background" : ""}`}>
             <MessageSquare className="h-3.5 w-3.5" /><span className="eyebrow">Chat</span>
           </Button>
