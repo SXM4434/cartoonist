@@ -869,7 +869,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       drawInFlightRef.current = false;
       setThinking(false);
     }
-  }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, handQueue, threads, playMediatorLine]);
+  }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, handQueue, threads, playMediatorLine, ensureFrame]);
 
   // Self-reference so a completed pass can chain the next enrichment pass.
   const requestDrawRef = useRef<typeof requestDraw | null>(null);
