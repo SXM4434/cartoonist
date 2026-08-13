@@ -76,7 +76,7 @@ export function RoomPanel({
                 }`}
               >
                 <t.icon className="h-3.5 w-3.5 shrink-0" />
-                <span className="eyebrow truncate max-[1180px]:sr-only">{t.label}</span>
+                {on && <span className="eyebrow truncate">{t.label}</span>}
                 {!!t.count && <span className="eyebrow tabular-nums opacity-70">{t.count}</span>}
               </button>
             );
