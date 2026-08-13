@@ -193,6 +193,46 @@
 @utility press {
   transition: transform 140ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow 140ms cubic-bezier(0.32, 0.72, 0, 1);
 }
+
+/* ---- Rough -> resolved: the behavioural signature ---- */
+@layer base {
+  /* provisional construction: thin, tentative, tracing-layer */
+  .rough {
+    stroke-dasharray: 5 4;
+    opacity: 0.5;
+    transition: stroke-dasharray 520ms cubic-bezier(0.32, 0.72, 0, 1),
+      opacity 320ms cubic-bezier(0.32, 0.72, 0, 1),
+      stroke-width 320ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .resolved {
+    stroke-dasharray: 1000 0;
+    opacity: 1;
+  }
+  .trace-draw {
+    stroke-dasharray: var(--len, 600);
+    stroke-dashoffset: var(--len, 600);
+    animation: trace-draw 900ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  }
+  @keyframes trace-draw {
+    to { stroke-dashoffset: 0; }
+  }
+  .fade-up-in {
+    animation: fade-up-in 380ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+  @keyframes fade-up-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+  /* highlighter sweep over a listened-to phrase */
+  .marker {
+    background-image: linear-gradient(var(--color-accent), var(--color-accent));
+    background-repeat: no-repeat;
+    background-size: 0% 62%;
+    background-position: 0 78%;
+    transition: background-size 420ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .marker[data-on="true"] { background-size: 100% 62%; }
+}
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
