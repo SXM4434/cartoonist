@@ -58,9 +58,9 @@ export function CostMeter({ roomId }: { roomId: string }) {
       title={`${calls} AI call${calls === 1 ? "" : "s"} this session`}
     >
       <Coins className="h-3 w-3" />
-      <span className="eyebrow text-muted-foreground">Session</span>
+      <span className="eyebrow">Session</span>
       <span
-        className="font-medium tabular-nums text-foreground"
+        className="tabular-nums"
         style={{ fontSize: "var(--step-0)" }}
       >
         {display}
