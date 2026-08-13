@@ -103,13 +103,22 @@
     font-size: var(--step-2);
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
-    font-feature-settings: "ss01", "cv11";
   }
 
-  h1, h2, h3, h4, .font-serif {
-    font-family: var(--font-serif);
-    letter-spacing: -0.02em;
-    line-height: 1.05;
+  /* Anton is a display face: caps-driven, tight, never for body copy */
+  h1, h2, h3, .font-serif, .font-display {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    line-height: 0.95;
+    text-transform: uppercase;
+  }
+
+  h4, h5, h6 {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
   }
 
   /* Tabular figures for any numeric data */
