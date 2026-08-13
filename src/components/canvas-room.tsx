@@ -196,6 +196,40 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [retryTick, setRetryTick] = useState(0);
   const seededRef = useRef(false);
 
+  // v1 P2.3 — open a storyboard frame (idempotent per topic) and return its index.
+  const ensureFrame = useCallback((topic: string): number => {
+    const existing = framesRef.current;
+    const key = topicKey(topic);
+    if (existing.length > 0) {
+      const current = existing[existing.length - 1];
+      if (!key || topicKey(current.topic) === key) return current.index;
+    }
+    const index = existing.length;
+    const title = topic || `Topic ${index + 1}`;
+    const strip = frameTitlePrimitives(index, title, Date.now() - startedAtRef.current);
+    setShapes((current) => {
+      const ids = new Set(current.map((s) => s.id));
+      return [...current, ...strip.filter((s) => !ids.has(s.id))];
+    });
+    const frame: StoryFrame = { index, topic: title, at: Date.now(), x: 0, shapeIds: strip.map((s) => s.id) };
+    framesRef.current = [...existing, frame];
+    setFrames(framesRef.current);
+    activeFrameRef.current = index;
+    setActiveFrame(index);
+    return index;
+  }, []);
+
+  const jumpToFrame = useCallback((index: number) => {
+    const frame = framesRef.current[index];
+    if (!frame) return;
+    setActiveFrame(index);
+    const ids = frame.shapeIds.length ? frame.shapeIds : [];
+    if (ids.length && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids } }));
+    }
+  }, []);
+
+
   const selfParticipant = participants.find((p) => p.id === selfPid);
   const remoteCursors = useLiveCursors({
     roomId,
