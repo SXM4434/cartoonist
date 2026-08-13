@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Mic, Square, Check, RotateCcw } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Mic, Square, Check, RotateCcw } from "lucide-react";
 
 const COLORS = ["#E07A3E", "#3E7AE0", "#5BB07A", "#B05BA0", "#B0A05B", "#A0B05B"];
 const MAX_SECONDS = 30;
@@ -32,8 +32,9 @@ export function IntroModal({
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [personality, setPersonality] = useState("");
-  const [color, setColor] = useState(COLORS[0]);
+  const [color, setColor] = useState(() => COLORS[Math.floor(Math.random() * COLORS.length)]);
   const [submitting, setSubmitting] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   // Voice enrollment
   const [recording, setRecording] = useState(false);
@@ -48,8 +49,8 @@ export function IntroModal({
 
   useEffect(() => {
     if (!open) {
-      setName(""); setRole(""); setPersonality(""); setColor(COLORS[0]);
-      setSampleBlob(null); setSampleUrl(null); setRecording(false);
+      setName(""); setRole(""); setPersonality(""); setColor(COLORS[Math.floor(Math.random() * COLORS.length)]);
+      setSampleBlob(null); setSampleUrl(null); setRecording(false); setShowDetails(false);
       setElapsed(0); setTranscribedText("");
       if (timerRef.current) clearInterval(timerRef.current);
       try { recorderRef.current?.stop(); } catch { /* ignore */ }
