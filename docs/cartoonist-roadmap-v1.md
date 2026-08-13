@@ -104,6 +104,7 @@ Persona / MermaidNode / Chart deferred to P2.
 - **Renderer** (`gemini-2.5-pro`, `max_output_tokens: 8192`): given intent + full transcript + canvas summary + shape-state list, returns up to 30 primitives or native records. Robust JSON extraction (markdown strip + trailing-comma repair).
 
 ### 2.2 Full-transcript memory
+- **Status:** shipped 2026-08-13. `session_summaries` (per room: summary, topics, decisions, open_questions, entities, chars_covered) written server-side by `/api/session-summary` using `google/gemini-2.5-flash-lite`, folding the previous memory with the newest transcript slice. `useSessionMemory` refreshes every 60s only when ≥300 new chars landed; `sessionMemoryBlock` is sent to `cartoonist-draw` as `memoryBlock`, so the mediator has whole-session context without paying for the whole transcript. Entity graph beyond a named-entity list stays scoped to P3.3.
 - New `session_summaries` table: rolling summary updated every 60s by `gemini-2.5-flash-lite`. Stores `topics[]`, `decisions[]`, `open_questions[]`, `entity_graph` (people, products, features mentioned).
 - Renderer prompt receives: full summary + last 90s verbatim + the specific utterance being reacted to. Solves "doesn't accurately contextualize the whole conversation."
 
