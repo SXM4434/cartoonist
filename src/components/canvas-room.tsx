@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { ParticipantWithHumanLayer } from "@/lib/canvas-types";
 import type { FreehandStroke, SketchPrimitive } from "@/lib/sketch-types";
 import { bboxOf, placeBatchClear } from "@/lib/sketch-layout";
+import { frameTitlePrimitives, placeInFrame, frameIndexOfShape, topicKey, type StoryFrame } from "@/lib/storyboard";
 import { createProductionWireframe } from "@/lib/production-wireframe";
 
 import { EMPTY_HUMAN_LAYER, type HumanLayer } from "@/lib/human-layer";
@@ -167,6 +168,13 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const lastSpokenRef = useRef<string>("");
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const [threads, setThreads] = useState<CanvasThread[]>([]);
+  // v1 P2.3 — storyboard frames. Canvas grows left→right, one frame per topic.
+  const [frames, setFrames] = useState<StoryFrame[]>([]);
+  const framesRef = useRef<StoryFrame[]>([]);
+  framesRef.current = frames;
+  const [activeFrame, setActiveFrame] = useState(0);
+  const activeFrameRef = useRef(0);
+  activeFrameRef.current = activeFrame;
   // v2.P6 — brief peek toast when the mediator returns to an older thread.
   const [reopenPeek, setReopenPeek] = useState<{ relation: string | null; latest: string; oldLatest: string } | null>(null);
 
@@ -187,6 +195,40 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const retryTimerRef = useRef<number | null>(null);
   const [retryTick, setRetryTick] = useState(0);
   const seededRef = useRef(false);
+
+  // v1 P2.3 — open a storyboard frame (idempotent per topic) and return its index.
+  const ensureFrame = useCallback((topic: string): number => {
+    const existing = framesRef.current;
+    const key = topicKey(topic);
+    if (existing.length > 0) {
+      const current = existing[existing.length - 1];
+      if (!key || topicKey(current.topic) === key) return current.index;
+    }
+    const index = existing.length;
+    const title = topic || `Topic ${index + 1}`;
+    const strip = frameTitlePrimitives(index, title, Date.now() - startedAtRef.current);
+    setShapes((current) => {
+      const ids = new Set(current.map((s) => s.id));
+      return [...current, ...strip.filter((s) => !ids.has(s.id))];
+    });
+    const frame: StoryFrame = { index, topic: title, at: Date.now(), x: 0, shapeIds: strip.map((s) => s.id) };
+    framesRef.current = [...existing, frame];
+    setFrames(framesRef.current);
+    activeFrameRef.current = index;
+    setActiveFrame(index);
+    return index;
+  }, []);
+
+  const jumpToFrame = useCallback((index: number) => {
+    const frame = framesRef.current[index];
+    if (!frame) return;
+    setActiveFrame(index);
+    const ids = frame.shapeIds.length ? frame.shapeIds : [];
+    if (ids.length && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids } }));
+    }
+  }, []);
+
 
   const selfParticipant = participants.find((p) => p.id === selfPid);
   const remoteCursors = useLiveCursors({
@@ -674,11 +716,20 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       }
       const edits = Array.isArray(data.edits) ? (data.edits as Array<{ id: string; patch: Record<string, unknown> }>) : [];
       const removes = Array.isArray(data.removes) ? (data.removes as string[]) : [];
-      // Fresh drawings must never land on top of existing marks. Enrichment
-      // passes (enrichPass > 0) intentionally draw *inside* existing frames.
+      // v1 P2.3 — storyboard placement. Each topic owns a 1200px frame; a fresh
+      // batch is left-aligned in the active frame and stacked under whatever is
+      // already there. Enrichment passes (enrichPass > 0) draw in place.
+      let landedFrame = activeFrameRef.current;
       if (enrichPass === 0 && incoming.length > 0) {
-        incoming = placeBatchClear(shapesRef.current, incoming);
+        const topics = sessionMemoryRef.current.topics ?? [];
+        const topic = topics[topics.length - 1] ?? sessionCtx?.name ?? "Opening";
+        landedFrame = ensureFrame(topic);
+        const inFrame = shapesRef.current.filter((s) => frameIndexOfShape(s) === landedFrame);
+        const placed = placeInFrame(incoming, landedFrame, inFrame);
+        // Guard: never let a batch overlap what is already inside the frame.
+        incoming = placeBatchClear(inFrame, placed);
       }
+
       if (incoming.length === 0 && edits.length === 0 && removes.length === 0) return true;
 
       setShapes((current) => {
@@ -783,6 +834,18 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         }
         return Array.from(byId.values());
       });
+      // v1 P2.3 — file the new marks under the active frame and pan the camera
+      // there so the room follows the story instead of hunting for it.
+      if (incoming.length > 0) {
+        const ids = incoming.map((s) => s.id);
+        framesRef.current = framesRef.current.map((f) =>
+          f.index === landedFrame ? { ...f, shapeIds: [...f.shapeIds, ...ids] } : f,
+        );
+        setFrames(framesRef.current);
+        if (enrichPass === 0 && typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids } }));
+        }
+      }
       // v2.P6 — cross-session recall: if this utterance echoes a thread from an
       // earlier session, persist the edge and ghost-surface it in the room.
       try {
@@ -806,7 +869,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       drawInFlightRef.current = false;
       setThinking(false);
     }
-  }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, handQueue, threads, playMediatorLine]);
+  }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, handQueue, threads, playMediatorLine, ensureFrame]);
 
   // Self-reference so a completed pass can chain the next enrichment pass.
   const requestDrawRef = useRef<typeof requestDraw | null>(null);
@@ -1248,6 +1311,28 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           <ReactionsOverlay reactions={reactions} />
 
           <CanvasToolbar drawing={drawing} onToggleDraw={toggleDraw} />
+
+          {frames.length > 1 && replayShapes === null && (
+            <div className="absolute left-4 top-4 z-30 flex max-w-[60%] items-center gap-1 overflow-x-auto border border-border bg-background/90 px-2 py-1.5">
+              <span className="eyebrow mr-1 shrink-0 text-muted-foreground">frames</span>
+              {frames.map((f) => (
+                <button
+                  key={f.index}
+                  type="button"
+                  onClick={() => jumpToFrame(f.index)}
+                  title={f.topic}
+                  className={`shrink-0 border px-2 py-1 text-[12px] transition-colors ${
+                    f.index === activeFrame
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span className="tabular-nums">{f.index + 1}</span>
+                  <span className="ml-1.5 hidden max-w-[120px] truncate align-middle md:inline-block">{f.topic}</span>
+                </button>
+              ))}
+            </div>
+          )}
 
           {handQueue.length > 0 && (
             <div className="absolute bottom-24 right-4 z-30 max-w-[200px] border border-border bg-background/90 px-2.5 py-2">
