@@ -15,7 +15,7 @@ const RENDER: Array<{ id: Ink; label: string; hint: string }> = [
 export function StyleSwitch() {
   const rs = useRenderStyle();
   const cell = (active: boolean) =>
-    `h-8 px-2.5 eyebrow transition ${active ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`;
+    `h-8 px-2.5 eyebrow transition active:scale-[0.98] ${active ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`;
 
   return (
     <div className="flex flex-col gap-2">

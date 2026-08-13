@@ -1314,7 +1314,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                     const threshold = (i + 1) / micBarCount;
                     const active = speech.level > threshold * 0.8;
                     const h = active ? 4 + Math.min(12, speech.level * 16) : 3;
-                    return <span key={i} className="w-[3px] bg-foreground/80 transition-all" style={{ height: `${h}px`, opacity: active ? 1 : 0.25 }} />;
+                    return <span key={i} className="w-[3px] bg-foreground/80 transition-[height,opacity] duration-75" style={{ height: `${h}px`, opacity: active ? 1 : 0.25 }} />;
                   })}
                 </div>
                 <span className="truncate text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
@@ -1335,7 +1335,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                   void speech.start();
                 }}
                 title={speech.listening ? "Stop listening to the room" : "Let Cartoonist hear the room"}
-                className={`flex h-10 items-center gap-1.5 px-3 transition ${speech.listening ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+                className={`flex h-10 items-center gap-1.5 px-3 transition active:scale-[0.98] ${speech.listening ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
               >
                 {speech.listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                 <span className="eyebrow">{speech.listening ? "Stop" : "Hear room"}</span>
@@ -1359,13 +1359,13 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                 type="button"
                 onClick={handleToggleHand}
                 title={isRaised ? "Lower hand" : "Raise hand"}
-                className={`flex h-10 w-10 items-center justify-center transition ${isRaised ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+                className={`flex h-10 w-10 items-center justify-center transition active:scale-[0.98] ${isRaised ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
               >
                 <Hand className="h-4 w-4" />
               </button>
               <Popover>
                 <PopoverTrigger asChild>
-                  <button type="button" title="React" className="flex h-10 w-10 items-center justify-center text-muted-foreground transition hover:text-foreground">
+                  <button type="button" title="React" className="flex h-10 w-10 items-center justify-center text-muted-foreground transition hover:text-foreground active:scale-[0.98]">
                     <Smile className="h-4 w-4" />
                   </button>
                 </PopoverTrigger>
@@ -1376,7 +1376,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                       type="button"
                       onClick={() => emitReaction(e)}
                       aria-label={`React ${e}`}
-                      className="h-8 w-8 text-lg leading-none transition hover:scale-125"
+                      className="h-8 w-8 text-lg leading-none transition motion-safe:hover:scale-125"
                       style={{ fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif' }}
                     >
                       {e}
@@ -1397,7 +1397,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                   });
                 }}
                 title={mediatorMuted ? "Cartoonist voice is off" : "Cartoonist speaks back"}
-                className={`flex h-10 w-10 items-center justify-center transition ${mediatorMuted ? "text-muted-foreground hover:text-foreground" : "bg-foreground text-background"}`}
+                className={`flex h-10 w-10 items-center justify-center transition active:scale-[0.98] ${mediatorMuted ? "text-muted-foreground hover:text-foreground" : "bg-foreground text-background"}`}
               >
                 {mediatorMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
               </button>

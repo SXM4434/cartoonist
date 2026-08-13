@@ -15,7 +15,7 @@ export function CanvasToolbar({
   onToggleDraw: () => void;
 }) {
   const cell = (active: boolean) =>
-    `flex h-8 items-center gap-1.5 px-2.5 transition ${
+    `flex h-8 items-center gap-1.5 px-2.5 transition active:scale-[0.98] ${
       active ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
     }`;
 
