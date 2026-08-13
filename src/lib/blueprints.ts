@@ -102,8 +102,8 @@ const mobileApp: Builder = (ox, oy) => {
       if (i === activeTab) k.rect(`m${si}_tab_active_${i}`, x + 26 + i * 78, y + 650, 62, 26, "accent");
       k.text(`m${si}_tab_label_${i}`, x + 40 + i * 78, y + 656, label, 11, i === activeTab ? "ink" : "muted");
     });
-    k.rect(`m${si}_home_ind`, x + 130, y + 692, 80, 4, "muted");
-    k.text(`m${si}_caption`, x + 4, y + 716, `${si + 1} / 3 — ${screen.title}`, 11, "muted");
+    k.rect(`m${si}_home_ind`, x + 130, y + 686, 80, 4, "muted");
+    k.text(`m${si}_caption`, x + 4, y + 712, `${si + 1} / 3 — ${screen.title}`, 11, "muted");
   });
   return k.out;
 };
