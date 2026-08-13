@@ -134,7 +134,7 @@ function Onboarding() {
             {recording ? (
               <Button onClick={stopMic} variant="destructive" className="gap-2 rounded-none">
                 <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-60" />
+                  <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-current opacity-60" />
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-current" />
                 </span>
                 <Square className="h-3.5 w-3.5" /> Stop

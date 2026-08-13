@@ -150,11 +150,9 @@
 }
 .cartoonist-glow-ring[data-tone="old"] {
   border: 2px dashed color-mix(in oklch, var(--primary) 90%, transparent);
-  box-shadow: 0 0 0 4px color-mix(in oklch, var(--primary) 18%, transparent);
 }
 .cartoonist-glow-ring[data-tone="new"] {
   border: 2px solid var(--primary);
-  box-shadow: 0 0 0 4px color-mix(in oklch, var(--primary) 28%, transparent);
 }
 
 @keyframes cartoonistGlow {
@@ -195,7 +193,6 @@
   color: var(--primary);
   cursor: pointer;
   border-radius: 999px;
-  box-shadow: 0 1px 0 color-mix(in oklch, var(--primary) 30%, transparent);
   transition: transform 120ms ease, background 120ms ease;
 }
 .cartoonist-relation-chip:hover {
@@ -210,5 +207,5 @@
   padding: 10px 12px;
   border: 1px solid var(--border);
   background: var(--background);
-  box-shadow: 0 6px 20px color-mix(in oklch, var(--foreground) 12%, transparent);
 }
+

@@ -36,7 +36,7 @@ export function RoomPanel({
           type="button"
           onClick={() => onOpen(true)}
           title="Open panel"
-          className="mb-1 flex h-7 w-7 items-center justify-center border border-border text-muted-foreground transition hover:bg-foreground hover:text-background"
+          className="mb-1 flex h-7 w-7 items-center justify-center border border-border text-muted-foreground transition hover:bg-foreground hover:text-background active:scale-[0.98]"
         >
           <PanelRightOpen className="h-3.5 w-3.5" />
         </button>
@@ -46,7 +46,7 @@ export function RoomPanel({
             type="button"
             title={t.label}
             onClick={() => { onActive(t.id); onOpen(true); }}
-            className="relative flex h-7 w-7 items-center justify-center border border-transparent text-muted-foreground transition hover:border-border hover:text-foreground"
+            className="relative flex h-7 w-7 items-center justify-center border border-transparent text-muted-foreground transition hover:border-border hover:text-foreground active:scale-[0.98]"
           >
             <t.icon className="h-3.5 w-3.5" />
             {!!t.count && (
@@ -68,7 +68,7 @@ export function RoomPanel({
           type="button"
           onClick={() => onOpen(false)}
           title="Collapse panel"
-          className="flex h-7 w-7 items-center justify-center text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+          className="flex h-7 w-7 items-center justify-center text-muted-foreground transition hover:bg-secondary hover:text-foreground active:scale-[0.98]"
         >
           <PanelRightClose className="h-3.5 w-3.5" />
         </button>
@@ -82,7 +82,7 @@ export function RoomPanel({
               type="button"
               onClick={() => onActive(t.id)}
               aria-pressed={on}
-              className={`flex flex-1 items-center justify-center gap-1 whitespace-nowrap border-b border-r border-border px-2 py-1.5 transition ${
+              className={`flex flex-1 items-center justify-center gap-1 whitespace-nowrap border-b border-r border-border px-2 py-1.5 transition active:scale-[0.98] ${
                 on ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
               }`}
             >
