@@ -37,13 +37,9 @@ const mobileApp: Builder = (ox, oy) => {
     k.rect(`m${si}_frame`, x, y, 340, 700, "surface");
     // status bar
     k.text(`m${si}_time`, x + 22, y + 14, "9:41", 11);
-    k.icon(`m${si}_wifi`, "cloud", x + 268, y + 14, 12);
-    k.icon(`m${si}_batt`, "lightning", x + 296, y + 14, 12);
     k.line(`m${si}_status_rule`, x, y + 40, x + 340, y + 40);
     // nav header
-    k.icon(`m${si}_back`, si === 0 ? "search" : "cross", x + 20, y + 58, 16);
     k.text(`m${si}_title`, x + 128, y + 56, screen.title, 15);
-    k.icon(`m${si}_more`, "gear", x + 302, y + 58, 16);
     k.line(`m${si}_head_rule`, x, y + 88, x + 340, y + 88);
 
     if (screen.kind === "feed") {
@@ -58,10 +54,8 @@ const mobileApp: Builder = (ox, oy) => {
         k.text(`m${si}_card_t_${i}`, x + 78, ry + 18, row[0], 13);
         k.text(`m${si}_card_s_${i}`, x + 78, ry + 40, row[1], 11, "muted");
         k.text(`m${si}_card_b_${i}`, x + 258, ry + 18, row[2], 11, i === 0 ? "success" : "muted");
-        k.icon(`m${si}_card_i_${i}`, "chat", x + 262, ry + 46, 12);
       });
       k.ellipse(`m${si}_fab`, x + 258, y + 556, 54, 54, "accent");
-      k.icon(`m${si}_fab_icon`, "lightning", x + 277, y + 573, 16, "surface");
     }
 
     if (screen.kind === "detail") {
@@ -95,18 +89,18 @@ const mobileApp: Builder = (ox, oy) => {
       k.line(`m${si}_p_rule`, x + 20, y + 344, x + 320, y + 344);
       ["Voice sample", "Contribution modes", "Feedback style", "Notifications", "Privacy", "Sign out"].forEach((label, i) => {
         const ry = y + 368 + i * 46;
-        k.icon(`m${si}_p_icon_${i}`, (["chat", "users", "heart", "envelope", "lock", "cross"][i] ?? "doc") as IconKind, x + 24, ry, 14);
-        k.text(`m${si}_p_label_${i}`, x + 54, ry - 1, label, 13, i === 5 ? "danger" : "ink");
-        k.text(`m${si}_p_chev_${i}`, x + 302, ry - 1, "›", 13, "muted");
+        k.text(`m${si}_p_label_${i}`, x + 24, ry - 1, label, 13, i === 5 ? "danger" : "ink");
+        k.text(`m${si}_p_chev_${i}`, x + 300, ry - 1, "›", 13, "muted");
         k.line(`m${si}_p_row_rule_${i}`, x + 20, ry + 26, x + 320, ry + 26);
       });
     }
 
     // tab bar
     k.line(`m${si}_tab_rule`, x, y + 636, x + 340, y + 636);
-    ["house", "chart", "chat", "user"].forEach((kind, i) => {
-      k.icon(`m${si}_tab_${i}`, kind as IconKind, x + 40 + i * 78, y + 656, 16, i === si || (si === 2 && i === 3) ? "accent" : "muted");
-      k.text(`m${si}_tab_label_${i}`, x + 32 + i * 78, y + 678, ["Home", "Stats", "Rooms", "You"][i], 11, "muted");
+    ["Home", "Stats", "Rooms", "You"].forEach((label, i) => {
+      const activeTab = si === 0 ? 0 : si === 1 ? 2 : 3;
+      if (i === activeTab) k.rect(`m${si}_tab_active_${i}`, x + 26 + i * 78, y + 650, 62, 26, "accent");
+      k.text(`m${si}_tab_label_${i}`, x + 40 + i * 78, y + 656, label, 11, i === activeTab ? "ink" : "muted");
     });
     k.rect(`m${si}_home_ind`, x + 130, y + 692, 80, 4, "muted");
     k.text(`m${si}_caption`, x + 4, y + 716, `${si + 1} / 3 — ${screen.title}`, 11, "muted");
