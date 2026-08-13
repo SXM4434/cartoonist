@@ -1453,6 +1453,20 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               node: <ThreadList threads={threads} echoes={memory.echoes} />,
             },
             {
+              id: "memory",
+              label: "Memory",
+              icon: Brain,
+              node: (
+                <MemoryPanel
+                  roomId={roomId}
+                  buildRequest={() => ({
+                    transcript: speech.finals.length ? speech.finals.join("\n") : "",
+                    participants: participants.map((p) => ({ id: p.id, name: p.name, role: p.role ?? null })),
+                  })}
+                />
+              ),
+            },
+            {
               id: "artifacts",
               label: "Artifacts",
               icon: FileDown,
