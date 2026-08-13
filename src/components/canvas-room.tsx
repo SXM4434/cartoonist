@@ -1167,7 +1167,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           <Popover>
             <PopoverTrigger asChild>
               <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-none border-border" aria-label="More session tools">
-                <MoreHorizontal className="h-3.5 w-3.5" /><span className="eyebrow">More</span>
+                <MoreHorizontal className="h-3.5 w-3.5" /><span className="eyebrow max-[1150px]:sr-only">More</span>
               </Button>
             </PopoverTrigger>
             <PopoverContent
