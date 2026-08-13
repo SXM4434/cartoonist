@@ -13,6 +13,8 @@ export type RoomPanelTab = {
 /**
  * One right panel for every reference surface in the room.
  * It never dims or covers the canvas — opening Threads just switches the tab.
+ * The tab strip is explicit navigation for a major region, so labels stay
+ * visible; icons only take over once the panel is collapsed to the rail.
  */
 export function RoomPanel({
   tabs,
@@ -59,38 +61,37 @@ export function RoomPanel({
   const current = tabs.find((t) => t.id === active) ?? tabs[0];
 
   return (
-    <aside className="flex w-[300px] shrink-0 flex-col border-l border-border bg-background">
-      <div className="flex items-stretch border-b border-border">
-        <div className="flex min-w-0 flex-1 items-stretch">
-          {tabs.map((t) => {
-            const on = t.id === current.id;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => onActive(t.id)}
-                aria-pressed={on}
-                title={t.label}
-                className={`flex flex-1 items-center justify-center gap-1 border-r border-border px-1 py-2 transition ${
-                  on ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <t.icon className="h-3.5 w-3.5 shrink-0" />
-                {on && <span className="eyebrow truncate">{t.label}</span>}
-                {!!t.count && <span className="eyebrow tabular-nums opacity-70">{t.count}</span>}
-              </button>
-            );
-          })}
-        </div>
+    <aside className="flex w-[320px] shrink-0 flex-col border-l border-border bg-background">
+      <div className="flex items-center justify-between border-b border-border pl-2.5 pr-1">
+        <span className="eyebrow py-2 text-muted-foreground">Session panel</span>
         <button
           type="button"
           onClick={() => onOpen(false)}
           title="Collapse panel"
-          className="flex w-8 items-center justify-center text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+          className="flex h-7 w-7 items-center justify-center text-muted-foreground transition hover:bg-secondary hover:text-foreground"
         >
           <PanelRightClose className="h-3.5 w-3.5" />
         </button>
       </div>
+      <nav className="flex flex-wrap items-stretch border-b border-border" aria-label="Panel sections">
+        {tabs.map((t) => {
+          const on = t.id === current.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => onActive(t.id)}
+              aria-pressed={on}
+              className={`flex flex-1 items-center justify-center gap-1 whitespace-nowrap border-b border-r border-border px-2 py-1.5 transition ${
+                on ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span className="eyebrow">{t.label}</span>
+              {!!t.count && <span className="eyebrow tabular-nums opacity-70">{t.count}</span>}
+            </button>
+          );
+        })}
+      </nav>
       <div className="min-h-0 flex-1 overflow-y-auto">{current.node}</div>
     </aside>
   );
