@@ -1,53 +1,45 @@
-# Design-engineering skills → full app redesign
+# Redesign the app on real design-engineering skills
 
-I looked these people up properly and fetched the actual files. Here's what's real.
+I went and found the actual published skills. Here's what's real, ranked by adoption, all files verified fetchable.
 
-## What actually exists
+## The skills
 
-**Emil Kowalski — real.** `github.com/emilkowalski/skills` (~28k stars), by him, from his Vercel/Linear years. Three skills, all downloaded and read:
-- `emil-design-eng` (27KB) — animation decision framework, spring physics, transform mastery, clip-path animation, gesture/drag, performance rules, "the Sonner principles", stagger, review checklist.
-- `animate` (11KB) — a build-order procedure: should this animate at all → what's the purpose → cheapest tool that works → which properties → easing/duration or spring → interruption and exit.
-- `improve-animations` (8KB) — read-only audit that surveys existing motion code and returns a prioritized fix list.
+| Skill | Author | Adoption | What it gives us |
+|---|---|---|---|
+| `frontend-design` | Anthropic | 768k installs, #1 design skill | Commit to a visual direction before writing UI. Names the three looks AI defaults to, so we don't land there. |
+| `web-design-guidelines` | Vercel Labs | 476k installs | Audits UI code against Vercel's Web Interface Guidelines and reports `file:line` findings. Fetches fresh rules each run. |
+| `impeccable` | Paul Bakaus (ex-Google/Amazon DX) | Top design pack on skills.sh | The big one. A verb system: `critique`, `audit`, `polish`, `bolder`, `quieter`, `distill`, `animate`, `typeset`, `layout`, `delight`, `clarify`, `harden`. Plus surface "modes" — Persuade / Operate / Read / Experience — which map perfectly onto our landing vs canvas room. |
+| `emil-design-eng` | Emil Kowalski | 183k installs, 28k stars | His Vercel/Linear motion doctrine: easing decisions, spring physics, transform mastery, clip-path, gesture/drag, the Sonner principles, perf rules. |
+| `animate` | Emil Kowalski | same repo | Build-order procedure for any new animation: should it animate → purpose → cheapest tool → which properties → easing or spring → interruption and exit. |
+| `improve-animations` | Emil Kowalski | same repo | Read-only audit of existing motion code, returns a prioritized fix list. |
+| `better-interface` + `better-ui`, `better-typography`, `better-colors`, `better-layout`, `better-accessibility` | Jakub Krehel | 3.4k stars | Domain-by-domain interface review. Typography alone is 7 files (wrapping, punctuation, variable fonts, optical sizing). |
+| `high-end-visual-design` | leonxlnx | 209k installs | Editorial/luxury aesthetic vocabulary. Optional — mostly brand-kit generation, we'd take the editorial mode only. |
 
-**Jakub Krehel — real.** `github.com/jakubkrehel/skills` (~3.4k stars). An orchestrator (`better-interface`) plus multi-file domain skills: `better-ui` (surfaces, enter/exit, icon transitions, performance), `better-typography` (7 files incl. wrapping/punctuation, variable fonts), `better-colors`, `better-layout`, `better-accessibility`, `better-writing`, `interface-review`.
+**Josh Puckett has no published skill.** Neither do Rauno Freiberg, Paco Coursey, Jhey Tompkins, Amelia Wattenberger, Nate Baldwin or Tobias Ahlin — blogs, talks and courses only. Repos claiming to be theirs are unrelated authors name-dropping.
 
-**Josh Puckett — does not exist.** He has design tools and components on GitHub, no agent skill. Same for Rauno Freiberg, Paco Coursey, Jhey Tompkins, Amelia Wattenberger, Nate Baldwin, Tobias Ahlin — blogs, talks and courses only. Anything claiming to be "their" skill is an unrelated author name-dropping them.
+## Plus one of ours
 
-## The popular ones not by these guys (the gap you asked about)
+**`tactile-editorial`** — the only skill I write from scratch, because it's your design language and nobody else has published it:
 
-- **`anthropics/frontend-design`** — Anthropic's own. "The hero is a thesis", structure-as-information, spend your boldness in one place. Notably it names warm-cream + serif + terracotta as a current AI default to avoid — directly relevant to our palette, see below.
-- **`Nutlope/hallmark`** — the anti-AI-slop skill. Its best mechanic is a pre-emit self-critique: score the output 1–5 on Philosophy / Hierarchy / Execution / Specificity / Restraint / Variety and revise anything under 3 before shipping.
-- **`motion-dev-animations`** — spring physics reference, 120fps, scroll-linked motion.
-- Also surveyed and skipped as lower value for us: `taste-skill`, `ui-ux-pro-max-skill`, `superdesign-skill`, various awesome-lists.
+Warm paper, off-black ink, one warm orange. The locked ladder 11/13/15/22/32/52/84. Fraunces display, Inter body. Elevation via borders and lightness steps, never shadows. Then the physicality layer: paper grain and thickness, hand-drawn marks, hollow faux-3D type, isometric objects, morphing cursors, motion that expresses an object's material rather than decorating it. One or two expressive elements per surface, everything else quiet. Carries the kill list: no SaaS cards, no gradients, no glossy 3D, no glassmorphism, no sterile minimalism.
 
-## Phase 1 — install the skill layer
+It also has to answer Anthropic's warning head-on: `frontend-design` names warm-cream + serif + terracotta as a current AI default. Ours earns it through imperfection, grain and hand-drawn marks — if a screen would read as that default with the texture stripped out, it's wrong and gets rebuilt.
 
-1. `emil-design-eng` — vendored verbatim, attributed.
-2. `animate` — vendored. Runs on every new animation.
-3. `improve-animations` — vendored. Audit pass over the canvas room.
-4. `better-interface` + `better-ui`, `better-typography`, `better-colors`, `better-layout`, `better-accessibility` — vendored from Jakub's repo with their reference files.
-5. `frontend-design` — vendored from Anthropic.
-6. `slop-gate` — small original skill lifting hallmark's pre-emit critique scoring, so every screen gets scored before I call it done.
-7. **`tactile-editorial`** — the only fully original one, your design language: warm paper + off-black ink + one warm orange, the 11/13/15/22/32/52/84 ladder, Fraunces/Inter, borders-and-lightness elevation never shadows, hand-drawn marks, hollow faux-3D type, isometric objects, paper grain and thickness, morphing cursors, motion that expresses material rather than decorates. Carries your kill list. It also explicitly answers Anthropic's cream-serif-terracotta warning: ours earns it through physicality, imperfection and hand-drawn marks — if a screen would read as the default without those, it's wrong.
+## Redesign rollout
 
-Vendored files keep their upstream URL and license in frontmatter so they can be refreshed.
+Each pass ends with a Playwright screenshot, an `impeccable critique`, and a `web-design-guidelines` audit.
 
-## Phase 2 — redesign the app through them
+1. **Foundations** — `src/styles.css`: paper grain, press depth, ink tokens, locked ladder, motion duration/spring tokens taken from `animate`. Three new primitives: `PaperSurface`, `DimensionalHeading`, `Marks` (hand-drawn SVG set).
+2. **Landing `/`** — Persuade mode. Asymmetric editorial hero, hollow 3D wordmark as the single expressive element.
+3. **Create + join session** — card-stack physicality; paper lifts and presses instead of fading.
+4. **Sessions list** — index cards with thickness and a degree of rotation, not a grid of SaaS cards.
+5. **Canvas room chrome** — Operate mode, the biggest job. Header, TeamDesk, ThreadRail, CheckIn, cost meter, style switch: hairline paper UI, morphing cursor, breathing mic indicator as the room's one expressive element.
+6. **Motion audit** — `improve-animations` across the whole app. Every transition transform/opacity only, interruptible, reduced-motion respected.
 
-Order, one screen per pass, each ending in a Playwright screenshot and a slop-gate score:
-
-1. **Foundations** — `src/styles.css`: paper grain, press depth, ink tokens, the locked ladder, motion duration/spring tokens from `animate`. Plus three primitives: `PaperSurface`, `DimensionalHeading`, `Marks` (hand-drawn SVG library).
-2. **Landing `/`** — asymmetric editorial hero, hollow 3D wordmark as the single expressive element, everything else quiet.
-3. **Session create + join** — card-stack physicality, paper that lifts and presses rather than fading.
-4. **Sessions list** — index cards with thickness and slight rotation, not a SaaS grid.
-5. **Canvas room chrome** — the biggest job. Header, TeamDesk, ThreadRail, CheckIn, cost meter, style switch: hairline paper UI, morphing cursor, breathing mic indicator as the room's one expressive element.
-6. **Motion audit** — run `improve-animations` over the whole app, fix everything it flags, verify no non-transform animations and that every transition is interruptible.
-
-Interaction floor across all of it, from Jakub's skills: real hover/active/focus/disabled states, visible keyboard focus, hit areas ≥44px, `prefers-reduced-motion` respected, no layout-shifting animation.
+Interaction floor throughout, from Jakub's pack: real hover/active/focus/disabled states, visible keyboard focus, hit areas ≥44px, no layout-shifting animation.
 
 ## Technical notes
 
-- Skills go to `.agents/skills/<name>/` with `SKILL.md` plus `references/`, then get activated.
-- Vendored content is fetched from raw.githubusercontent.com at install time, not retyped, so it matches upstream exactly.
-- Descriptions are tuned for retrieval: motion work pulls Emil's, interface polish pulls Jakub's, visual language pulls `tactile-editorial`.
-- No behavioural/business-logic changes in Phase 2 — presentation layer only.
+- Skills land in `.agents/skills/<name>/` with `SKILL.md` and `references/`, then get activated. Vendored ones are fetched from raw.githubusercontent.com so they match upstream byte-for-byte, with source URL and license kept in frontmatter.
+- Descriptions tuned for retrieval: motion pulls Emil's, interface polish pulls Jakub's and `impeccable`, visual language pulls `tactile-editorial`.
+- Phase 2 is presentation layer only — no changes to session logic, AI routes, or the database.
