@@ -834,6 +834,18 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         }
         return Array.from(byId.values());
       });
+      // v1 P2.3 — file the new marks under the active frame and pan the camera
+      // there so the room follows the story instead of hunting for it.
+      if (incoming.length > 0) {
+        const ids = incoming.map((s) => s.id);
+        framesRef.current = framesRef.current.map((f) =>
+          f.index === landedFrame ? { ...f, shapeIds: [...f.shapeIds, ...ids] } : f,
+        );
+        setFrames(framesRef.current);
+        if (enrichPass === 0 && typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids } }));
+        }
+      }
       // v2.P6 — cross-session recall: if this utterance echoes a thread from an
       // earlier session, persist the edge and ghost-surface it in the room.
       try {
