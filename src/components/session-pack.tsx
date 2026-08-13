@@ -110,7 +110,7 @@ export function SessionPack({ build }: Props) {
     <div className="border border-border bg-card p-5">
       <div className="mb-3 flex items-center justify-between border-b border-border/60 pb-3">
         <div>
-          <h3 className="font-serif tracking-tight" style={{ fontSize: "var(--step-2)" }}>
+          <h3 className="font-display tracking-tight" style={{ fontSize: "var(--step-2)" }}>
             Session pack
           </h3>
           <p className="text-xs text-muted-foreground">

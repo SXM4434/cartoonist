@@ -68,7 +68,7 @@ export function SessionRecap({ roomId, buildRequest }: Props) {
       </SheetTrigger>
       <SheetContent className="w-[90vw] overflow-y-auto sm:max-w-2xl" data-testid="recap-sheet">
         <SheetHeader>
-          <SheetTitle className="font-serif" style={{ fontSize: "var(--step-3)" }}>Session recap</SheetTitle>
+          <SheetTitle className="font-display" style={{ fontSize: "var(--step-3)" }}>Session recap</SheetTitle>
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
@@ -83,7 +83,7 @@ export function SessionRecap({ roomId, buildRequest }: Props) {
               {recap.summary && (
                 <section>
                   <div className="eyebrow mb-2 text-muted-foreground">Summary</div>
-                  <p className="font-serif italic text-foreground" style={{ fontSize: "var(--step-2)", lineHeight: 1.4 }}>
+                  <p className="font-display text-foreground" style={{ fontSize: "var(--step-2)", lineHeight: 1.4 }}>
                     {recap.summary}
                   </p>
                 </section>

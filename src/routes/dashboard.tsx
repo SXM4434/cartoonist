@@ -218,7 +218,7 @@ function Dashboard() {
                       {s.goalFromDb ?? s.goal}
                     </p>
                   )}
-                  <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono tabular-nums text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
+                  <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 tabular-nums text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
                     <span>{s.stats.participants} people</span>
                     <span aria-hidden>·</span>
                     <span>{s.stats.shapes} marks</span>

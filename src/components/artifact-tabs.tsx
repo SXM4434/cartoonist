@@ -53,7 +53,7 @@ function Empty({ loading, label }: { loading: boolean; label: string }) {
 }
 
 const proseClass =
-  "prose prose-sm max-w-none prose-headings:font-serif prose-headings:tracking-tight prose-h2:mt-6 prose-h2:mb-2 prose-p:my-2 prose-li:my-0.5 prose-strong:text-foreground prose-a:text-primary";
+  "prose prose-sm max-w-none prose-headings:font-display prose-headings:tracking-tight prose-h2:mt-6 prose-h2:mb-2 prose-p:my-2 prose-li:my-0.5 prose-strong:text-foreground prose-a:text-primary";
 
 export function ArtifactTabs({
   artifacts,
@@ -167,7 +167,7 @@ export function ArtifactTabs({
 function Header({ title, copy }: { title: string; copy?: string }) {
   return (
     <div className="mb-4 flex items-center justify-between border-b border-border/60 pb-3">
-      <h3 className="font-serif text-lg font-semibold tracking-tight">{title}</h3>
+      <h3 className="font-display text-lg font-semibold tracking-tight">{title}</h3>
       {copy && <CopyBtn text={copy} />}
     </div>
   );

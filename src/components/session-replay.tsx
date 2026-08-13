@@ -273,7 +273,7 @@ export function SessionReplay({
                 {current.op} · {current.source}
                 {current.modality ? ` · ${current.modality}` : ""}
               </span>
-              <p className={`font-serif text-foreground ${embedded ? "" : "truncate"}`} style={{ fontSize: "var(--step-1)" }}>
+              <p className={`font-display text-foreground ${embedded ? "" : "truncate"}`} style={{ fontSize: "var(--step-1)" }}>
                 {current.latest || "(no transcript for this step)"}
               </p>
             </div>

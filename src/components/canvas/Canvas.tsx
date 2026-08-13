@@ -687,7 +687,7 @@ export function Canvas({
           <div className="mb-1 text-[10px] uppercase tracking-wider" style={{ color: "var(--primary)" }}>
             ↗ {openRelation.relation} — linked thread
           </div>
-          <div className="font-serif text-foreground" style={{ fontSize: "var(--step-0)", lineHeight: 1.4 }}>
+          <div className="font-display text-foreground" style={{ fontSize: "var(--step-0)", lineHeight: 1.4 }}>
             {openRelation.peer || "(no transcript)"}
           </div>
           <div className="mt-2 flex justify-end gap-2">
