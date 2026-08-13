@@ -25,6 +25,7 @@ import { getRenderStyle } from "@/lib/render-style";
 import { CanvasProvider } from "./canvas/canvas-context";
 import { ChatPanel } from "./chat-panel";
 import { CostMeter } from "./cost-meter";
+import { getCostCap } from "@/lib/cost-cap";
 import { CheckIn } from "./team-desk/CheckIn";
 import { TeamDesk } from "./team-desk/TeamDesk";
 import { ThreadList, type CanvasThread } from "./team-desk/ThreadRail";
@@ -648,7 +649,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         method: "POST",
         signal: controller.signal,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId, transcript: fullContext, latest: cleanLatest, existing: summarizeCanvas(), occupied: bboxOf(shapesRef.current), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads, handsUp, enrichPass, maxFidelity, fidelity: getRenderStyle().fidelity, ink: getRenderStyle().ink }),
+        body: JSON.stringify({ roomId, transcript: fullContext, latest: cleanLatest, existing: summarizeCanvas(), occupied: bboxOf(shapesRef.current), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads, handsUp, enrichPass, maxFidelity, fidelity: getRenderStyle().fidelity, ink: getRenderStyle().ink, costCapUsd: getCostCap(roomId) }),
       });
       window.clearTimeout(timeout);
       const data = await res.json().catch(() => ({}));

@@ -381,11 +381,31 @@ ${latest || transcript}`;
         // not by holding the first visible frame behind a slow model. 2.5
         // Flash produces the bounded structure quickly; Gemini 3 handles the
         // geometry-aware detail layers once users already have a screen.
-        const model = uiWireframeIntent
+        const preferred = uiWireframeIntent
           ? enrichPass > 0 ? "google/gemini-3-flash-preview" : "google/gemini-2.5-flash"
           : reviseIntent || hasUnresolved
             ? "google/gemini-2.5-pro"
             : "google/gemini-2.5-flash";
+        // v1 P1.9 — soft cost cap. When the session spend has already crossed
+        // the user's cap, degrade every route to the cheapest model instead of
+        // stopping the room. The client HUD shows "saving".
+        const capUsd = Number((body as { costCapUsd?: unknown }).costCapUsd ?? 0);
+        let savingMode = false;
+        if (Number.isFinite(capUsd) && capUsd > 0 && typeof body.roomId === "string") {
+          try {
+            const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+            const { data: spent } = await supabaseAdmin
+              .from("ai_calls")
+              .select("cost_usd")
+              .eq("room_id", body.roomId);
+            const sum = (spent ?? []).reduce((t, r) => t + Number(r.cost_usd ?? 0), 0);
+            savingMode = sum >= capUsd;
+          } catch (err) {
+            console.warn("[cartoonist-draw] cost cap check failed", err);
+          }
+        }
+        const model = savingMode ? "google/gemini-2.5-flash" : preferred;
+
         // Pricing per 1M tokens (USD)
         const pricing: Record<string, { in: number; out: number }> = {
           "google/gemini-2.5-pro": { in: 1.25, out: 5.0 },

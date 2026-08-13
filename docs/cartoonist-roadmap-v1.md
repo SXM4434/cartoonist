@@ -77,7 +77,7 @@ Persona / MermaidNode / Chart deferred to P2.
 - New `ai_calls` table: `{room_id, stage, model, input_tokens, output_tokens, cost_usd, created_at}`. Every cartoonist call records usage.
 - HUD subscribes via Realtime, shows running `$0.34` for the session.
 - Settings drawer: "Soft cost cap" input (default off). When session sum exceeds cap, AI requests switch from `gemini-2.5-pro` → `gemini-2.5-flash` automatically with a "saving mode" indicator.
-- **Status:** partial shipped 2026-07-13. `ai_calls` table + realtime + public-read RLS live. `cartoonist-draw` logs `{input_tokens, output_tokens, cost_usd}` per call (Gemini 2.5 Pro: in $1.25/M, out $5/M). `CostMeter` HUD pill mounted bottom-right of canvas, sums cost live via Realtime INSERT. Soft-cap toggle + model degrade to `gemini-2.5-flash` still to ship.
+- **Status:** partial shipped 2026-07-13. `ai_calls` table + realtime + public-read RLS live. `cartoonist-draw` logs `{input_tokens, output_tokens, cost_usd}` per call (Gemini 2.5 Pro: in $1.25/M, out $5/M). `CostMeter` HUD pill mounted bottom-right of canvas, sums cost live via Realtime INSERT. Completed 2026-08-13: cost pill is now a popover with a soft cap (`src/lib/cost-cap.ts`, per-room localStorage, off by default). Client sends `costCapUsd` with every draw; server sums `ai_calls` for the room and forces `gemini-2.5-flash` once spend >= cap. HUD flips to a "Saving" state at the cap.
 
 ### 1.10 Legacy room migration
 - On first load of a pre-tldraw room: detect by absence of `rooms.meta.tldraw_schema_version`.
