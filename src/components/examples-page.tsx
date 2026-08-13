@@ -16,13 +16,24 @@ function Stage({ blueprintId }: { blueprintId: string }) {
     if (!editor) return;
     const t = setTimeout(() => {
       try {
-        editor.zoomToFit({ animation: { duration: 220 } });
+        const bounds = editor.getCurrentPageBounds();
+        const vp = editor.getViewportScreenBounds();
+        if (!bounds || !vp) return editor.zoomToFit({ animation: { duration: 220 } });
+        // Fit the artifact to the sheet, capped so a small blueprint never
+        // balloons, then optically centre it in whatever space is left.
+        const pad = 48;
+        const zoom = Math.min(1.4, Math.max(0.1, (vp.w - pad * 2) / bounds.w), (vp.h - pad * 2) / bounds.h);
+        const x = -bounds.x + (vp.w / zoom - bounds.w) / 2;
+        const y = -bounds.y + (vp.h / zoom - bounds.h) / 2;
+        editor.setCamera({ x, y, z: zoom }, { animation: { duration: 220 } });
+
       } catch {
         /* editor not ready */
       }
     }, 160);
     return () => clearTimeout(t);
   }, [editor, blueprintId, rs.fidelity, rs.ink]);
+
 
   return <Canvas shapes={shapes} drawingEnabled={false} />;
 }
