@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { COLORS, type Profile, clearProfile, loadProfile, pickColor, saveProfile } from "@/lib/profile";
+import { Glyph } from "@/components/design/glyph";
 
 export const Route = createFileRoute("/onboarding")({
   ssr: false,
