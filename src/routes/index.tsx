@@ -365,7 +365,7 @@ function MarginNotes() {
     <div className="relative mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)_minmax(0,1fr)] lg:items-stretch">
       {/* tethers, desktop only — the artifact stays readable on its own */}
       <svg
-        className="pointer-events-none absolute inset-0 hidden h-full w-full lg:block"
+        className="pointer-events-none absolute inset-0 z-10 hidden h-full w-full lg:block"
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
         aria-hidden
