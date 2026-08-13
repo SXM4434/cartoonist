@@ -129,3 +129,51 @@
     border-top: 1px solid var(--color-border);
   }
 }
+
+@layer base {
+  /* ---- Tactile paper: subtle fibre grain, never a gradient fake-depth ---- */
+  .paper-surface {
+    position: relative;
+    background-color: var(--color-card);
+    isolation: isolate;
+  }
+  .paper-surface::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.5;
+    mix-blend-mode: multiply;
+    background-image:
+      radial-gradient(circle at 20% 30%, color-mix(in oklab, var(--color-foreground) 4%, transparent) 0 1px, transparent 1px),
+      radial-gradient(circle at 70% 65%, color-mix(in oklab, var(--color-foreground) 3%, transparent) 0 1px, transparent 1px);
+    background-size: 7px 7px, 11px 11px;
+  }
+
+  /* ---- Hollow faux-3D display type ---- */
+  .dimensional-heading {
+    position: relative;
+    color: var(--color-background);
+    -webkit-text-stroke: 2px var(--color-foreground);
+    text-shadow:
+      3px 3px 0 var(--color-foreground),
+      6px 6px 0 color-mix(in oklab, var(--color-primary) 55%, transparent);
+  }
+
+  /* ---- Ink rule that looks drawn, not printed ---- */
+  .ink-rule {
+    height: 2px;
+    border: 0;
+    background: var(--color-foreground);
+    clip-path: polygon(0 30%, 4% 0, 20% 60%, 46% 10%, 74% 70%, 100% 20%, 100% 100%, 0 100%);
+    opacity: 0.85;
+  }
+}
+
+@utility press {
+  transition: transform 140ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow 140ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
