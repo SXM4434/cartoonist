@@ -189,17 +189,19 @@ function Onboarding() {
 export function CartoonistHeader() {
   const navigate = useNavigate();
   return (
-    <div className="mx-auto mb-6 flex max-w-5xl items-center justify-between rounded-2xl border-2 border-foreground bg-card px-5 py-3">
-      <button onClick={() => navigate({ to: "/" })} className="flex items-center gap-2.5">
-        <div className="text-3xl">🤖</div>
-        <span className="font-serif font-semibold" style={{ fontSize: "var(--step-3)" }}>Cartoonist</span>
-      </button>
-      <div className="flex gap-2">
-        <Button variant="ghost" onClick={() => navigate({ to: "/dashboard" })} className="rounded-full">Dashboard</Button>
-        <Button variant="outline" onClick={() => { clearProfile(); navigate({ to: "/" }); }} className="rounded-full border-2 border-foreground">
-          Sign out
-        </Button>
+    <header className="sticky top-0 z-30 border-b border-foreground bg-background">
+      <div className="mx-auto flex max-w-[1240px] items-center justify-between gap-4 px-6 py-2.5">
+        <button onClick={() => navigate({ to: "/" })} className="press flex items-center gap-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+          <Glyph className="h-5 w-5 text-primary" />
+          <span className="font-display font-bold tracking-tight" style={{ fontSize: "var(--step-3)" }}>Cartoonist</span>
+        </button>
+        <nav className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/dashboard" })} className="rounded-none">Studio</Button>
+          <Button variant="outline" size="sm" onClick={() => { clearProfile(); navigate({ to: "/" }); }} className="rounded-none">
+            Sign out
+          </Button>
+        </nav>
       </div>
-    </div>
+    </header>
   );
 }
