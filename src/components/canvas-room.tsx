@@ -1119,7 +1119,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           <StyleSwitch />
           <Button size="sm" variant="outline" onClick={toggleDraw} className={`h-8 gap-1.5 rounded-none border-border ${drawing ? "bg-foreground text-background" : ""}`}>
 
-            <Pencil className="h-3.5 w-3.5" /><span className="eyebrow">Draw</span>
+            <Pencil className="h-3.5 w-3.5" /><span className="eyebrow max-[1150px]:sr-only">Draw</span>
           </Button>
           <Button size="sm" variant="outline" onClick={() => setChatOpen((v) => !v)} className={`h-8 gap-1.5 rounded-none border-border ${chatOpen ? "bg-foreground text-background" : ""}`}>
             <MessageSquare className="h-3.5 w-3.5" /><span className="eyebrow">Chat</span>
