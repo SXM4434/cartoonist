@@ -14,7 +14,7 @@ export function TranscriptPanel({
   return (
     <div className="rounded-xl border bg-card p-6">
       <div className="mb-4 flex items-center justify-between border-b border-border/60 pb-3">
-        <h3 className="font-serif text-lg font-semibold tracking-tight">Transcript</h3>
+        <h3 className="font-display text-lg font-semibold tracking-tight">Transcript</h3>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           {isLive ? (
             <>

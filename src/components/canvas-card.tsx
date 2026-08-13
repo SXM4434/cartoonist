@@ -76,7 +76,7 @@ export function CanvasCard({
       className={cn(
         "w-56 cursor-grab select-none rounded border-2 p-3 transition-all active:cursor-grabbing",
         CARD_STYLES[card.type] ?? CARD_STYLES.sticky,
-        (glow || highlight) && "ring-4 ring-primary/60 ring-offset-2 ring-offset-background",
+        (glow || highlight) && "border-primary",
       )}
     >
       <div className="eyebrow mb-1 flex items-center justify-between opacity-70">

@@ -179,7 +179,7 @@ export function IntroModal({
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-serif text-2xl">
+          <DialogTitle className="font-display text-2xl">
             {isAdd ? "Add someone on this device" : "Introduce yourself"}
           </DialogTitle>
         </DialogHeader>

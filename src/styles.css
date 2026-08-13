@@ -10,7 +10,7 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
-  --font-serif: "Archivo Narrow", "Archivo", ui-sans-serif, sans-serif;
+  --font-display: "Archivo Narrow", "Archivo", ui-sans-serif, sans-serif;
   --font-display: "Archivo Narrow", "Archivo", ui-sans-serif, sans-serif;
   --font-statement: "Archivo Black", "Archivo", ui-sans-serif, sans-serif;
   --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
@@ -114,7 +114,7 @@
   }
 
   /* Condensed grotesk for display; sentence case by default, caps only when asked */
-  h1, h2, h3, .font-serif, .font-display {
+  h1, h2, h3, .font-display, .font-display {
     font-family: var(--font-display);
     font-weight: 700;
     letter-spacing: -0.015em;
