@@ -856,12 +856,32 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     window.dispatchEvent(new CustomEvent("cartoonist:relations", { detail: { items } }));
   }, [threads]);
 
+  // While someone is recording an intro / check-in on this device, the room
+  // must let go of the mic — otherwise two recorders fight over one input and
+  // the personal sample comes back empty.
+  const captureBlocked = introOpen || checkInOpen;
+  const resumeListeningRef = useRef(false);
+  useEffect(() => {
+    if (captureBlocked) {
+      if (speech.listening) {
+        resumeListeningRef.current = true;
+        speech.stop();
+      }
+      return;
+    }
+    if (resumeListeningRef.current) {
+      resumeListeningRef.current = false;
+      void speech.start();
+    }
+  }, [captureBlocked, speech]);
+
   // Live diarization: rolling 8s chunks → ElevenLabs Scribe diarize → speaker_map
   const diarization = useLiveDiarization({
     roomId,
-    enabled: inputMode === "voice" && speech.listening,
+    enabled: inputMode === "voice" && speech.listening && !captureBlocked,
     startedAtMs: startedAtRef.current,
   });
+
 
   // Chat → AI handler (transcript persistence happens inside ChatPanel)
   const handleChatMessage = useCallback((text: string) => {
