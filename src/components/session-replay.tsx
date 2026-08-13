@@ -24,11 +24,14 @@ const SPEEDS = [1, 2, 4] as const;
 export function SessionReplay({
   roomId,
   onFrame,
+  embedded = false,
 }: {
   roomId: string;
   onFrame: (shapes: SketchPrimitive[] | null) => void;
+  embedded?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(embedded);
+
   const [loading, setLoading] = useState(false);
   const [frames, setFrames] = useState<Frame[]>([]);
   const [idx, setIdx] = useState(0);
@@ -98,6 +101,15 @@ export function SessionReplay({
     }
   }, [roomId]);
 
+  // In the right panel the tab itself is the trigger: load on mount, and hand
+  // the live canvas back when the tab unmounts.
+  useEffect(() => {
+    if (!embedded) return;
+    void load();
+    return () => { onFrameRef.current(null); };
+  }, [embedded, load]);
+
+
   // Playback tick. Compressed time: one step per beat, not wall-clock gaps.
   useEffect(() => {
     if (!open || !playing || frames.length === 0) return;
@@ -137,25 +149,48 @@ export function SessionReplay({
 
   return (
     <>
-      <Button
-        size="sm"
-        variant="outline"
-        data-testid="replay-trigger"
-        onClick={() => {
-          if (open) return close();
-          setOpen(true);
-          void load();
-        }}
-        className={`h-8 gap-1.5 rounded-none border-border ${open ? "bg-foreground text-background" : ""}`}
-      >
-        <History className="h-3.5 w-3.5" />
-        <span className="eyebrow">Replay</span>
-      </Button>
+      {!embedded && (
+        <Button
+          size="sm"
+          variant="outline"
+          data-testid="replay-trigger"
+          onClick={() => {
+            if (open) return close();
+            setOpen(true);
+            void load();
+          }}
+          className={`h-8 gap-1.5 rounded-none border-border ${open ? "bg-foreground text-background" : ""}`}
+        >
+          <History className="h-3.5 w-3.5" />
+          <span className="eyebrow">Replay</span>
+        </Button>
+      )}
+
+      {embedded && !open && (
+        <div className="px-2.5 py-2.5">
+          <p className="text-muted-foreground" style={{ fontSize: "var(--step--1)" }}>
+            Nothing to replay yet — draw or talk first.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => { setOpen(true); void load(); }}
+            className="mt-2 h-8 gap-1.5 rounded-none border-border"
+          >
+            <History className="h-3.5 w-3.5" />
+            <span className="eyebrow">Try again</span>
+          </Button>
+        </div>
+      )}
 
       {open && (
         <div
           data-testid="replay-bar"
-          className="fixed bottom-28 left-1/2 z-50 w-[min(760px,92vw)] -translate-x-1/2 border border-border bg-background/97 px-4 py-3 shadow-sm backdrop-blur"
+          className={
+            embedded
+              ? "border-b border-border px-2.5 py-2.5"
+              : "fixed bottom-28 left-1/2 z-50 w-[min(760px,92vw)] -translate-x-1/2 border border-border bg-background/97 px-4 py-3 shadow-sm backdrop-blur"
+          }
         >
           <div className="flex items-center justify-between gap-3">
             <span className="eyebrow text-primary">
@@ -165,10 +200,13 @@ export function SessionReplay({
               <span className="eyebrow text-muted-foreground" data-numeric>
                 {elapsed}
               </span>
-              <button type="button" onClick={close} aria-label="Close replay" className="text-muted-foreground hover:text-foreground">
-                <X className="h-3.5 w-3.5" />
-              </button>
+              {!embedded && (
+                <button type="button" onClick={close} aria-label="Close replay" className="text-muted-foreground hover:text-foreground">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
+
           </div>
 
           <div className="mt-2 flex items-center gap-3">
@@ -227,15 +265,15 @@ export function SessionReplay({
           </div>
 
           {current && (
-            <div className="mt-2 flex items-start gap-2 border-t border-border pt-2">
+            <div className={`mt-2 border-t border-border pt-2 ${embedded ? "space-y-1" : "flex items-start gap-2"}`}>
               <span
-                className="eyebrow shrink-0"
+                className={`eyebrow shrink-0 ${embedded ? "block" : ""}`}
                 style={{ color: current.source === "seed" ? "var(--muted-foreground)" : "var(--accent-warm, #E07A3E)" }}
               >
                 {current.op} · {current.source}
                 {current.modality ? ` · ${current.modality}` : ""}
               </span>
-              <p className="truncate font-serif text-foreground" style={{ fontSize: "var(--step-1)" }}>
+              <p className={`font-serif text-foreground ${embedded ? "" : "truncate"}`} style={{ fontSize: "var(--step-1)" }}>
                 {current.latest || "(no transcript for this step)"}
               </p>
             </div>

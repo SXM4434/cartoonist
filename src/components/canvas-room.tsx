@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Brain, Check, Copy, Eraser, FileDown, Hand, Layers, Mic, MicOff, MessageSquare, MoreHorizontal, Send, Smile, Sparkles, UserPlus, Users, Volume2, VolumeX } from "lucide-react";
+import { Brain, Check, Copy, Eraser, FileDown, Hand, History, Layers, Mic, MicOff, MessageSquare, MoreHorizontal, Send, Smile, Sparkles, UserPlus, Users, Volume2, VolumeX } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -1173,7 +1173,6 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               >
                 <Brain className="h-3.5 w-3.5" /><span className="eyebrow">Memory</span>
               </Button>
-              <SessionReplay roomId={roomId} onFrame={setReplayShapes} />
               <SessionRecap
                 roomId={roomId}
                 buildRequest={() => ({
@@ -1470,6 +1469,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                   })}
                 />
               ),
+            },
+            {
+              id: "replay",
+              label: "Replay",
+              icon: History,
+              node: <SessionReplay embedded roomId={roomId} onFrame={setReplayShapes} />,
             },
             {
               id: "artifacts",
