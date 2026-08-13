@@ -73,6 +73,7 @@ export function useLiveDiarization(opts: {
     try {
       const fd = new FormData();
       fd.append("file", blob, "chunk.webm");
+      fd.append("roomId", roomId);
       const res = await fetch("/api/transcribe-chunk", { method: "POST", body: fd });
       const data = (await res.json().catch(() => ({}))) as { segments?: DiarizedSegment[]; error?: string };
       if (!res.ok || !data.segments) return;

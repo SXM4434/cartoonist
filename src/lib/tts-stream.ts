@@ -9,13 +9,15 @@ const MP3_MIME = "audio/mpeg";
 let currentAudio: HTMLAudioElement | null = null;
 
 export type StreamingTTSOptions = {
+  /** Room the mediator is speaking in — required by the server-side abuse guard. */
+  roomId: string;
   text: string;
   volume?: number;
   onEnd?: () => void;
 };
 
 export async function playStreamingTTS(opts: StreamingTTSOptions): Promise<HTMLAudioElement | null> {
-  const { text, volume = 0.95, onEnd } = opts;
+  const { text, roomId, volume = 0.95, onEnd } = opts;
   if (!text.trim() || typeof window === "undefined") return null;
 
   // Stop any in-flight playback so overlapping requests don't stack.
@@ -27,7 +29,7 @@ export async function playStreamingTTS(opts: StreamingTTSOptions): Promise<HTMLA
   const res = await fetch("/api/mediator-tts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text, roomId }),
   });
   if (!res.ok || !res.body) throw new Error("tts http " + res.status);
 

@@ -252,7 +252,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     if (opts?.localFirst && playBrowserVoice()) return;
     void (async () => {
       try {
-        const audio = await playStreamingTTS({ text: speak, volume: 0.95, onEnd: onDone });
+        const audio = await playStreamingTTS({ roomId, text: speak, volume: 0.95, onEnd: onDone });
         if (audio) ttsAudioRef.current = audio;
       } catch {
         playBrowserVoice();
@@ -910,7 +910,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const res = await fetch("/api/generate-artifacts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript, participantsBlock }),
+        body: JSON.stringify({ roomId, transcript, participantsBlock }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Failed");

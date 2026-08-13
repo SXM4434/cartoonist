@@ -48,7 +48,7 @@ export function KnownAboutYou({ roomId, buildRequest }: Props) {
       const res = await fetch("/api/infer-insights", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(req),
+        body: JSON.stringify({ roomId, ...req }),
       });
       const data = (await res.json().catch(() => ({}))) as {
         error?: string;
