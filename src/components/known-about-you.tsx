@@ -4,6 +4,7 @@ import { Brain, Loader2, Quote, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
+import { rpc } from "@/lib/db-rpc";
 
 export type StoredInsight = {
   id: string;
@@ -28,13 +29,8 @@ export function KnownAboutYou({ roomId, buildRequest }: Props) {
   const [items, setItems] = useState<StoredInsight[]>([]);
 
   const load = useCallback(async () => {
-    const { data } = await supabase
-      .from("participant_insights")
-      .select("id,subject_name,kind,text,source_quote,confidence")
-      .eq("room_id", roomId)
-      .eq("dismissed", false)
-      .order("created_at", { ascending: false });
-    setItems((data ?? []) as StoredInsight[]);
+    const data = await rpc<StoredInsight[]>("insights_list", { p_room: roomId });
+    setItems(data ?? []);
   }, [roomId]);
 
   useEffect(() => {
@@ -60,17 +56,14 @@ export function KnownAboutYou({ roomId, buildRequest }: Props) {
         toast.message("Nothing durable to learn yet — keep talking.");
         return;
       }
-      const byName = new Map(req.participants.map((p) => [p.name.toLowerCase(), p.id]));
       const rows = fresh.map((i) => ({
-        room_id: roomId,
-        participant_id: byName.get(i.subject.toLowerCase()) ?? null,
         subject_name: i.subject,
         kind: i.kind,
         text: i.text,
         source_quote: i.source_quote,
         confidence: i.confidence,
       }));
-      await supabase.from("participant_insights").insert(rows as never);
+      await rpc<null>("insights_add", { p_room: roomId, p_rows: rows });
       await load();
       toast.success(`Learned ${fresh.length} thing${fresh.length === 1 ? "" : "s"}`);
     } catch (error) {
@@ -82,9 +75,9 @@ export function KnownAboutYou({ roomId, buildRequest }: Props) {
 
   const forget = useCallback(async (id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
-    await supabase.from("participant_insights").update({ dismissed: true } as never).eq("id", id);
+    await rpc<null>("insights_dismiss", { p_room: roomId, p_id: id });
     toast.message("Forgotten");
-  }, []);
+  }, [roomId]);
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>

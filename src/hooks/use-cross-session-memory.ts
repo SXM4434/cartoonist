@@ -6,6 +6,8 @@
 // to the draw loop, and every hit carries provenance (room + thread + text).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { rpc } from "@/lib/db-rpc";
+import { loadSessions } from "@/lib/session-pack";
 
 export type MemoryEntry = {
   roomId: string;
@@ -68,18 +70,16 @@ export function useCrossSessionMemory(roomId: string) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [{ data: rooms }, { data: events }] = await Promise.all([
-        supabase.from("rooms").select("id,name").limit(200),
-        supabase
-          .from("canvas_events")
-          .select("room_id,thread_id,transcript_span,created_at")
-          .neq("room_id", roomId)
-          .not("thread_id", "is", null)
-          .order("created_at", { ascending: false })
-          .limit(1200),
-      ]);
+      // Only rooms this device already knows about (its own workspace) are
+      // indexed — there is no way to list other people's sessions.
+      const knownIds = loadSessions().map((s) => s.roomId).filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+      if (knownIds.length === 0) return;
+      const events = await rpc<Array<{ room_id: string; room_name: string | null; thread_id: string | null; transcript_span: unknown; created_at: string }>>(
+        "memory_index",
+        { p_room_ids: knownIds, p_exclude: roomId },
+      );
       if (cancelled || !events?.length) return;
-      const names = new Map((rooms ?? []).map((r) => [r.id as string, (r.name as string) || "Earlier session"]));
+      const names = new Map(events.map((r) => [r.room_id, r.room_name || "Earlier session"]));
       const byThread = new Map<string, MemoryEntry>();
       for (const row of events as Array<{ room_id: string; thread_id: string | null; transcript_span: unknown; created_at: string }>) {
         const tid = row.thread_id;
@@ -110,12 +110,10 @@ export function useCrossSessionMemory(roomId: string) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from("canvas_relations")
-        .select("to_room_id,to_thread_id,relation,confidence,reason,created_at")
-        .eq("from_room_id", roomId)
-        .order("created_at", { ascending: false })
-        .limit(20);
+      const data = await rpc<Array<{ to_room_id: string; to_thread_id: string; relation: string; confidence: number; reason: string | null; created_at: string }>>(
+        "relations_list",
+        { p_room: roomId },
+      );
       if (cancelled || !data?.length) return;
       setEchoes(
         data.map((r) => ({
@@ -176,14 +174,14 @@ export function useCrossSessionMemory(roomId: string) {
       setPeek(hit);
       if (peekTimer.current) window.clearTimeout(peekTimer.current);
       peekTimer.current = window.setTimeout(() => setPeek(null), 7000);
-      await supabase.from("canvas_relations").insert({
-        from_room_id: roomId,
-        from_thread_id: fromThreadId,
-        to_room_id: hit.roomId,
-        to_thread_id: hit.threadId,
-        relation: hit.relation,
-        confidence: hit.score,
-        reason: hit.text.slice(0, 240),
+      await rpc<null>("relation_add", {
+        p_from_room: roomId,
+        p_from_thread: fromThreadId,
+        p_to_room: hit.roomId,
+        p_to_thread: hit.threadId,
+        p_relation: hit.relation,
+        p_confidence: hit.score,
+        p_reason: hit.text.slice(0, 240),
       });
     },
     [roomId],
