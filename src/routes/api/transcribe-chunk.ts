@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { guardExpensiveRoute } from "@/lib/room-guard.server";
 
 // Transcribes a rolling room audio chunk with speaker diarization.
 // Returns segments grouped by speaker cluster (speaker_0, speaker_1, ...).
@@ -16,6 +17,14 @@ export const Route = createFileRoute("/api/transcribe-chunk")({
         const file = incoming?.get("file");
         if (!(file instanceof Blob)) {
           return Response.json({ error: "missing audio file" }, { status: 400 });
+        }
+        const blocked = await guardExpensiveRoute(request, {
+          route: "transcribe-chunk", maxBytes: 12_000_000, limit: 40,
+          roomId: incoming?.get("roomId"),
+        });
+        if (blocked) return blocked;
+        if (file.size > 12_000_000) {
+          return Response.json({ error: "audio chunk too large" }, { status: 413 });
         }
 
         const fd = new FormData();

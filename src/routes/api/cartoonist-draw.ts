@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { guardExpensiveRoute } from "@/lib/room-guard.server";
 
 const SYSTEM_PROMPT = `You are CARTOONIST — a senior visual thinker and sketch artist embedded in a live meeting. You CONTEXTUALIZE the conversation and then DRAW on a shared whiteboard the way a designer would. Whatever best expresses what people are saying — pick the medium that fits, don't default to one shape.
 
@@ -199,6 +200,11 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
         } catch {
           return json({ error: "Invalid draw request", shapes: [], edits: [], removes: [] }, 400);
         }
+
+        const blocked = await guardExpensiveRoute(request, {
+          route: "cartoonist-draw", maxBytes: 400_000, limit: 60, roomId: body.roomId,
+        });
+        if (blocked) return blocked;
 
         const transcript = compactText(body.transcript, 3200);
         const latest = compactText(body.latest, 1200);

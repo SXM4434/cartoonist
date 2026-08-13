@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { guardExpensiveRoute } from "@/lib/room-guard.server";
 
 // Transcribes a short audio clip (the enrollment / intro recording) via
 // ElevenLabs Scribe batch. No diarization — single speaker.
@@ -15,6 +16,15 @@ export const Route = createFileRoute("/api/transcribe-sample")({
         const file = incoming?.get("file");
         if (!(file instanceof Blob)) {
           return Response.json({ error: "missing audio file" }, { status: 400 });
+        }
+
+        const blocked = await guardExpensiveRoute(request, {
+          route: "transcribe-sample", maxBytes: 8_000_000, limit: 10,
+          requireRoom: false, roomId: incoming?.get("roomId"),
+        });
+        if (blocked) return blocked;
+        if (file.size > 8_000_000) {
+          return Response.json({ error: "audio sample too large" }, { status: 413 });
         }
 
         const fd = new FormData();
