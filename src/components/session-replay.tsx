@@ -101,6 +101,15 @@ export function SessionReplay({
     }
   }, [roomId]);
 
+  // In the right panel the tab itself is the trigger: load on mount, and hand
+  // the live canvas back when the tab unmounts.
+  useEffect(() => {
+    if (!embedded) return;
+    void load();
+    return () => { onFrameRef.current(null); };
+  }, [embedded, load]);
+
+
   // Playback tick. Compressed time: one step per beat, not wall-clock gaps.
   useEffect(() => {
     if (!open || !playing || frames.length === 0) return;
