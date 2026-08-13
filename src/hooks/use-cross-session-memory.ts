@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { rpc } from "@/lib/db-rpc";
-import { loadSessions } from "@/lib/session-pack";
+import { loadSessions } from "@/lib/profile";
 
 export type MemoryEntry = {
   roomId: string;
