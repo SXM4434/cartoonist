@@ -267,7 +267,7 @@ export function SessionReplay({
           {current && (
             <div className={`mt-2 border-t border-border pt-2 ${embedded ? "space-y-1" : "flex items-start gap-2"}`}>
               <span
-                className="eyebrow shrink-0"
+                className={`eyebrow shrink-0 ${embedded ? "block" : ""}`}
                 style={{ color: current.source === "seed" ? "var(--muted-foreground)" : "var(--accent-warm, #E07A3E)" }}
               >
                 {current.op} · {current.source}
