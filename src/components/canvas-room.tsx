@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { ParticipantWithHumanLayer } from "@/lib/canvas-types";
 import type { FreehandStroke, SketchPrimitive } from "@/lib/sketch-types";
 import { bboxOf, placeBatchClear } from "@/lib/sketch-layout";
+import { frameTitlePrimitives, placeInFrame, frameIndexOfShape, topicKey, type StoryFrame } from "@/lib/storyboard";
 import { createProductionWireframe } from "@/lib/production-wireframe";
 
 import { EMPTY_HUMAN_LAYER, type HumanLayer } from "@/lib/human-layer";
