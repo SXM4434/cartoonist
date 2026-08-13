@@ -16,7 +16,7 @@
   --tl-shadow-2: none;
   --tl-shadow-3: none;
   --tl-shadow-4: none;
-  --tl-font-draw: "tldraw_draw", "Inter", system-ui, sans-serif;
+  --tl-font-draw: "tldraw_draw", "Archivo", system-ui, sans-serif;
 
   --color-background: oklch(0.965 0.008 85);
   --color-low: oklch(0.945 0.008 85);
@@ -62,7 +62,7 @@
   --radius-3: 2px;
   --radius-4: 2px;
 
-  font-family: "Inter", system-ui, sans-serif;
+  font-family: "Archivo", system-ui, sans-serif;
   background: oklch(0.965 0.008 85) !important;
 }
 
