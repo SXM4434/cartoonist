@@ -46,7 +46,7 @@ type CanvasTone = NonNullable<SketchPrimitive["tone"]>;
 // accent plus state colors, hi-fi uses the full semantic palette.
 const toneColor = (tone: CanvasTone | undefined, fidelity: Fidelity) => {
   if (fidelity === "lofi") return tone === "surface" ? "white" : tone === "muted" || tone === "subtle" ? "grey" : "black";
-  if (tone === "accent") return "orange";
+  if (tone === "accent") return "blue";
   if (tone === "muted") return "grey";
   if (tone === "success") return fidelity === "hifi" ? "green" : "black";
   if (tone === "danger") return "red";
@@ -268,12 +268,25 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
   }
   if (shape.type === "line") {
     if (!isUi) return [sketchLine(shape.id, shape.x1, shape.y1, shape.x2, shape.y2, shape.dashed)];
+    // A UI rule is a rule, not an arrow: tldraw's arrow shape reserves a gap
+    // mid-span for its (empty) label, which broke every table rule in half.
+    const idx = getIndices(2);
     return [{
       ...common,
-      type: "arrow",
+      type: "line",
       x: shape.x1,
       y: shape.y1,
-      props: { kind: "arc", color, fill: "none", dash: shape.dashed ? "dashed" : "solid", size: "s", arrowheadStart: "none", arrowheadEnd: "none", font: "sans", labelColor: color, start: { x: 0, y: 0 }, end: { x: shape.x2 - shape.x1, y: shape.y2 - shape.y1 }, bend: 0, richText: toRichText(""), labelPosition: 0.5, scale: 1, elbowMidPoint: 0.5 },
+      props: {
+        color,
+        dash: shape.dashed ? "dashed" : "solid",
+        size: "s",
+        spline: "line",
+        scale: 1,
+        points: {
+          [idx[0]]: { id: idx[0], index: idx[0], x: 0, y: 0 },
+          [idx[1]]: { id: idx[1], index: idx[1], x: shape.x2 - shape.x1, y: shape.y2 - shape.y1 },
+        },
+      },
     }];
   }
   if (shape.type === "path") {
