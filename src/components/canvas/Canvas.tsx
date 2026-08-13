@@ -252,7 +252,9 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
       type: "text",
       x: shape.x,
       y: shape.y,
-      props: { color, size: textSize(shape.size), font, textAlign: shape.align === "center" ? "middle" : shape.align === "right" ? "end" : "start", w: 360, scale: isUi ? 0.72 : 0.58, richText: toRichText(shape.text), autoSize: true },
+      // Text tagged "surface" means "sits on a filled chip". Our fills are
+      // pale tints, so render it as ink rather than invisible white.
+      props: { color: color === "white" ? "black" : color, size: textSize(shape.size), font, textAlign: shape.align === "center" ? "middle" : shape.align === "right" ? "end" : "start", w: 360, scale: isUi ? 0.72 : 0.58, richText: toRichText(shape.text), autoSize: true },
     }];
   }
   if (shape.type === "arrow") {
