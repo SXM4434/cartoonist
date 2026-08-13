@@ -134,18 +134,19 @@ function Landing() {
 
       {/* LISTENING: horizontal, data-like, heading sits inline with the readout */}
       <section className="border-t border-foreground">
-        <div className="mx-auto grid max-w-[1240px] items-center gap-6 px-6 py-10 lg:grid-cols-[220px_minmax(0,1fr)]">
-          <h2 className="font-display max-w-[12ch]" style={{ fontSize: "var(--step-3)" }}>
-            It hears the weight
-          </h2>
+        <div className="mx-auto grid max-w-[1240px] items-center gap-8 px-6 py-14 lg:grid-cols-[300px_minmax(0,1fr)]">
+          <div>
+            <h2 className="font-display max-w-[12ch]" style={{ fontSize: "var(--step-4)" }}>
+              It hears the weight
+            </h2>
+            <p className="mt-3 max-w-[38ch] text-muted-foreground" style={{ fontSize: "var(--step-2)", lineHeight: 1.6 }}>
+              Speech is attributed per person, so the quiet voice in the corner keeps its authorship.
+            </p>
+          </div>
           <ListenStrip />
         </div>
-        <div className="mx-auto max-w-[1240px] px-6 pb-10">
-          <p className="max-w-[62ch] text-muted-foreground" style={{ fontSize: "var(--step-2)", lineHeight: 1.6 }}>
-            Speech is attributed per person, so the quiet voice in the corner keeps its authorship.
-          </p>
-        </div>
       </section>
+
 
       {/* DRAWING: takes the whole viewport, the drafting sheet lifts off */}
       <section className="border-t border-foreground bg-secondary/40">
