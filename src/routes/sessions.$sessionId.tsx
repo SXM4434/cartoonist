@@ -150,118 +150,133 @@ function Lobby() {
   };
 
   if (!room) {
-    return <main className="min-h-screen bg-background px-4 py-6"><CartoonistHeader /></main>;
+    return <main className="min-h-screen bg-background"><CartoonistHeader /></main>;
   }
 
   return (
-    <main className="min-h-screen bg-background px-4 py-6">
+    <main className="min-h-screen bg-background">
       <CartoonistHeader />
-      <div className="mx-auto max-w-5xl">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="max-w-xl">
-            <span className="eyebrow text-primary">Lobby</span>
-            <h1 className="mt-1 font-serif font-medium" style={{ fontSize: "var(--step-5)", lineHeight: 1 }}>{room.name}</h1>
+      <div className="mx-auto max-w-[1240px] px-6 py-14">
+        <div className="flex flex-wrap items-start justify-between gap-x-10 gap-y-6">
+          <div className="max-w-[46ch]">
+            <span className="eyebrow font-mono text-muted-foreground">LOBBY</span>
+            <h1 className="statement mt-3" style={{ fontSize: "var(--step-4)" }}>{room.name}</h1>
             {room.goal && (
-              <p className="mt-3 text-foreground/80" style={{ fontSize: "var(--step-2)", lineHeight: 1.5 }}>
-                <span className="eyebrow text-muted-foreground">Goal · </span>{room.goal}
+              <p className="mt-4 text-muted-foreground" style={{ fontSize: "var(--step-2)", lineHeight: 1.6 }}>
+                <span className="font-mono uppercase tracking-[0.16em]" style={{ fontSize: "var(--step-0)" }}>Goal — </span>
+                <span className="text-foreground">{room.goal}</span>
               </p>
             )}
             {room.outputs && room.outputs.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
+              <div className="mt-4 flex flex-wrap gap-px bg-border">
                 {room.outputs.map((o) => (
-                  <span key={o} className="rounded-full border border-border bg-card px-2.5 py-0.5" style={{ fontSize: "var(--step-0)" }}>{o}</span>
+                  <span key={o} className="bg-card px-2.5 py-1 font-mono uppercase tracking-[0.14em] text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>{o}</span>
                 ))}
               </div>
             )}
           </div>
-          <button onClick={copyCode} className="group rounded-2xl border-2 border-foreground bg-card px-6 py-4 text-center hover:bg-secondary">
-            <p className="eyebrow text-muted-foreground">Join code · tap to copy</p>
-            <p className="mt-1 flex items-center justify-center gap-2 font-mono font-bold tracking-[0.3em] text-primary" style={{ fontSize: "var(--step-4)" }}>
+          <button onClick={copyCode} className="press group border border-foreground bg-card px-6 py-4 text-center transition-colors hover:bg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+            <p className="eyebrow font-mono text-muted-foreground">JOIN CODE — TAP TO COPY</p>
+            <p className="mt-1.5 flex items-center justify-center gap-2 font-mono tracking-[0.3em] tabular-nums" style={{ fontSize: "var(--step-3)" }}>
               {room.join_code}
-              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4 opacity-40 group-hover:opacity-100" />}
+              {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4 opacity-30 transition-opacity group-hover:opacity-100" />}
             </p>
           </button>
         </div>
 
         {mergeCandidate && (
-          <div className="mt-5 flex flex-wrap items-center gap-3 rounded-2xl border-2 border-primary bg-primary/5 p-4">
-            <Link2 className="h-5 w-5 text-primary" />
-            <div className="flex-1 min-w-[200px]">
-              <p className="font-medium" style={{ fontSize: "var(--step-2)" }}>
-                Looks like <span className="text-primary">{mergeCandidate.display_name}</span> is already here ({mergeCandidate.input_mode ?? "voice"}). Is that you?
+          <div className="mt-8 flex flex-wrap items-center gap-4 border border-primary bg-card p-4">
+            <Link2 className="h-5 w-5 shrink-0 text-primary" />
+            <div className="min-w-[240px] flex-1">
+              <p style={{ fontSize: "var(--step-2)" }}>
+                <span className="text-primary">{mergeCandidate.display_name}</span> is already in this room ({mergeCandidate.input_mode ?? "voice"}). Is that you?
               </p>
-              <p className="text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
-                Yes → your voice and chat will count as one person. No → joins as a separate participant.
+              <p className="mt-1 text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
+                Yes — your voice and chat count as one person. No — you join as a separate participant.
               </p>
             </div>
-            <Button onClick={startLinked} className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90">Yes, that's me</Button>
-            <Button onClick={startSeparate} variant="outline" className="rounded-full border-2 border-foreground">No, different person</Button>
+            <div className="flex gap-2">
+              <Button onClick={startLinked} className="rounded-none">Yes, that's me</Button>
+              <Button onClick={startSeparate} variant="outline" className="rounded-none border-foreground">Different person</Button>
+            </div>
           </div>
         )}
 
-        <div className="mt-6 grid gap-4 md:grid-cols-[1.5fr_1fr]">
-          <div className="rounded-2xl border-2 border-foreground bg-card p-5">
-            <h2 className="font-serif" style={{ fontSize: "var(--step-3)" }}>Who's here</h2>
-            <div className="mt-3 space-y-2">
+        <div className="mt-10 grid gap-px border border-foreground bg-border md:grid-cols-[1.4fr_1fr]">
+          <section className="bg-card p-5">
+            <h2 className="eyebrow font-mono text-muted-foreground">WHO'S HERE</h2>
+            <ul className="mt-3 list-none divide-y divide-border">
               {participants.length === 0 && (
-                <p className="text-muted-foreground" style={{ fontSize: "var(--step-1)" }}>Joining…</p>
+                <li className="py-3 text-muted-foreground" style={{ fontSize: "var(--step-1)" }}>Joining…</li>
               )}
               {participants.map((p, i) => {
                 const modes = new Set<string>();
                 if (p.input_mode) modes.add(p.input_mode);
                 if (p.input_mode === "both") { modes.add("voice"); modes.add("chat"); }
-                // sibling links pointing here
                 participants.forEach((s) => { if (s.linked_participant_id === p.id && s.input_mode) modes.add(s.input_mode); });
                 const isLinked = !!p.linked_participant_id;
                 return (
-                  <div key={p.id} className={`flex items-center gap-3 rounded-xl border border-border bg-background p-3 ${isLinked ? "opacity-60" : ""}`}>
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full font-medium text-background" style={{ backgroundColor: p.color ?? "#666" }}>
-                      {p.display_name.slice(0, 1).toUpperCase()}
-                    </div>
+                  <li key={p.id} className={`flex items-center gap-3 py-3 ${isLinked ? "opacity-50" : ""}`}>
+                    <span className="h-8 w-1.5 shrink-0" style={{ backgroundColor: p.color ?? "var(--muted-foreground)" }} aria-hidden />
                     <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{p.display_name}</span>
-                        {i === 0 && <span className="rounded-full bg-primary px-2 py-0.5 text-primary-foreground" style={{ fontSize: "var(--step-0)" }}>host</span>}
-                        {isLinked && <span className="eyebrow text-muted-foreground">linked</span>}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span style={{ fontSize: "var(--step-2)" }}>{p.display_name}</span>
+                        {i === 0 && <span className="font-mono uppercase tracking-[0.16em] text-primary" style={{ fontSize: "var(--step-0)" }}>host</span>}
+                        {isLinked && <span className="font-mono uppercase tracking-[0.16em] text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>linked</span>}
                         <span className="flex items-center gap-1 text-muted-foreground">
                           {modes.has("voice") && <Mic className="h-3 w-3" />}
                           {modes.has("chat") && <MessageSquare className="h-3 w-3" />}
                         </span>
                       </div>
-                      <div className="text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>{p.role ?? ""}{p.personality ? ` · ${p.personality}` : ""}</div>
+                      <div className="text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
+                        {p.role ?? ""}{p.personality ? ` · ${p.personality}` : ""}
+                      </div>
                     </div>
-                  </div>
+                  </li>
                 );
               })}
-            </div>
-          </div>
+            </ul>
+          </section>
 
-          <div className="rounded-2xl border-2 border-foreground bg-card p-5">
-            <h2 className="font-serif" style={{ fontSize: "var(--step-3)" }}>How are you joining?</h2>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setMode("voice")}
-                className={`flex flex-col items-start gap-1 rounded-xl border-2 p-3 text-left transition ${mode === "voice" ? "border-foreground bg-secondary" : "border-border hover:border-foreground/60"}`}>
-                <Mic className="h-4 w-4" />
-                <div className="font-medium">Voice</div>
-                <div className="text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>Mic on. Cartoonist hears you.</div>
+          <section className="bg-card p-5">
+            <h2 className="eyebrow font-mono text-muted-foreground">HOW ARE YOU JOINING?</h2>
+            <div className="mt-3 grid gap-px bg-border">
+              <button
+                type="button"
+                onClick={() => setMode("voice")}
+                aria-pressed={mode === "voice"}
+                className={`press flex items-start gap-3 p-3 text-left transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary ${mode === "voice" ? "bg-foreground text-background" : "bg-card hover:bg-secondary"}`}
+              >
+                <Mic className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  <span className="block" style={{ fontSize: "var(--step-2)" }}>Voice</span>
+                  <span className={mode === "voice" ? "block text-background/70" : "block text-muted-foreground"} style={{ fontSize: "var(--step-0)" }}>
+                    Mic on. Cartoonist hears you.
+                  </span>
+                </span>
               </button>
-              <button type="button" onClick={() => setMode("chat")}
-                className={`flex flex-col items-start gap-1 rounded-xl border-2 p-3 text-left transition ${mode === "chat" ? "border-foreground bg-secondary" : "border-border hover:border-foreground/60"}`}>
-                <MessageSquare className="h-4 w-4" />
-                <div className="font-medium">Chat</div>
-                <div className="text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>No mic. Type and Cartoonist draws.</div>
+              <button
+                type="button"
+                onClick={() => setMode("chat")}
+                aria-pressed={mode === "chat"}
+                className={`press flex items-start gap-3 p-3 text-left transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary ${mode === "chat" ? "bg-foreground text-background" : "bg-card hover:bg-secondary"}`}
+              >
+                <MessageSquare className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  <span className="block" style={{ fontSize: "var(--step-2)" }}>Chat</span>
+                  <span className={mode === "chat" ? "block text-background/70" : "block text-muted-foreground"} style={{ fontSize: "var(--step-0)" }}>
+                    No mic. Type and Cartoonist draws.
+                  </span>
+                </span>
               </button>
             </div>
-            <p className="mt-4 text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
-              You can switch any time inside the room. Voice + chat from the same person count as one.
+            <p className="mt-4 text-muted-foreground" style={{ fontSize: "var(--step-0)", lineHeight: 1.5 }}>
+              You can switch any time inside the room. Voice and chat from the same person count as one.
             </p>
-          </div>
-        </div>
-
-        <div className="mt-6 flex justify-end">
-          <Button onClick={start} disabled={!!mergeCandidate} className="gap-2 rounded-full bg-primary px-6 py-6 text-primary-foreground hover:bg-primary/90">
-            {mode === "voice" ? "Start with voice" : "Join via chat"} <ArrowRight className="h-4 w-4" />
-          </Button>
+            <Button onClick={start} disabled={!!mergeCandidate} size="lg" className="mt-5 w-full gap-2 rounded-none">
+              {mode === "voice" ? "Start with voice" : "Join via chat"} <ArrowRight className="h-4 w-4" />
+            </Button>
+          </section>
         </div>
       </div>
     </main>
