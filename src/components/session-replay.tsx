@@ -166,6 +166,23 @@ export function SessionReplay({
         </Button>
       )}
 
+      {embedded && !open && (
+        <div className="px-2.5 py-2.5">
+          <p className="text-muted-foreground" style={{ fontSize: "var(--step--1)" }}>
+            Nothing to replay yet — draw or talk first.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => { setOpen(true); void load(); }}
+            className="mt-2 h-8 gap-1.5 rounded-none border-border"
+          >
+            <History className="h-3.5 w-3.5" />
+            <span className="eyebrow">Try again</span>
+          </Button>
+        </div>
+      )}
+
       {open && (
         <div
           data-testid="replay-bar"
@@ -175,7 +192,6 @@ export function SessionReplay({
               : "fixed bottom-28 left-1/2 z-50 w-[min(760px,92vw)] -translate-x-1/2 border border-border bg-background/97 px-4 py-3 shadow-sm backdrop-blur"
           }
         >
-
           <div className="flex items-center justify-between gap-3">
             <span className="eyebrow text-primary">
               {loading ? "Loading provenance…" : `Replay — step ${Math.min(idx + 1, frames.length)} of ${frames.length}`}
@@ -184,10 +200,13 @@ export function SessionReplay({
               <span className="eyebrow text-muted-foreground" data-numeric>
                 {elapsed}
               </span>
-              <button type="button" onClick={close} aria-label="Close replay" className="text-muted-foreground hover:text-foreground">
-                <X className="h-3.5 w-3.5" />
-              </button>
+              {!embedded && (
+                <button type="button" onClick={close} aria-label="Close replay" className="text-muted-foreground hover:text-foreground">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
+
           </div>
 
           <div className="mt-2 flex items-center gap-3">
