@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Mic, Square, Check, RotateCcw } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Mic, Square, Check, RotateCcw } from "lucide-react";
 
 const COLORS = ["#E07A3E", "#3E7AE0", "#5BB07A", "#B05BA0", "#B0A05B", "#A0B05B"];
 const MAX_SECONDS = 30;
@@ -32,8 +32,9 @@ export function IntroModal({
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [personality, setPersonality] = useState("");
-  const [color, setColor] = useState(COLORS[0]);
+  const [color, setColor] = useState(() => COLORS[Math.floor(Math.random() * COLORS.length)]);
   const [submitting, setSubmitting] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   // Voice enrollment
   const [recording, setRecording] = useState(false);
@@ -48,8 +49,8 @@ export function IntroModal({
 
   useEffect(() => {
     if (!open) {
-      setName(""); setRole(""); setPersonality(""); setColor(COLORS[0]);
-      setSampleBlob(null); setSampleUrl(null); setRecording(false);
+      setName(""); setRole(""); setPersonality(""); setColor(COLORS[Math.floor(Math.random() * COLORS.length)]);
+      setSampleBlob(null); setSampleUrl(null); setRecording(false); setShowDetails(false);
       setElapsed(0); setTranscribedText("");
       if (timerRef.current) clearInterval(timerRef.current);
       try { recorderRef.current?.stop(); } catch { /* ignore */ }
@@ -184,15 +185,14 @@ export function IntroModal({
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
-          {/* Voice enrollment — the primary action */}
+          {/* Voice sample — the one thing that matters. */}
           <div className="space-y-2 border border-border bg-muted/30 p-3">
             <Label className="eyebrow">
-              Step 1 — Voice sample <span className="text-primary">*</span>
+              Voice sample <span className="text-primary">*</span>
             </Label>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Say your name, what you do, and how you like to work. We'll fill in
-              the form and use this same recording to attribute speech to you
-              during the meeting.
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Say your name and what you do. Cartoonist fills in the rest and uses
+              this recording to know who's speaking.
             </p>
 
             {sampleBlob ? (
@@ -208,11 +208,11 @@ export function IntroModal({
                 </div>
                 {parsing && (
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Loader2 className="h-3 w-3 animate-spin" /> Transcribing and filling in your details…
+                    <Loader2 className="h-3 w-3 animate-spin" /> Transcribing…
                   </p>
                 )}
                 {!parsing && transcribedText && (
-                  <p className="text-xs text-muted-foreground italic">"{transcribedText}"</p>
+                  <p className="text-xs italic text-muted-foreground">"{transcribedText}"</p>
                 )}
               </div>
             ) : recording ? (
@@ -226,34 +226,47 @@ export function IntroModal({
             )}
           </div>
 
-          <div className="space-y-3 opacity-100">
-            <Label className="eyebrow">Step 2 — Confirm</Label>
-            <div className="space-y-2">
-              <Label className="text-xs">Name *</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Sebastian" disabled={!sampleBlob} />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs">Role / what you do</Label>
-              <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="Designer · Product · Eng…" disabled={!sampleBlob} />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs">Personality / how you like to work</Label>
-              <Input value={personality} onChange={(e) => setPersonality(e.target.value)} placeholder="Visual thinker, big picture…" disabled={!sampleBlob} />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs">Color</Label>
-              <div className="flex gap-2">
-                {COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setColor(c)}
-                    className={`h-7 w-7 border-2 transition ${color === c ? "border-foreground scale-110" : "border-transparent"}`}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
+          <div className="space-y-2">
+            <Label className="text-xs">Name *</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Sebastian" disabled={!sampleBlob} />
+          </div>
+
+          <div className="border-t border-border pt-2">
+            <button
+              type="button"
+              onClick={() => setShowDetails((v) => !v)}
+              className="eyebrow flex items-center gap-1.5 text-muted-foreground transition hover:text-foreground"
+            >
+              {showDetails ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              More details
+            </button>
+            {showDetails && (
+              <div className="mt-3 space-y-3">
+                <div className="space-y-2">
+                  <Label className="text-xs">Role / what you do</Label>
+                  <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="Designer · Product · Eng…" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">How you like to work</Label>
+                  <Input value={personality} onChange={(e) => setPersonality(e.target.value)} placeholder="Visual thinker, big picture…" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Colour</Label>
+                  <div className="flex gap-2">
+                    {COLORS.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setColor(c)}
+                        aria-label={`Colour ${c}`}
+                        className={`h-7 w-7 border-2 transition ${color === c ? "scale-110 border-foreground" : "border-transparent"}`}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <Button

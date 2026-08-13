@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, Eraser, FileDown, Hand, Layers, Mic, MicOff, MessageSquare, MoreHorizontal, Send, Smile, Sparkles, UserPlus, Users, Volume2, VolumeX } from "lucide-react";
+import { Brain, Check, Copy, Eraser, FileDown, Hand, Layers, Mic, MicOff, MessageSquare, MoreHorizontal, Send, Smile, Sparkles, UserPlus, Users, Volume2, VolumeX } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { SessionPack } from "./session-pack";
 import { ArtifactTabs, type Artifacts } from "./artifact-tabs";
 import { SessionRecap } from "./session-recap";
 import { SessionReplay } from "./session-replay";
-import { KnownAboutYou } from "./known-about-you";
+import { MemoryPanel } from "./known-about-you";
 
 import { IntroModal } from "./intro-modal";
 import { Canvas } from "./canvas/Canvas";
@@ -159,7 +159,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [selfPid, setSelfPid] = useState<string | null>(null);
   const canvasStageRef = useRef<HTMLDivElement | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
-  const [panelTab, setPanelTab] = useState<"people" | "transcript" | "threads" | "artifacts">("transcript");
+  const [panelTab, setPanelTab] = useState<"people" | "transcript" | "threads" | "memory" | "artifacts">("transcript");
   const [mediatorMuted, setMediatorMuted] = useState(false);
   const inferredStatesRef = useRef<Record<string, InferredState>>({});
   const lastSpokenRef = useRef<string>("");
@@ -1114,12 +1114,17 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           )}
           <span className="eyebrow hidden shrink-0 text-muted-foreground min-[900px]:inline" data-numeric>№ {roomId.slice(0, 6).toUpperCase()}</span>
           {speech.listening && (
-            <span className="eyebrow flex shrink-0 items-center gap-1.5 text-primary">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+            <span className="eyebrow flex shrink-0 items-center gap-1.5 bg-primary px-1.5 py-0.5 text-primary-foreground">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary-foreground" />
               Listening
             </span>
           )}
-          {thinking && <span className="eyebrow shrink-0 text-muted-foreground">Drawing…</span>}
+          {thinking && (
+            <span className="eyebrow flex shrink-0 items-center gap-1.5 bg-foreground px-1.5 py-0.5 text-background">
+              <Sparkles className="h-3 w-3" />
+              Drawing
+            </span>
+          )}
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
@@ -1159,13 +1164,15 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               <Button size="sm" variant="ghost" onClick={() => { setPanelTab("artifacts"); setPanelOpen(true); void generateArtifacts(); }} className="h-8 gap-2 rounded-none">
                 <FileDown className="h-3.5 w-3.5" /><span className="eyebrow">Export artifacts</span>
               </Button>
-              <KnownAboutYou
-                roomId={roomId}
-                buildRequest={() => ({
-                  transcript: speech.finals.length ? speech.finals.join("\n") : "",
-                  participants: participants.map((p) => ({ id: p.id, name: p.name, role: p.role ?? null })),
-                })}
-              />
+              <Button
+                size="sm"
+                variant="ghost"
+                data-testid="memory-trigger"
+                onClick={() => { setPanelTab("memory"); setPanelOpen(true); }}
+                className="h-8 gap-2 rounded-none"
+              >
+                <Brain className="h-3.5 w-3.5" /><span className="eyebrow">Memory</span>
+              </Button>
               <SessionReplay roomId={roomId} onFrame={setReplayShapes} />
               <SessionRecap
                 roomId={roomId}
@@ -1238,7 +1245,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           <CanvasToolbar drawing={drawing} onToggleDraw={toggleDraw} />
 
           {handQueue.length > 0 && (
-            <div className="absolute bottom-24 right-4 z-30 max-w-[220px] border border-border bg-background/95 px-2.5 py-2">
+            <div className="absolute bottom-24 right-4 z-30 max-w-[200px] border border-border bg-background/90 px-2.5 py-2">
               <div className="eyebrow mb-1 text-muted-foreground">hands up · {handQueue.length}</div>
               <ul className="flex flex-col gap-1">
                 {handQueue.map((h, i) => (
@@ -1429,7 +1436,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
             },
             {
               id: "transcript",
-              label: "Talk",
+              label: "Transcript",
               icon: MessageSquare,
               node: (
                 <div className="h-full min-h-0">
@@ -1449,6 +1456,20 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               icon: Layers,
               count: threads.length,
               node: <ThreadList threads={threads} echoes={memory.echoes} />,
+            },
+            {
+              id: "memory",
+              label: "Memory",
+              icon: Brain,
+              node: (
+                <MemoryPanel
+                  roomId={roomId}
+                  buildRequest={() => ({
+                    transcript: speech.finals.length ? speech.finals.join("\n") : "",
+                    participants: participants.map((p) => ({ id: p.id, name: p.name, role: p.role ?? null })),
+                  })}
+                />
+              ),
             },
             {
               id: "artifacts",
