@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { guardExpensiveRoute } from "@/lib/room-guard.server";
 
 // v2.P5 — workspace memory: infer working-style facts about people from the session,
 // with a verbatim source quote for every fact. No provenance -> no fact.
@@ -48,12 +49,18 @@ export const Route = createFileRoute("/api/infer-insights")({
         let body: {
           transcript?: string;
           participants?: Array<{ name: string; role?: string | null }> | null;
+          roomId?: string;
         };
         try {
           body = await request.json();
         } catch {
           return json({ error: "Invalid request" }, 400);
         }
+
+        const blocked = await guardExpensiveRoute(request, {
+          route: "infer-insights", maxBytes: 200_000, limit: 10, roomId: body.roomId,
+        });
+        if (blocked) return blocked;
 
         const transcript = compact(body.transcript, 8000);
         if (transcript.length < 60) return json({ insights: [] });

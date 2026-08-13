@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { loadSessions, type StoredSession } from "@/lib/profile";
+import { roomsByIds, sessionStats } from "@/lib/db-rpc";
 
 export type SessionStats = {
   participants: number;
@@ -41,28 +42,19 @@ export function useWorkspaceSessions() {
       return;
     }
 
-    const [rooms, parts, events, chunks] = await Promise.all([
-      supabase.from("rooms").select("id,name,goal,ended_at,join_code").in("id", ids),
-      supabase.from("participants").select("id,room_id").in("room_id", ids),
-      supabase.from("canvas_events").select("id,room_id,created_at").in("room_id", ids),
-      supabase.from("transcript_chunks").select("id,room_id,created_at").in("room_id", ids),
-    ]);
+    const [rooms, rows] = await Promise.all([roomsByIds(ids), sessionStats(ids)]);
 
     const stats = new Map<string, SessionStats>();
-    const bump = (roomId: string, key: keyof SessionStats, at?: string) => {
-      const cur = stats.get(roomId) ?? { ...EMPTY };
-      if (key !== "lastActivity") cur[key] += 1;
-      if (at) {
-        const t = new Date(at).getTime();
-        if (!cur.lastActivity || t > cur.lastActivity) cur.lastActivity = t;
-      }
-      stats.set(roomId, cur);
-    };
-    (parts.data ?? []).forEach((p) => bump(p.room_id, "participants"));
-    (events.data ?? []).forEach((e) => bump(e.room_id, "shapes", e.created_at));
-    (chunks.data ?? []).forEach((c) => bump(c.room_id, "messages", c.created_at));
+    (rows ?? []).forEach((r) => {
+      stats.set(r.room_id, {
+        participants: Number(r.participants ?? 0),
+        shapes: Number(r.shapes ?? 0),
+        messages: Number(r.messages ?? 0),
+        lastActivity: r.last_activity ? new Date(r.last_activity).getTime() : null,
+      });
+    });
 
-    const roomMap = new Map((rooms.data ?? []).map((r) => [r.id, r]));
+    const roomMap = new Map((rooms ?? []).map((r) => [r.id, r]));
 
     setSessions(
       local.map((s) => {

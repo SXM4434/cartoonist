@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { addSession, loadProfile } from "@/lib/profile";
 import { CartoonistHeader } from "./onboarding";
+import { rpc } from "@/lib/db-rpc";
 
 const OUTPUTS = ["Summary", "PRD", "User journey", "Product flow", "Timeline", "Problem statement", "Decisions", "Action items"];
 const HOST_ROLES = [
@@ -109,20 +110,17 @@ function NewSession() {
     setCreating(true);
     try {
       const profile = loadProfile();
-      const { data, error } = await supabase
-        .from("rooms")
-        .insert({
-          name: name.trim() || goal.slice(0, 60),
-          goal: goal.trim(),
-          outputs,
-          facilitation,
-          host_role: hostRole,
-          mode: "both",
-          session_type: "session",
-        } as never)
-        .select("id, join_code, name")
-        .single();
-      if (error) throw error;
+      const created = await rpc<Array<{ id: string; join_code: string | null; name: string }>>("room_create", {
+        p_name: name.trim() || goal.slice(0, 60),
+        p_goal: goal.trim(),
+        p_outputs: outputs,
+        p_facilitation: facilitation,
+        p_host_role: hostRole,
+        p_mode: "both",
+        p_session_type: "session",
+      });
+      const data = created?.[0];
+      if (!data) throw new Error("Could not create session");
       addSession({
         roomId: data.id,
         joinCode: data.join_code ?? "",

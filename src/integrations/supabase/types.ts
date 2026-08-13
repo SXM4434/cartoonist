@@ -436,7 +436,121 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      canvas_events_for_room: {
+        Args: { p_limit?: number; p_room: string }
+        Returns: {
+          created_at: string
+          op: Json
+          source: string
+          t_offset_ms: number
+          thread_id: string
+          transcript_span: Json
+        }[]
+      }
       gen_join_code: { Args: never; Returns: string }
+      insights_add: {
+        Args: { p_room: string; p_rows: Json }
+        Returns: undefined
+      }
+      insights_dismiss: {
+        Args: { p_id: string; p_room: string }
+        Returns: undefined
+      }
+      insights_list: {
+        Args: { p_room: string }
+        Returns: {
+          confidence: number
+          id: string
+          kind: string
+          source_quote: string
+          subject_name: string
+          text: string
+        }[]
+      }
+      is_live_room: { Args: { p_room: string }; Returns: boolean }
+      memory_index: {
+        Args: { p_exclude: string; p_room_ids: string[] }
+        Returns: {
+          created_at: string
+          room_id: string
+          room_name: string
+          thread_id: string
+          transcript_span: Json
+        }[]
+      }
+      relation_add: {
+        Args: {
+          p_confidence: number
+          p_from_room: string
+          p_from_thread: string
+          p_reason: string
+          p_relation: string
+          p_to_room: string
+          p_to_thread: string
+        }
+        Returns: undefined
+      }
+      relations_list: {
+        Args: { p_room: string }
+        Returns: {
+          confidence: number
+          created_at: string
+          reason: string
+          relation: string
+          to_room_id: string
+          to_thread_id: string
+        }[]
+      }
+      room_by_code: { Args: { p_code: string }; Returns: string }
+      room_create: {
+        Args: {
+          p_facilitation: string
+          p_goal: string
+          p_host_role: string
+          p_mode: string
+          p_name: string
+          p_outputs: string[]
+          p_session_type: string
+        }
+        Returns: {
+          id: string
+          join_code: string
+          name: string
+        }[]
+      }
+      room_get: {
+        Args: { p_id: string }
+        Returns: {
+          ended_at: string
+          facilitation: string
+          goal: string
+          host_role: string
+          id: string
+          join_code: string
+          name: string
+          outputs: string[]
+        }[]
+      }
+      rooms_by_ids: {
+        Args: { p_ids: string[] }
+        Returns: {
+          ended_at: string
+          goal: string
+          id: string
+          join_code: string
+          name: string
+        }[]
+      }
+      session_stats: {
+        Args: { p_ids: string[] }
+        Returns: {
+          last_activity: string
+          messages: number
+          participants: number
+          room_id: string
+          shapes: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

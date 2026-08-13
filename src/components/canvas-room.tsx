@@ -39,6 +39,7 @@ import { ReactionsOverlay } from "./team-desk/ReactionsOverlay";
 import { useReactions } from "@/hooks/use-reactions";
 import { useHandQueue } from "@/hooks/use-hand-queue";
 import { useCrossSessionMemory } from "@/hooks/use-cross-session-memory";
+import { canvasEventsForRoom, roomGet } from "@/lib/db-rpc";
 
 type SessionContext = {
   name: string;
@@ -252,7 +253,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     if (opts?.localFirst && playBrowserVoice()) return;
     void (async () => {
       try {
-        const audio = await playStreamingTTS({ text: speak, volume: 0.95, onEnd: onDone });
+        const audio = await playStreamingTTS({ roomId, text: speak, volume: 0.95, onEnd: onDone });
         if (audio) ttsAudioRef.current = audio;
       } catch {
         playBrowserVoice();
@@ -332,10 +333,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     }
 
     (async () => {
-      const { data: room } = await supabase
-        .from("rooms")
-        .select("name,goal,outputs,facilitation,host_role")
-        .eq("id", roomId).maybeSingle();
+      const room = await roomGet(roomId);
       if (room) {
         setSessionCtx({
           name: (room as { name: string }).name ?? "",
@@ -361,13 +359,8 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase
-        .from("canvas_events")
-        .select("op,source,transcript_span,thread_id,created_at")
-        .eq("room_id", roomId)
-        .order("created_at", { ascending: true })
-        .limit(2000);
-      if (cancelled || error || !data || data.length === 0) return;
+      const data = await canvasEventsForRoom(roomId, 2000);
+      if (cancelled || !data || data.length === 0) return;
       if (seededRef.current) return;
 
       const byId = new Map<string, SketchPrimitive>();
@@ -910,7 +903,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const res = await fetch("/api/generate-artifacts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript, participantsBlock }),
+        body: JSON.stringify({ roomId, transcript, participantsBlock }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Failed");
