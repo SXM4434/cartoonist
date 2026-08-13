@@ -77,10 +77,10 @@ function Landing() {
       <section className="mx-auto max-w-[1240px] px-6 pb-16 pt-12">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)] lg:items-start">
           <div className="lg:sticky lg:top-24">
-            <span className="eyebrow font-mono text-muted-foreground">Real-time meeting canvas</span>
-            <h1 className="statement mt-4" style={{ fontSize: "var(--step-5)" }}>
+            <h1 className="statement" style={{ fontSize: "var(--step-5)" }}>
               Cartoonist is<br />drawing while<br />you talk.
             </h1>
+
             <p className="mt-6 max-w-[46ch] text-muted-foreground" style={{ fontSize: "var(--step-2)", lineHeight: 1.6 }}>
               It listens to the room, marks the phrases that carry weight, and builds the
               structure underneath them — live, on a canvas everyone shares.
@@ -117,29 +117,27 @@ function Landing() {
         </div>
       </section>
 
-      {/* 01 — MEETING: conversation flows across the full width */}
+      {/* MEETING: conversation flows across the full width */}
       <section className="border-t border-foreground">
         <div className="mx-auto max-w-[1240px] px-6 py-14">
           <div className="flex flex-wrap items-baseline justify-between gap-4">
-            <div className="flex items-baseline gap-3">
-              <span className="eyebrow tnum font-mono text-primary">01</span>
-              <h2 className="font-display" style={{ fontSize: "var(--step-4)" }}>Meeting</h2>
-            </div>
+            <h2 className="font-display max-w-[16ch]" style={{ fontSize: "var(--step-4)" }}>
+              Everyone talks at once
+            </h2>
             <p className="max-w-[46ch] text-muted-foreground" style={{ fontSize: "var(--step-2)", lineHeight: 1.6 }}>
-              Everyone talks over each other. That's fine — Cartoonist is the one taking it down.
+              That's fine — Cartoonist is the one taking it down, and it keeps track of who said what.
             </p>
           </div>
           <SpeechFlow />
         </div>
       </section>
 
-      {/* 02 — LISTENING: horizontal, data-like, heading sits inline with the readout */}
+      {/* LISTENING: horizontal, data-like, heading sits inline with the readout */}
       <section className="border-t border-foreground">
         <div className="mx-auto grid max-w-[1240px] items-center gap-6 px-6 py-10 lg:grid-cols-[220px_minmax(0,1fr)]">
-          <div className="flex items-baseline gap-3">
-            <span className="eyebrow tnum font-mono text-primary">02</span>
-            <h2 className="font-display" style={{ fontSize: "var(--step-3)" }}>Listening</h2>
-          </div>
+          <h2 className="font-display max-w-[12ch]" style={{ fontSize: "var(--step-3)" }}>
+            It hears the weight
+          </h2>
           <ListenStrip />
         </div>
         <div className="mx-auto max-w-[1240px] px-6 pb-10">
@@ -149,16 +147,13 @@ function Landing() {
         </div>
       </section>
 
-      {/* 03 — DRAWING: takes the whole viewport, the drafting sheet lifts off */}
+      {/* DRAWING: takes the whole viewport, the drafting sheet lifts off */}
       <section className="border-t border-foreground bg-secondary/40">
         <div className="mx-auto max-w-[1240px] px-6 py-16">
           <div className="flex items-end justify-between gap-6">
-            <div>
-              <span className="eyebrow tnum font-mono text-primary">03</span>
-              <h2 className="statement mt-3 max-w-[12ch]" style={{ fontSize: "var(--step-5)" }}>
-                Rough first. Then resolved.
-              </h2>
-            </div>
+            <h2 className="statement max-w-[12ch]" style={{ fontSize: "var(--step-5)" }}>
+              Rough first. Then resolved.
+            </h2>
             <p className="hidden max-w-[34ch] text-muted-foreground md:block" style={{ fontSize: "var(--step-2)", lineHeight: 1.6 }}>
               Ask for a flow, a wireframe, a system map. Construction lines land on translucent
               drafting paper — when the room agrees, the sheet lifts and the interface underneath commits.
@@ -168,13 +163,12 @@ function Landing() {
         </div>
       </section>
 
-      {/* 04 — ORGANIZING: annotations scattered around a central artifact */}
+      {/* ORGANIZING: annotations scattered around a central artifact */}
       <section className="border-t border-foreground">
         <div className="mx-auto max-w-[1240px] px-6 py-14">
-          <div className="flex items-baseline gap-3">
-            <span className="eyebrow tnum font-mono text-primary">04</span>
-            <h2 className="font-display" style={{ fontSize: "var(--step-4)" }}>Organizing</h2>
-          </div>
+          <h2 className="font-display max-w-[20ch]" style={{ fontSize: "var(--step-4)" }}>
+            Loose ends stay on the page
+          </h2>
           <p className="mt-3 max-w-[52ch] text-muted-foreground" style={{ fontSize: "var(--step-2)", lineHeight: 1.6 }}>
             Open threads, unresolved questions and inferred decisions stay pinned around the artifact
             instead of evaporating when the call ends.
@@ -183,21 +177,23 @@ function Landing() {
         </div>
       </section>
 
-      {/* 05 — DELIVERABLES: overlapping sheets */}
+      {/* DELIVERABLES: overlapping sheets */}
       <section className="border-t border-foreground">
         <div className="mx-auto max-w-[1240px] px-6 py-14">
           <div className="grid gap-8 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-center">
             <div>
-              <span className="eyebrow tnum font-mono text-primary">05</span>
-              <h2 className="mt-2 font-display" style={{ fontSize: "var(--step-4)" }}>Deliverables</h2>
+              <h2 className="font-display max-w-[16ch]" style={{ fontSize: "var(--step-4)" }}>
+                You leave with the work
+              </h2>
               <p className="mt-3 max-w-[42ch] text-muted-foreground" style={{ fontSize: "var(--step-2)", lineHeight: 1.6 }}>
-                You leave with the artifact, not a recording nobody opens again.
+                The artifact, not a recording nobody opens again.
               </p>
             </div>
             <Deliverables />
           </div>
         </div>
       </section>
+
 
       <section className="border-t border-foreground">
         <div className="mx-auto flex max-w-[1240px] flex-wrap items-end justify-between gap-6 px-6 py-14">
