@@ -223,16 +223,56 @@
     from { opacity: 0; transform: translateY(6px); }
     to { opacity: 1; transform: none; }
   }
-  /* highlighter sweep over a listened-to phrase */
+  /* Cartoonist's attention: a marker stroke grows *behind* the phrase,
+     ragged at both ends — never a rectangular find-in-page highlight. */
   .marker {
-    background-image: linear-gradient(var(--color-accent), var(--color-accent));
-    background-repeat: no-repeat;
-    background-size: 0% 62%;
-    background-position: 0 78%;
-    transition: background-size 420ms cubic-bezier(0.32, 0.72, 0, 1);
+    position: relative;
+    isolation: isolate;
   }
-  .marker[data-on="true"] { background-size: 100% 62%; }
+  .marker::before {
+    content: "";
+    position: absolute;
+    left: -0.16em;
+    right: -0.2em;
+    bottom: -0.04em;
+    height: 0.5em;
+    z-index: -1;
+    background: var(--color-accent);
+    clip-path: polygon(0 26%, 3% 4%, 21% 14%, 54% 2%, 83% 12%, 100% 34%, 97% 86%, 64% 100%, 29% 90%, 5% 100%);
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 460ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .marker[data-on="true"]::before { transform: scaleX(1); }
+
+  /* ---- Translucent drafting paper over the committed layer ---- */
+  .drafting-sheet {
+    transition: opacity 620ms cubic-bezier(0.32, 0.72, 0, 1),
+      transform 620ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .drafting-sheet[data-lifted="true"] {
+    opacity: 0;
+    transform: translate(10px, -14px) rotate(-0.7deg);
+  }
+
+  /* ---- Relational connector: speech → artifact ---- */
+  .connector {
+    stroke: var(--color-primary);
+    stroke-width: 1.25;
+    fill: none;
+    stroke-dasharray: var(--len, 600);
+    stroke-dashoffset: var(--len, 600);
+    animation: trace-draw 760ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  }
+
+  /* ---- Physical press: sheets depress instead of fading ---- */
+  .sheet {
+    transition: transform 160ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .sheet:hover, .sheet:focus-visible { transform: translateY(-4px); }
+  .sheet:active { transform: translateY(1px); }
 }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
