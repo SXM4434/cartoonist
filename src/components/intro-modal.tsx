@@ -95,21 +95,28 @@ export function IntroModal({
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true },
+      });
       const mr = new MediaRecorder(stream);
       chunksRef.current = [];
       mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       mr.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" });
-        setSampleBlob(blob);
-        setSampleUrl(URL.createObjectURL(blob));
         setRecording(false);
         if (timerRef.current) clearInterval(timerRef.current);
+        if (blob.size < 2000) {
+          toast.error("Nothing was recorded — check the mic isn't in use elsewhere, then try again");
+          return;
+        }
+        setSampleBlob(blob);
+        setSampleUrl(URL.createObjectURL(blob));
         void transcribeAndFill(blob);
       };
       recorderRef.current = mr;
-      mr.start();
+      // Timeslice keeps data flowing so a short take still yields audio.
+      mr.start(500);
       setRecording(true);
       setElapsed(0);
       timerRef.current = setInterval(() => {
@@ -125,6 +132,7 @@ export function IntroModal({
       toast.error("Mic blocked — enable microphone access to enroll a voice");
     }
   };
+
 
   const stopRecording = () => {
     try { recorderRef.current?.stop(); } catch { /* noop */ }
