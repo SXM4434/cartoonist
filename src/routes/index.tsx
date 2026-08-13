@@ -399,12 +399,13 @@ function Deliverables() {
     { name: "Flow diagram", meta: "SVG · editable" },
   ];
   return (
-    <ul className="flex flex-wrap gap-y-4">
+    <ul className="flex flex-wrap gap-y-4 sm:flex-nowrap">
       {items.map((it, i) => (
         <li
           key={it.name}
           tabIndex={0}
-          className="sheet relative min-h-[132px] w-[46%] border border-foreground bg-card p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-[30%]"
+          className="sheet relative min-h-[132px] w-[48%] shrink-0 border border-foreground bg-card p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-[27%]"
+
           style={{ marginLeft: i === 0 ? 0 : -18, zIndex: i, transform: `rotate(${(i % 2 ? 0.5 : -0.5).toFixed(2)}deg)` }}
         >
           <p className="font-display font-bold" style={{ fontSize: "var(--step-3)" }}>{it.name}</p>
