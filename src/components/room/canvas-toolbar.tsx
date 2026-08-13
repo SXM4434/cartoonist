@@ -39,7 +39,7 @@ export function CanvasToolbar({
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" sideOffset={6} className="w-auto rounded-none border-foreground p-3">
-          <p className="eyebrow text-muted-foreground">Fidelity &amp; ink</p>
+          <p className="eyebrow text-foreground">Output style</p>
           <p className="mb-2.5 mt-1 max-w-[34ch] text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
             Applies to everything Cartoonist draws — sketchy and loose through to production detail.
           </p>
