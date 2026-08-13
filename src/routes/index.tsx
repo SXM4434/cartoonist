@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { loadProfile } from "@/lib/profile";
+import { roomByCode } from "@/lib/db-rpc";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -34,15 +35,14 @@ function Landing() {
     if (!c) return;
     setJoining(true);
     try {
-      const { data, error } = await supabase.from("rooms").select("id").eq("join_code", c).maybeSingle();
-      if (error) throw error;
-      if (!data) { toast.error("No session with that code"); return; }
+      const id = await roomByCode(c);
+      if (!id) { toast.error("No session with that code"); return; }
       if (!loadProfile()) {
-        sessionStorage.setItem("cartoonist_pending_join", data.id);
+        sessionStorage.setItem("cartoonist_pending_join", id);
         navigate({ to: "/onboarding" });
         return;
       }
-      navigate({ to: "/sessions/$sessionId", params: { sessionId: data.id } });
+      navigate({ to: "/sessions/$sessionId", params: { sessionId: id } });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not join");
     } finally { setJoining(false); }

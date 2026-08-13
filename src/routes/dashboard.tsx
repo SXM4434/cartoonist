@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { loadProfile, removeSession } from "@/lib/profile";
 import { useWorkspaceSessions, relativeTime } from "@/hooks/use-workspace-sessions";
 import { CartoonistHeader } from "./onboarding";
+import { roomByCode } from "@/lib/db-rpc";
 
 export const Route = createFileRoute("/dashboard")({
   ssr: false,
@@ -43,11 +44,9 @@ function Dashboard() {
     if (!code) return;
     setJoining(true);
     try {
-      const { data, error } = await supabase
-        .from("rooms").select("id").eq("join_code", code).maybeSingle();
-      if (error) throw error;
-      if (!data) { toast.error("No session with that code"); return; }
-      navigate({ to: "/sessions/$sessionId", params: { sessionId: data.id } });
+      const id = await roomByCode(code);
+      if (!id) { toast.error("No session with that code"); return; }
+      navigate({ to: "/sessions/$sessionId", params: { sessionId: id } });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not join");
     } finally {

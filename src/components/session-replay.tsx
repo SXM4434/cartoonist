@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import type { SketchPrimitive } from "@/lib/sketch-types";
+import { canvasEventsForRoom } from "@/lib/db-rpc";
 
 type Frame = {
   at: number;
@@ -39,13 +40,7 @@ export function SessionReplay({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("canvas_events")
-        .select("op,source,transcript_span,thread_id,created_at")
-        .eq("room_id", roomId)
-        .order("created_at", { ascending: true })
-        .limit(3000);
-      if (error) throw error;
+      const data = await canvasEventsForRoom(roomId, 3000);
       const byId = new Map<string, SketchPrimitive>();
       const out: Frame[] = [];
       for (const row of (data ?? []) as Array<{

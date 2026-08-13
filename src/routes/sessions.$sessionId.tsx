@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { addSession, loadProfile } from "@/lib/profile";
 import { CartoonistHeader } from "./onboarding";
+import { roomGet } from "@/lib/db-rpc";
 
 type Room = {
   id: string; name: string; join_code: string | null;
@@ -43,12 +44,9 @@ function Lobby() {
 
     let cancelled = false;
     (async () => {
-      const { data: r, error } = await supabase
-        .from("rooms")
-        .select("id,name,join_code,goal,outputs,facilitation,host_role")
-        .eq("id", sessionId).maybeSingle();
+      const r = await roomGet(sessionId);
       if (cancelled) return;
-      if (error || !r) { toast.error("Session not found"); navigate({ to: "/dashboard" }); return; }
+      if (!r) { toast.error("Session not found"); navigate({ to: "/dashboard" }); return; }
       setRoom(r as Room);
 
       const { data: parts } = await supabase
