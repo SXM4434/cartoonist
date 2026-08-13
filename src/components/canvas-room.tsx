@@ -716,11 +716,20 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       }
       const edits = Array.isArray(data.edits) ? (data.edits as Array<{ id: string; patch: Record<string, unknown> }>) : [];
       const removes = Array.isArray(data.removes) ? (data.removes as string[]) : [];
-      // Fresh drawings must never land on top of existing marks. Enrichment
-      // passes (enrichPass > 0) intentionally draw *inside* existing frames.
+      // v1 P2.3 — storyboard placement. Each topic owns a 1200px frame; a fresh
+      // batch is left-aligned in the active frame and stacked under whatever is
+      // already there. Enrichment passes (enrichPass > 0) draw in place.
+      let landedFrame = activeFrameRef.current;
       if (enrichPass === 0 && incoming.length > 0) {
-        incoming = placeBatchClear(shapesRef.current, incoming);
+        const topics = sessionMemoryRef.current.topics ?? [];
+        const topic = topics[topics.length - 1] ?? sessionCtx?.name ?? "Opening";
+        landedFrame = ensureFrame(topic);
+        const inFrame = shapesRef.current.filter((s) => frameIndexOfShape(s) === landedFrame);
+        const placed = placeInFrame(incoming, landedFrame, inFrame);
+        // Guard: never let a batch overlap what is already inside the frame.
+        incoming = placeBatchClear(inFrame, placed);
       }
+
       if (incoming.length === 0 && edits.length === 0 && removes.length === 0) return true;
 
       setShapes((current) => {
