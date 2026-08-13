@@ -1,6 +1,6 @@
 ---
 name: tactile-editorial
-description: The house visual language — tactile, editorial, design-engineered. Warm paper and off-black ink, one warm orange, a locked type ladder, elevation by border and lightness never shadow, plus a physicality layer of grain, hand-drawn marks, dimensional type and material motion. Use for any visual or UI work in this project: new screens, restyling, choosing colors/type/spacing, or judging whether a surface is on-brand.
+description: "The house visual language — tactile, editorial, design-engineered. Warm paper and off-black ink, one warm orange, a locked type ladder, elevation by border and lightness never shadow, plus a physicality layer of grain, hand-drawn marks, dimensional type and material motion. Use for any visual or UI work in this project: new screens, restyling, choosing colors/type/spacing, or judging whether a surface is on-brand."
 ---
 
 # Tactile Editorial
