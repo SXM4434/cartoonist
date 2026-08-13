@@ -168,6 +168,13 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const lastSpokenRef = useRef<string>("");
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const [threads, setThreads] = useState<CanvasThread[]>([]);
+  // v1 P2.3 — storyboard frames. Canvas grows left→right, one frame per topic.
+  const [frames, setFrames] = useState<StoryFrame[]>([]);
+  const framesRef = useRef<StoryFrame[]>([]);
+  framesRef.current = frames;
+  const [activeFrame, setActiveFrame] = useState(0);
+  const activeFrameRef = useRef(0);
+  activeFrameRef.current = activeFrame;
   // v2.P6 — brief peek toast when the mediator returns to an older thread.
   const [reopenPeek, setReopenPeek] = useState<{ relation: string | null; latest: string; oldLatest: string } | null>(null);
 
