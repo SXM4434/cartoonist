@@ -176,6 +176,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const lastThreadIdRef = useRef<string | null>(null);
 
   const speech = useSpeech();
+  // v1 P2.2 — rolling full-session memory folded from the transcript.
+  const sessionMemory = useSessionMemory(roomId, speech.finals);
+  const sessionMemoryRef = useRef(sessionMemory);
+  sessionMemoryRef.current = sessionMemory;
   const startedAtRef = useRef(Date.now());
   const lastSentLenRef = useRef(0);
   const drawInFlightRef = useRef(false);
