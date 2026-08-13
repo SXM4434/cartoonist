@@ -1163,52 +1163,70 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               <Mic className="h-3.5 w-3.5" /><span className="eyebrow">Add voice</span>
             </Button>
           )}
-          <Sheet open={exportOpen} onOpenChange={setExportOpen}>
-            <SheetTrigger asChild>
-              <Button size="sm" variant="outline" onClick={generateArtifacts} className="h-8 gap-1.5 rounded-none border-border">
-                <FileDown className="h-3.5 w-3.5" /><span className="eyebrow">Export</span>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-none border-border" aria-label="More session tools">
+                <MoreHorizontal className="h-3.5 w-3.5" /><span className="eyebrow">More</span>
               </Button>
-            </SheetTrigger>
-            <SheetContent className="w-[90vw] overflow-y-auto sm:max-w-2xl">
-              <SheetHeader>
-                <SheetTitle className="font-serif" style={{ fontSize: "var(--step-3)" }}>Meeting artifacts</SheetTitle>
-              </SheetHeader>
-              <div className="mt-4">
-                <SessionPack
-                  build={() => ({
-                    roomId,
-                    sessionName: sessionCtx?.name ?? null,
-                    goal: sessionCtx?.goal ?? null,
-                    outputs: Array.isArray(sessionCtx?.outputs) ? sessionCtx.outputs.join(", ") : (sessionCtx?.outputs ?? null),
-                    participants: participants.map((p) => ({ name: p.name, role: p.role ?? null })),
-                    threads: threads.map((t) => ({ id: t.id, latest: t.latest, modality: t.modality })),
-                    transcript: speech.finals.join("\n"),
-                    canvasSummary: summarizeCanvas(),
-                    artifacts,
-                  })}
-                />
-              </div>
-              <div className="mt-4"><ArtifactTabs artifacts={artifacts} loading={generating} /></div>
-            </SheetContent>
-          </Sheet>
-          <KnownAboutYou
-            roomId={roomId}
-            buildRequest={() => ({
-              transcript: speech.finals.length ? speech.finals.join("\n") : "",
-              participants: participants.map((p) => ({ id: p.id, name: p.name, role: p.role ?? null })),
-            })}
-          />
-          <SessionReplay roomId={roomId} onFrame={setReplayShapes} />
-          <SessionRecap
-            roomId={roomId}
-            buildRequest={() => ({
-              transcript: speech.finals.length ? speech.finals.join("\n") : "",
-              canvasSummary: summarizeCanvas(),
-              sessionContext: sessionCtx ? { name: sessionCtx.name, goal: sessionCtx.goal, outputs: sessionCtx.outputs } : null,
-              participants: participants.map((p) => ({ name: p.name, role: p.role ?? null })),
-            })}
-          />
-
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              sideOffset={6}
+              className="w-56 rounded-none border-foreground p-1.5 [&_button]:w-full [&_button]:justify-start"
+            >
+              <Button size="sm" variant="ghost" onClick={clearCanvas} className="h-8 gap-2 rounded-none">
+                <Eraser className="h-3.5 w-3.5" /><span className="eyebrow">Clear canvas</span>
+              </Button>
+              <Button size="sm" variant="ghost" onClick={copyLink} className="h-8 gap-2 rounded-none">
+                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}<span className="eyebrow">Share link</span>
+              </Button>
+              <Sheet open={exportOpen} onOpenChange={setExportOpen}>
+                <SheetTrigger asChild>
+                  <Button size="sm" variant="ghost" onClick={generateArtifacts} className="h-8 gap-2 rounded-none">
+                    <FileDown className="h-3.5 w-3.5" /><span className="eyebrow">Export artifacts</span>
+                  </Button>
+                </SheetTrigger>
+                <SheetContent className="w-[90vw] overflow-y-auto sm:max-w-2xl">
+                  <SheetHeader>
+                    <SheetTitle className="font-display" style={{ fontSize: "var(--step-3)" }}>Meeting artifacts</SheetTitle>
+                  </SheetHeader>
+                  <div className="mt-4">
+                    <SessionPack
+                      build={() => ({
+                        roomId,
+                        sessionName: sessionCtx?.name ?? null,
+                        goal: sessionCtx?.goal ?? null,
+                        outputs: Array.isArray(sessionCtx?.outputs) ? sessionCtx.outputs.join(", ") : (sessionCtx?.outputs ?? null),
+                        participants: participants.map((p) => ({ name: p.name, role: p.role ?? null })),
+                        threads: threads.map((t) => ({ id: t.id, latest: t.latest, modality: t.modality })),
+                        transcript: speech.finals.join("\n"),
+                        canvasSummary: summarizeCanvas(),
+                        artifacts,
+                      })}
+                    />
+                  </div>
+                  <div className="mt-4"><ArtifactTabs artifacts={artifacts} loading={generating} /></div>
+                </SheetContent>
+              </Sheet>
+              <KnownAboutYou
+                roomId={roomId}
+                buildRequest={() => ({
+                  transcript: speech.finals.length ? speech.finals.join("\n") : "",
+                  participants: participants.map((p) => ({ id: p.id, name: p.name, role: p.role ?? null })),
+                })}
+              />
+              <SessionReplay roomId={roomId} onFrame={setReplayShapes} />
+              <SessionRecap
+                roomId={roomId}
+                buildRequest={() => ({
+                  transcript: speech.finals.length ? speech.finals.join("\n") : "",
+                  canvasSummary: summarizeCanvas(),
+                  sessionContext: sessionCtx ? { name: sessionCtx.name, goal: sessionCtx.goal, outputs: sessionCtx.outputs } : null,
+                  participants: participants.map((p) => ({ name: p.name, role: p.role ?? null })),
+                })}
+              />
+            </PopoverContent>
+          </Popover>
         </div>
       </header>
 
