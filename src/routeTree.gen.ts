@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as DirectionsRouteImport } from './routes/directions'
 import { Route as ExamplesRouteImport } from './routes/examples'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as ApiCanvasOpsRouteImport } from './routes/api/canvas-ops'
@@ -36,6 +37,11 @@ const IndexRoute = IndexRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DirectionsRoute = DirectionsRouteImport.update({
+  id: '/directions',
+  path: '/directions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExamplesRoute = ExamplesRouteImport.update({
@@ -123,6 +129,7 @@ const ApiElevenlabsScribeTokenRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/directions': typeof DirectionsRoute
   '/examples': typeof ExamplesRoute
   '/onboarding': typeof OnboardingRoute
   '/api/canvas-ops': typeof ApiCanvasOpsRoute
@@ -143,6 +150,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/directions': typeof DirectionsRoute
   '/examples': typeof ExamplesRoute
   '/onboarding': typeof OnboardingRoute
   '/api/canvas-ops': typeof ApiCanvasOpsRoute
@@ -164,6 +172,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/directions': typeof DirectionsRoute
   '/examples': typeof ExamplesRoute
   '/onboarding': typeof OnboardingRoute
   '/api/canvas-ops': typeof ApiCanvasOpsRoute
@@ -186,6 +195,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/dashboard'
+    | '/directions'
     | '/examples'
     | '/onboarding'
     | '/api/canvas-ops'
@@ -206,6 +216,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/dashboard'
+    | '/directions'
     | '/examples'
     | '/onboarding'
     | '/api/canvas-ops'
@@ -226,6 +237,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/dashboard'
+    | '/directions'
     | '/examples'
     | '/onboarding'
     | '/api/canvas-ops'
@@ -247,6 +259,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
+  DirectionsRoute: typeof DirectionsRoute
   ExamplesRoute: typeof ExamplesRoute
   OnboardingRoute: typeof OnboardingRoute
   ApiCanvasOpsRoute: typeof ApiCanvasOpsRoute
@@ -279,6 +292,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/directions': {
+      id: '/directions'
+      path: '/directions'
+      fullPath: '/directions'
+      preLoaderRoute: typeof DirectionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/examples': {
@@ -399,6 +419,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
+  DirectionsRoute: DirectionsRoute,
   ExamplesRoute: ExamplesRoute,
   OnboardingRoute: OnboardingRoute,
   ApiCanvasOpsRoute: ApiCanvasOpsRoute,
