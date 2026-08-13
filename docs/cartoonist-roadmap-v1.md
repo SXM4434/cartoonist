@@ -109,6 +109,7 @@ Persona / MermaidNode / Chart deferred to P2.
 - Renderer prompt receives: full summary + last 90s verbatim + the specific utterance being reacted to. Solves "doesn't accurately contextualize the whole conversation."
 
 ### 2.3 Storyboard frames (default mode)
+- **Status:** shipped 2026-08-13. `src/lib/storyboard.ts` defines the 1200px frame grid (200px gutters), title strips (`Frame N · mm:ss · topic`), in-frame stacking, and x→frame mapping. `canvas-room` opens a new frame whenever the rolling session-memory topic changes, left-aligns each fresh batch in the active frame under existing content, files shape ids per frame, and pans the camera there via `cartoonist:focus`. A frame chip strip (top-left of the canvas) jumps to any past frame. Non-linear callbacks stay on the existing thread/relation system; entity-graph callbacks land with P3.3.
 - Canvas grows left-to-right in **frames** (1200px wide each). Each new topic starts a new frame with an auto title strip ("Frame 3 · 02:14 · User journey").
 - Viewport auto-pans to the active frame; click any past frame to jump there.
 - Non-linear callbacks auto-enabled after frame 5 — AI may add callouts back into earlier frames using the entity graph.
