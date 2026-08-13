@@ -106,13 +106,20 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Anton is a display face: caps-driven, tight, never for body copy */
+  /* Condensed grotesk for display; sentence case by default, caps only when asked */
   h1, h2, h3, .font-serif, .font-display {
     font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    line-height: 1;
+  }
+
+  /* Rare, massive statements only */
+  .statement {
+    font-family: var(--font-statement);
     font-weight: 400;
-    letter-spacing: -0.01em;
-    line-height: 0.95;
-    text-transform: uppercase;
+    letter-spacing: -0.03em;
+    line-height: 0.92;
   }
 
   h4, h5, h6 {
