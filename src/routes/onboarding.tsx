@@ -107,69 +107,79 @@ function Onboarding() {
   };
 
   return (
-    <main className="min-h-screen bg-background px-4 py-10">
+    <main className="min-h-screen bg-background">
       <CartoonistHeader />
-      <div className="mx-auto max-w-xl">
-        <div className="mb-6 flex items-center gap-4">
-          <div className="text-5xl">🤖</div>
-          <div>
-            <span className="eyebrow text-primary">Step 1 of 2</span>
-            <h1 className="font-serif" style={{ fontSize: "var(--step-5)", lineHeight: 1 }}>Say hi to Cartoonist</h1>
-            <p className="text-muted-foreground mt-1" style={{ fontSize: "var(--step-2)" }}>
-              Just your name and what you do — the session stuff comes next.
-            </p>
-          </div>
+      <div className="mx-auto grid max-w-[1240px] gap-10 px-6 py-14 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)] lg:items-start">
+        <div className="lg:sticky lg:top-24">
+          <span className="eyebrow font-mono text-muted-foreground">STEP 1 / 2</span>
+          <h1 className="statement mt-3 max-w-[12ch]" style={{ fontSize: "var(--step-4)" }}>
+            Tell it who's talking.
+          </h1>
+          <p className="mt-4 max-w-[42ch] text-muted-foreground" style={{ fontSize: "var(--step-2)", lineHeight: 1.6 }}>
+            Cartoonist attributes every phrase to a person, so it needs a name and a
+            colour before it starts listening. Say it out loud and it fills the form itself.
+          </p>
         </div>
 
-        <div className="rounded-2xl border-2 border-foreground bg-card p-6 space-y-5">
-          <div className="rounded-xl border-2 border-foreground bg-yellow-50 p-4 flex items-center justify-between gap-3">
+        <div className="border border-foreground bg-card">
+          {/* Voice is the primary path — it sits above the form, not beside it */}
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-foreground px-5 py-4">
             <div>
-              <p className="font-medium" style={{ fontSize: "var(--step-2)" }}>Skip the form — say it</p>
-              <p className="text-muted-foreground" style={{ fontSize: "var(--step-1)" }}>
-                10 sec mic. Cartoonist fills in name + role.
+              <p className="eyebrow font-mono text-muted-foreground">VOICE INTRO</p>
+              <p className="mt-1.5" style={{ fontSize: "var(--step-2)" }}>
+                {recording ? "Listening — say your name and what you do." : "Ten seconds. It writes the fields for you."}
               </p>
             </div>
             {recording ? (
-              <Button onClick={stopMic} className="gap-2 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                <Square className="h-4 w-4" /> Stop
+              <Button onClick={stopMic} variant="destructive" className="gap-2 rounded-none">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-60" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-current" />
+                </span>
+                <Square className="h-3.5 w-3.5" /> Stop
               </Button>
             ) : (
-              <Button onClick={startMic} disabled={parsing} className="gap-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90">
+              <Button onClick={startMic} disabled={parsing} className="gap-2 rounded-none">
                 {parsing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
                 {parsing ? "Reading…" : "Record intro"}
               </Button>
             )}
           </div>
 
-          <div>
-            <Label className="mb-1.5 block">First name</Label>
-            <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Maya" className="rounded-full border-2 border-foreground" />
-          </div>
-
-          <div>
-            <Label className="mb-1.5 block">What do you do?</Label>
-            <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="Designer · PM · Engineer · Founder…" className="rounded-full border-2 border-foreground" />
-          </div>
-
-          <div>
-            <Label className="mb-2 block">Your color on the canvas</Label>
-            <div className="flex gap-2">
-              {COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setColor(c)}
-                  aria-label={`Pick color ${c}`}
-                  className={`h-9 w-9 rounded-full border-2 transition ${color === c ? "border-foreground scale-110" : "border-transparent"}`}
-                  style={{ backgroundColor: c }}
-                />
-              ))}
+          <div className="space-y-6 p-5">
+            <div>
+              <Label className="eyebrow mb-2 block font-mono text-muted-foreground">FIRST NAME</Label>
+              <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Maya" className="h-11 rounded-none border-foreground shadow-none" />
             </div>
-          </div>
 
-          <Button onClick={save} className="w-full rounded-full bg-primary py-6 text-base font-medium text-primary-foreground hover:bg-primary/90">
-            Save & continue
-          </Button>
+            <div>
+              <Label className="eyebrow mb-2 block font-mono text-muted-foreground">WHAT YOU DO</Label>
+              <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="Designer · PM · Engineer · Founder…" className="h-11 rounded-none border-foreground shadow-none" />
+            </div>
+
+            <div>
+              <Label className="eyebrow mb-2 block font-mono text-muted-foreground">YOUR COLOUR ON THE CANVAS</Label>
+              <div className="flex flex-wrap gap-2">
+                {COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setColor(c)}
+                    aria-label={`Pick color ${c}`}
+                    aria-pressed={color === c}
+                    className={`press h-11 w-11 border transition-[box-shadow,border-color] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+                      color === c ? "border-foreground ring-1 ring-foreground ring-offset-2 ring-offset-card" : "border-border"
+                    }`}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <Button onClick={save} size="lg" className="w-full rounded-none">
+              Save and continue
+            </Button>
+          </div>
         </div>
       </div>
     </main>
