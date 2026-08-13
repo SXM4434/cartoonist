@@ -21,7 +21,8 @@ export type Ink = "pencil" | "clean";
 export type RenderStyle = { fidelity: Fidelity; ink: Ink };
 
 const KEY = "cartoonist:render-style";
-const DEFAULT: RenderStyle = { fidelity: "mid", ink: "pencil" };
+/** Legibility first: generated UI reads as crisp shapes until you ask for pencil. */
+const DEFAULT: RenderStyle = { fidelity: "mid", ink: "clean" };
 
 let current: RenderStyle = DEFAULT;
 const listeners = new Set<() => void>();
@@ -33,7 +34,7 @@ if (typeof window !== "undefined") {
       const parsed = JSON.parse(raw) as Partial<RenderStyle>;
       current = {
         fidelity: parsed.fidelity === "lofi" || parsed.fidelity === "hifi" ? parsed.fidelity : "mid",
-        ink: parsed.ink === "clean" ? "clean" : "pencil",
+        ink: parsed.ink === "pencil" ? "pencil" : "clean",
       };
     }
   } catch {

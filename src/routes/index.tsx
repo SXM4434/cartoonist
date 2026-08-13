@@ -106,8 +106,8 @@ function Landing() {
                 <Button onClick={join} disabled={joining || !code} className="rounded-none">{joining ? "…" : "Join"}</Button>
               </div>
             )}
-            <p className="mt-5 font-mono text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
-              No account needed · works in the browser
+            <p className="mt-5 text-muted-foreground" style={{ fontSize: "var(--step-1)" }}>
+              No account needed. It runs in the browser.
             </p>
           </div>
 
@@ -201,7 +201,7 @@ function Landing() {
 
       <section className="border-t border-foreground">
         <div className="mx-auto flex max-w-[1240px] flex-wrap items-end justify-between gap-6 px-6 py-14">
-          <h2 className="statement max-w-[16ch]" style={{ fontSize: "var(--step-4)" }}>
+          <h2 className="font-display max-w-[18ch]" style={{ fontSize: "var(--step-4)" }}>
             Put it in front of your next meeting.
           </h2>
           <Button onClick={goTry} size="lg" className="rounded-none">Start a session</Button>
@@ -347,22 +347,51 @@ function RoughToResolved() {
   );
 }
 
-/** Annotations pinned around a central artifact, each tethered by a connector. */
+/**
+ * Annotations pinned around the artifact. Each one is tethered to the place in
+ * the artifact it refers to — the note is attached to the work, not floating.
+ */
 function MarginNotes() {
-  const left = ["3 unresolved questions", "2 participants disagreed here"];
-  const right = ["Decision inferred: ship guided session first", "Converted to action item — Dev"];
+  const left = [
+    { note: "3 unresolved questions", y: 26, anchor: { x: 40, y: 30 } },
+    { note: "2 participants disagreed here", y: 70, anchor: { x: 41, y: 72 } },
+  ];
+  const right = [
+    { note: "Decision inferred: ship guided session first", y: 22, anchor: { x: 60, y: 40 } },
+    { note: "Converted to action item — Dev", y: 76, anchor: { x: 59, y: 78 } },
+  ];
+
   return (
-    <div className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1fr)] lg:items-center">
-      <ul className="space-y-8">
-        {left.map((n) => (
-          <li key={n} className="relative pr-6 text-right">
-            <span className="font-mono" style={{ fontSize: "var(--step-1)" }}>{n}</span>
-            <span className="absolute right-0 top-1/2 hidden h-px w-6 bg-primary lg:block" aria-hidden />
-          </li>
+    <div className="relative mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)_minmax(0,1fr)] lg:items-stretch">
+      {/* tethers, desktop only — the artifact stays readable on its own */}
+      <svg
+        className="pointer-events-none absolute inset-0 hidden h-full w-full lg:block"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        aria-hidden
+      >
+        {[...left.map((l) => ({ ...l, from: 26 })), ...right.map((r) => ({ ...r, from: 74 }))].map((t, i) => (
+          <g key={i}>
+            <path
+              d={`M${t.from} ${t.y} L${t.anchor.x} ${t.y} L${t.anchor.x} ${t.anchor.y}`}
+              stroke="var(--color-primary)"
+              strokeWidth="1"
+              fill="none"
+              vectorEffect="non-scaling-stroke"
+              opacity="0.55"
+            />
+            <circle cx={t.anchor.x} cy={t.anchor.y} r="1" fill="var(--color-primary)" vectorEffect="non-scaling-stroke" />
+          </g>
+        ))}
+      </svg>
+
+      <ul className="relative flex flex-col justify-around gap-8 text-right lg:pr-8">
+        {left.map((l) => (
+          <li key={l.note} className="font-mono" style={{ fontSize: "var(--step-1)" }}>{l.note}</li>
         ))}
       </ul>
 
-      <div className="border border-foreground bg-card p-5">
+      <div className="relative border border-foreground bg-card p-5">
         <span className="eyebrow font-mono text-muted-foreground">Session artifact · v3</span>
         <svg viewBox="0 0 300 160" className="mt-3 w-full text-foreground" fill="none" aria-hidden>
           <g stroke="currentColor" strokeWidth="1.5">
@@ -378,38 +407,58 @@ function MarginNotes() {
         </svg>
       </div>
 
-      <ul className="space-y-8">
-        {right.map((n) => (
-          <li key={n} className="relative pl-6">
-            <span className="font-mono" style={{ fontSize: "var(--step-1)" }}>{n}</span>
-            <span className="absolute left-0 top-1/2 hidden h-px w-6 bg-primary lg:block" aria-hidden />
-          </li>
+      <ul className="relative flex flex-col justify-around gap-8 lg:pl-8">
+        {right.map((r) => (
+          <li key={r.note} className="font-mono" style={{ fontSize: "var(--step-1)" }}>{r.note}</li>
         ))}
       </ul>
     </div>
   );
 }
 
-/** Overlapping sheets you can pull forward. */
+/** Documents sitting on a work surface — different shapes, same system. */
 function Deliverables() {
   const items = [
-    { name: "PRD draft", meta: "MD · 6 sections" },
-    { name: "Decision log", meta: "9 entries" },
-    { name: "Action items", meta: "4 owners" },
-    { name: "Flow diagram", meta: "SVG · editable" },
+    { name: "PRD draft", meta: "MD · 6 SECTIONS", span: "col-span-7", rows: 5 },
+    { name: "Decision log", meta: "9 ENTRIES", span: "col-span-5", rows: 4 },
+    { name: "Action items", meta: "4 OWNERS", span: "col-span-5", rows: 3 },
+    { name: "Flow diagram", meta: "SVG · EDITABLE", span: "col-span-7", rows: 0 },
   ];
   return (
-    <ul className="flex flex-wrap gap-y-4 sm:flex-nowrap">
-      {items.map((it, i) => (
+    <ul className="grid grid-cols-12 gap-3">
+      {items.map((it) => (
         <li
           key={it.name}
           tabIndex={0}
-          className="sheet relative min-h-[132px] w-[48%] shrink-0 border border-foreground bg-card p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-[27%]"
-
-          style={{ marginLeft: i === 0 ? 0 : -18, zIndex: i, transform: `rotate(${(i % 2 ? 0.5 : -0.5).toFixed(2)}deg)` }}
+          className={`sheet relative flex min-h-[148px] flex-col justify-between border border-foreground bg-card p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${it.span}`}
         >
-          <p className="font-display font-bold" style={{ fontSize: "var(--step-3)" }}>{it.name}</p>
-          <p className="mt-8 font-mono text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>{it.meta}</p>
+          <div>
+            <p className="font-display font-bold" style={{ fontSize: "var(--step-3)" }}>{it.name}</p>
+            {it.rows > 0 ? (
+              <svg viewBox="0 0 200 40" className="mt-3 w-full text-foreground" aria-hidden preserveAspectRatio="none" height="34">
+                {Array.from({ length: it.rows }).map((_, r) => (
+                  <path
+                    key={r}
+                    d={`M0 ${r * 9 + 4}H${[172, 138, 186, 120, 158][r % 5]}`}
+                    stroke="currentColor"
+                    strokeWidth="1"
+                    opacity="0.28"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                ))}
+              </svg>
+            ) : (
+              <svg viewBox="0 0 200 40" className="mt-3 w-full text-foreground" aria-hidden preserveAspectRatio="none" height="34">
+                <g stroke="currentColor" strokeWidth="1" opacity="0.35" fill="none" vectorEffect="non-scaling-stroke">
+                  <rect x="2" y="6" width="46" height="26" />
+                  <rect x="78" y="6" width="46" height="26" />
+                  <rect x="152" y="6" width="46" height="26" />
+                  <path d="M48 19h30M124 19h28" />
+                </g>
+              </svg>
+            )}
+          </div>
+          <p className="font-mono uppercase tracking-[0.16em] text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>{it.meta}</p>
         </li>
       ))}
     </ul>

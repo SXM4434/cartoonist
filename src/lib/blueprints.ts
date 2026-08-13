@@ -1,5 +1,12 @@
-import type { IconKind, SketchPrimitive } from "./sketch-types";
-import { createProductionWireframe } from "./production-wireframe";
+import type { SketchPrimitive } from "./sketch-types";
+
+/**
+ * Example scenes for /examples.
+ *
+ * Rule: one example = one idea. Each scene shows a single meaningful
+ * interaction or output, not an entire generated application. Enough
+ * context to read the state, nothing more.
+ */
 
 const ui = <T extends SketchPrimitive>(shape: T): T => ({ ...shape, style: "ui" });
 
@@ -10,213 +17,187 @@ function makeKit() {
   const add = (shape: SketchPrimitive) => s.push(ui(shape));
   return {
     out: s,
-    rect: (id: string, x: number, y: number, w: number, h: number, tone: SketchPrimitive["tone"] = "surface", fill = "solid") =>
-      add({ type: "rect", id, x, y, w, h, tone, fill }),
+    rect: (id: string, x: number, y: number, w: number, h: number, tone: SketchPrimitive["tone"] = "surface") =>
+      add({ type: "rect", id, x, y, w, h, tone, fill: "solid" }),
     text: (id: string, x: number, y: number, value: string, size = 13, tone: SketchPrimitive["tone"] = "ink") =>
       add({ type: "text", id, x, y, text: value, size, tone }),
     line: (id: string, x1: number, y1: number, x2: number, y2: number, tone: SketchPrimitive["tone"] = "muted") =>
       add({ type: "line", id, x1, y1, x2, y2, tone }),
-    icon: (id: string, kind: IconKind, x: number, y: number, size = 14, tone: SketchPrimitive["tone"] = "muted") =>
-      add({ type: "icon", id, kind, x, y, size, tone }),
+    arrow: (id: string, x1: number, y1: number, x2: number, y2: number, tone: SketchPrimitive["tone"] = "muted") =>
+      add({ type: "arrow", id, x1, y1, x2, y2, tone }),
     ellipse: (id: string, x: number, y: number, w: number, h: number, tone: SketchPrimitive["tone"] = "muted") =>
       add({ type: "ellipse", id, x, y, w, h, tone, fill: "solid" }),
   };
 }
 
-/** Max-fidelity mobile app: three stacked device frames with real chrome. */
-const mobileApp: Builder = (ox, oy) => {
+/** Billing: just enough nav to place you, the invoice table, and the downgrade confirm. */
+const billing: Builder = (ox, oy) => {
   const k = makeKit();
-  const screens: Array<{ title: string; kind: "feed" | "detail" | "profile" }> = [
-    { title: "Today", kind: "feed" },
-    { title: "Session", kind: "detail" },
-    { title: "You", kind: "profile" },
-  ];
-  screens.forEach((screen, si) => {
-    const x = ox + si * 400;
-    const y = oy;
-    k.rect(`m${si}_frame`, x, y, 340, 700, "surface");
-    // status bar
-    k.text(`m${si}_time`, x + 22, y + 14, "9:41", 11);
-    k.line(`m${si}_status_rule`, x, y + 40, x + 340, y + 40);
-    // nav header
-    k.text(`m${si}_title`, x + 128, y + 56, screen.title, 15);
-    k.line(`m${si}_head_rule`, x, y + 88, x + 340, y + 88);
-
-    if (screen.kind === "feed") {
-      k.rect(`m${si}_seg`, x + 20, y + 104, 300, 32, "subtle");
-      k.rect(`m${si}_seg_active`, x + 22, y + 106, 98, 28, "surface");
-      ["Live", "Queued", "Done"].forEach((t, i) => k.text(`m${si}_seg_${i}`, x + 46 + i * 100, y + 113, t, 11, i === 0 ? "ink" : "muted"));
-      [["Kickoff sync", "4 people • 12 min", "LIVE"], ["Pricing review", "3 people • 40 min", "2h"], ["Design crit", "6 people • 25 min", "Yest."], ["Roadmap Q3", "5 people • 55 min", "Mon"]].forEach((row, i) => {
-        const ry = y + 156 + i * 96;
-        k.rect(`m${si}_card_${i}`, x + 20, ry, 300, 84, i === 0 ? "subtle" : "surface");
-        if (i === 0) k.rect(`m${si}_card_accent_${i}`, x + 20, ry, 3, 84, "accent");
-        k.ellipse(`m${si}_card_av_${i}`, x + 36, ry + 16, 30, 30, i === 0 ? "accent" : "muted");
-        k.text(`m${si}_card_t_${i}`, x + 78, ry + 18, row[0], 13);
-        k.text(`m${si}_card_s_${i}`, x + 78, ry + 40, row[1], 11, "muted");
-        k.text(`m${si}_card_b_${i}`, x + 258, ry + 18, row[2], 11, i === 0 ? "success" : "muted");
-      });
-      k.ellipse(`m${si}_fab`, x + 258, y + 556, 54, 54, "accent");
-    }
-
-    if (screen.kind === "detail") {
-      k.rect(`m${si}_hero`, x + 20, y + 104, 300, 132, "subtle");
-      k.text(`m${si}_hero_eyebrow`, x + 36, y + 118, "IN PROGRESS", 11, "accent");
-      k.text(`m${si}_hero_title`, x + 36, y + 140, "Pricing review", 22);
-      k.text(`m${si}_hero_meta`, x + 36, y + 178, "Started 12:04 • 3 speakers", 11, "muted");
-      [0, 1, 2].forEach((i) => k.ellipse(`m${si}_hero_av_${i}`, x + 36 + i * 24, y + 200, 24, 24, i === 1 ? "accent" : "muted"));
-      k.text(`m${si}_sec1`, x + 20, y + 256, "TRANSCRIPT", 11, "muted");
-      [["Maya", "We should anchor on value, not seats."], ["Theo", "Enterprise wants a flat tier."], ["Amara", "Blocked on the billing migration."]].forEach((row, i) => {
-        const ry = y + 282 + i * 76;
-        k.ellipse(`m${si}_t_av_${i}`, x + 20, ry, 22, 22, i === 2 ? "danger" : "muted");
-        k.text(`m${si}_t_name_${i}`, x + 52, ry, row[0], 11, "muted");
-        k.text(`m${si}_t_body_${i}`, x + 52, ry + 20, row[1], 13);
-        k.line(`m${si}_t_rule_${i}`, x + 20, ry + 56, x + 320, ry + 56);
-      });
-      k.rect(`m${si}_cta`, x + 20, y + 528, 300, 44, "accent");
-      k.text(`m${si}_cta_text`, x + 118, y + 542, "Summarize session", 13, "surface");
-      k.rect(`m${si}_cta2`, x + 20, y + 584, 300, 44, "surface");
-      k.text(`m${si}_cta2_text`, x + 138, y + 598, "Share recap", 13);
-    }
-
-    if (screen.kind === "profile") {
-      k.ellipse(`m${si}_avatar`, x + 132, y + 116, 76, 76, "accent");
-      k.text(`m${si}_name`, x + 122, y + 208, "Maya Chen", 22);
-      k.text(`m${si}_role`, x + 116, y + 242, "Product design • Berlin", 11, "muted");
-      [["Sessions", "128"], ["Hours", "94"], ["Decisions", "412"]].forEach((m, i) => {
-        k.text(`m${si}_stat_v_${i}`, x + 40 + i * 100, y + 280, m[1], 22);
-        k.text(`m${si}_stat_l_${i}`, x + 40 + i * 100, y + 310, m[0], 11, "muted");
-      });
-      k.line(`m${si}_p_rule`, x + 20, y + 344, x + 320, y + 344);
-      ["Voice sample", "Contribution modes", "Feedback style", "Notifications", "Privacy", "Sign out"].forEach((label, i) => {
-        const ry = y + 368 + i * 46;
-        k.text(`m${si}_p_label_${i}`, x + 24, ry - 1, label, 13, i === 5 ? "danger" : "ink");
-        k.text(`m${si}_p_chev_${i}`, x + 300, ry - 1, "›", 13, "muted");
-        k.line(`m${si}_p_row_rule_${i}`, x + 20, ry + 26, x + 320, ry + 26);
-      });
-    }
-
-    // tab bar
-    k.line(`m${si}_tab_rule`, x, y + 636, x + 340, y + 636);
-    ["Home", "Stats", "Rooms", "You"].forEach((label, i) => {
-      const activeTab = si === 0 ? 0 : si === 1 ? 2 : 3;
-      if (i === activeTab) k.rect(`m${si}_tab_active_${i}`, x + 26 + i * 78, y + 650, 62, 26, "accent");
-      k.text(`m${si}_tab_label_${i}`, x + 40 + i * 78, y + 656, label, 11, i === activeTab ? "ink" : "muted");
-    });
-    k.rect(`m${si}_home_ind`, x + 130, y + 686, 80, 4, "muted");
-    k.text(`m${si}_caption`, x + 4, y + 712, `${si + 1} / 3 — ${screen.title}`, 11, "muted");
+  k.text("b_crumb", ox, oy, "Settings / Billing", 11, "muted");
+  ["General", "Members", "Billing", "Security"].forEach((label, i) => {
+    const x = ox + i * 108;
+    k.text(`b_nav_${i}`, x, oy + 30, label, 13, label === "Billing" ? "ink" : "muted");
+    if (label === "Billing") k.line("b_nav_active", x, oy + 52, x + 58, oy + 52, "accent");
   });
+  k.line("b_nav_rule", ox, oy + 56, ox + 900, oy + 56);
+
+  k.text("b_title", ox, oy + 84, "Invoices", 22);
+  k.text("b_sub", ox, oy + 116, "Studio plan — 12 of 20 seats", 13, "muted");
+
+  const tableW = 540;
+  ["INVOICE", "DATE", "AMOUNT", "STATUS"].forEach((h, i) =>
+    k.text(`b_th_${i}`, ox + [0, 170, 310, 430][i], oy + 162, h, 11, "muted"),
+  );
+  k.line("b_th_rule", ox, oy + 184, ox + tableW, oy + 184);
+  [
+    ["INV-2094", "Aug 1, 2026", "$240.00", "Paid"],
+    ["INV-2081", "Jul 1, 2026", "$240.00", "Paid"],
+    ["INV-2070", "Jun 1, 2026", "$200.00", "Paid"],
+    ["INV-2061", "May 1, 2026", "$200.00", "Refunded"],
+  ].forEach((row, i) => {
+    const y = oy + 206 + i * 46;
+    k.text(`b_id_${i}`, ox, y, row[0], 13);
+    k.text(`b_date_${i}`, ox + 170, y, row[1], 13, "muted");
+    k.text(`b_amt_${i}`, ox + 310, y, row[2], 13);
+    k.text(`b_st_${i}`, ox + 430, y, row[3], 11, row[3] === "Refunded" ? "danger" : "muted");
+    k.line(`b_row_rule_${i}`, ox, y + 28, ox + tableW, y + 28);
+  });
+
+  // The single interaction: confirming a downgrade. Sits beside the table so
+  // neither the table nor the decision has to be read through the other.
+  const mx = ox + tableW + 80;
+  const my = oy + 184;
+  k.rect("b_modal", mx, my, 320, 190, "surface");
+  k.text("b_modal_t", mx + 24, my + 26, "Downgrade to Team?", 22);
+  k.text("b_modal_b", mx + 24, my + 74, "You lose 8 seats on Sep 1.", 13, "muted");
+  k.line("b_modal_rule", mx, my + 124, mx + 320, my + 124);
+  k.text("b_modal_cancel", mx + 40, my + 150, "Cancel", 13, "muted");
+  k.rect("b_modal_ok", mx + 200, my + 142, 96, 30, "danger");
+  k.text("b_modal_ok_t", mx + 214, my + 150, "Downgrade", 11, "surface");
   return k.out;
 };
 
-/** Max-fidelity settings/billing surface with nested panels and a modal. */
-const settingsBilling: Builder = (ox, oy) => {
+/** Command center: one command interaction, nothing else. */
+const command: Builder = (ox, oy) => {
   const k = makeKit();
-  k.rect("st_frame", ox, oy, 1120, 720, "surface");
-  k.rect("st_top", ox, oy, 1120, 48, "surface");
-  k.line("st_top_rule", ox, oy + 48, ox + 1120, oy + 48);
-  k.text("st_brand", ox + 20, oy + 14, "Atlas Work", 15);
-  k.text("st_crumb", ox + 140, oy + 16, "Settings  /  Billing", 11, "muted");
-  k.rect("st_save", ox + 972, oy + 9, 128, 30, "accent");
-  k.text("st_save_text", ox + 996, oy + 16, "Save changes", 11, "surface");
+  k.text("c_ctx", ox, oy, "Atlas — Projects", 13, "muted");
+  k.line("c_ctx_rule", ox, oy + 22, ox + 660, oy + 22);
 
-  k.rect("st_side", ox, oy + 49, 216, 671, "subtle");
-  k.text("st_side_label", ox + 20, oy + 72, "SETTINGS", 11, "muted");
-  ["General", "Members", "Roles", "Billing", "Integrations", "Voice & audio", "Security", "Audit log"].forEach((label, i) => {
-    const y = oy + 100 + i * 40;
-    if (label === "Billing") {
-      k.rect("st_side_active_bg", ox + 10, y - 8, 196, 32, "surface");
-      k.rect("st_side_active", ox + 10, y - 8, 3, 32, "accent");
-    }
-    k.text(`st_side_${i}`, ox + 26, y - 2, label, 13, label === "Billing" ? "ink" : "muted");
+  k.rect("c_field", ox, oy + 60, 660, 56, "surface");
+  k.text("c_query", ox + 22, oy + 78, "move billing → Q3", 22);
+  k.line("c_caret", ox + 250, oy + 74, ox + 250, oy + 100, "accent");
+  k.text("c_hint", ox + 560, oy + 84, "⌘K", 11, "muted");
+
+  [
+    ["Move milestone", "Billing revamp → Q3 2026", true],
+    ["Reassign owner", "Billing revamp — Dev", false],
+    ["Create decision", "Log 'ship guided session first'", false],
+  ].forEach((row, i) => {
+    const y = oy + 132 + i * 62;
+    if (row[2]) k.rect("c_row_active", ox, y - 12, 660, 56, "subtle");
+    if (row[2]) k.line("c_row_bar", ox, y - 12, ox, y + 44, "accent");
+    k.text(`c_row_t_${i}`, ox + 22, y, String(row[0]), 15);
+    k.text(`c_row_s_${i}`, ox + 22, y + 22, String(row[1]), 11, "muted");
+    if (row[2]) k.text("c_row_enter", ox + 600, y + 8, "↵", 13, "muted");
   });
-  k.line("st_side_rule", ox + 216, oy + 49, ox + 216, oy + 720);
+  k.text("c_foot", ox, oy + 340, "3 actions matched", 11, "muted");
+  return k.out;
+};
 
-  const cx = ox + 248;
-  k.text("st_title", cx, oy + 84, "Billing & usage", 32);
-  k.text("st_sub", cx, oy + 128, "Plan, invoices, and AI spend for this workspace", 13, "muted");
+/** Order ops: one order, one state machine. */
+const orderOps: Builder = (ox, oy) => {
+  const k = makeKit();
+  k.text("o_eyebrow", ox, oy, "ORDER #40912", 11, "muted");
+  k.text("o_title", ox, oy + 22, "Held for review", 32);
+  k.text("o_meta", ox, oy + 74, "€412.00 · 3 items · flagged by fraud rule R-14", 13, "muted");
 
-  k.rect("st_plan", cx, oy + 164, 540, 152, "subtle");
-  k.text("st_plan_eyebrow", cx + 20, oy + 182, "CURRENT PLAN", 11, "accent");
-  k.text("st_plan_name", cx + 20, oy + 206, "Studio — $240 / mo", 22);
-  k.text("st_plan_meta", cx + 20, oy + 246, "Renews Sep 1 • 12 of 20 seats used", 11, "muted");
-  k.rect("st_plan_bar_bg", cx + 20, oy + 272, 320, 8, "muted");
-  k.rect("st_plan_bar", cx + 20, oy + 272, 192, 8, "accent");
-  k.rect("st_plan_btn", cx + 396, oy + 264, 124, 32, "surface");
-  k.text("st_plan_btn_text", cx + 420, oy + 272, "Change plan", 11);
-
-  k.rect("st_usage", cx + 564, oy + 164, 292, 152, "surface");
-  k.text("st_usage_title", cx + 584, oy + 182, "AI spend", 15);
-  k.text("st_usage_value", cx + 584, oy + 210, "$38.42", 32);
-  k.text("st_usage_delta", cx + 584, oy + 254, "+6.1% vs last month", 11, "success");
-  [0, 1, 2, 3, 4, 5, 6].forEach((i) =>
-    k.rect(`st_usage_bar_${i}`, cx + 584 + i * 30, oy + 292 - (10 + i * 4), 18, 10 + i * 4, i === 6 ? "accent" : "muted"),
-  );
-
-  k.text("st_inv_title", cx, oy + 352, "Invoices", 22);
-  k.rect("st_inv_filter", cx + 660, oy + 350, 196, 30, "surface");
-  k.icon("st_inv_filter_icon", "search", cx + 672, oy + 358, 12);
-  k.text("st_inv_filter_text", cx + 694, oy + 357, "Filter invoices…", 11, "muted");
-  k.line("st_inv_head", cx, oy + 396, cx + 856, oy + 396);
-  ["INVOICE", "DATE", "SEATS", "AMOUNT", "STATUS", ""].forEach((h, i) =>
-    k.text(`st_th_${i}`, cx + [0, 190, 330, 448, 580, 760][i], oy + 408, h, 11, "muted"),
-  );
-  [["INV-2094", "Aug 1, 2026", "12", "$240.00", "Paid"], ["INV-2081", "Jul 1, 2026", "12", "$240.00", "Paid"], ["INV-2070", "Jun 1, 2026", "10", "$200.00", "Paid"], ["INV-2061", "May 1, 2026", "10", "$200.00", "Refunded"], ["INV-2050", "Apr 1, 2026", "8", "$160.00", "Paid"]].forEach((row, i) => {
-    const y = oy + 440 + i * 48;
-    if (i === 0) k.rect(`st_row_hl_${i}`, cx, y - 12, 856, 46, "subtle");
-    k.icon(`st_row_icon_${i}`, "doc", cx, y - 2, 13);
-    k.text(`st_row_id_${i}`, cx + 22, y, row[0], 13);
-    k.text(`st_row_date_${i}`, cx + 190, y, row[1], 11, "muted");
-    k.text(`st_row_seats_${i}`, cx + 330, y, row[2], 11, "muted");
-    k.text(`st_row_amt_${i}`, cx + 448, y, row[3], 13);
-    k.rect(`st_row_status_${i}`, cx + 580, y - 5, 92, 24, row[4] === "Refunded" ? "danger" : "success");
-    k.text(`st_row_status_t_${i}`, cx + 594, y, row[4], 11, "surface");
-    k.text(`st_row_dl_${i}`, cx + 760, y, "Download", 11, "accent");
-    k.line(`st_row_rule_${i}`, cx, y + 28, cx + 856, y + 28);
+  const steps = ["Placed", "Paid", "Review", "Picked", "Shipped"];
+  steps.forEach((s, i) => {
+    const x = ox + i * 150;
+    const active = i === 2;
+    const done = i < 2;
+    k.ellipse(`o_dot_${i}`, x, oy + 140, 18, 18, active ? "accent" : done ? "ink" : "muted");
+    if (i < steps.length - 1) k.line(`o_link_${i}`, x + 18, oy + 149, x + 150, oy + 149, done ? "ink" : "muted");
+    k.text(`o_step_${i}`, x, oy + 174, s, 13, active ? "ink" : "muted");
+    if (active) k.text("o_step_meta", x, oy + 196, "12m in state", 11, "muted");
   });
-  k.text("st_pager", cx, oy + 700, "Showing 5 of 24 invoices", 11, "muted");
-  k.text("st_pager_next", cx + 780, oy + 700, "Next  →", 11);
 
-  // Floating confirm modal — hi-fi surfaces need overlay depth.
-  const mx = ox + 380;
-  const my = oy + 236;
-  k.rect("st_modal", mx, my, 400, 220, "surface");
-  k.text("st_modal_title", mx + 24, my + 26, "Downgrade to Team?", 22);
-  k.text("st_modal_body", mx + 24, my + 70, "You'll lose 8 seats and workspace memory", 13, "muted");
-  k.text("st_modal_body2", mx + 24, my + 94, "on Sep 1. This cannot be undone.", 13, "muted");
-  k.line("st_modal_rule", mx, my + 150, mx + 400, my + 150);
-  k.rect("st_modal_cancel", mx + 168, my + 168, 92, 34, "surface");
-  k.text("st_modal_cancel_t", mx + 190, my + 177, "Cancel", 11);
-  k.rect("st_modal_ok", mx + 274, my + 168, 106, 34, "danger");
-  k.text("st_modal_ok_t", mx + 292, my + 177, "Downgrade", 11, "surface");
+  k.line("o_rule", ox, oy + 240, ox + 690, oy + 240);
+  k.text("o_q", ox, oy + 266, "Release the hold?", 15);
+  k.rect("o_release", ox, oy + 296, 132, 36, "accent");
+  k.text("o_release_t", ox + 30, oy + 306, "Release", 13, "surface");
+  k.text("o_cancel", ox + 160, oy + 306, "Cancel order", 13, "danger");
+  return k.out;
+};
+
+/** Workflow editor: one flow composition. */
+const workflow: Builder = (ox, oy) => {
+  const k = makeKit();
+  k.text("w_eyebrow", ox, oy, "FLOW — SESSION RECAP", 11, "muted");
+
+  const node = (id: string, x: number, y: number, title: string, sub: string, tone: SketchPrimitive["tone"] = "surface") => {
+    k.rect(`${id}_box`, x, y, 190, 74, tone);
+    k.text(`${id}_t`, x + 16, y + 18, title, 15);
+    k.text(`${id}_s`, x + 16, y + 44, sub, 11, "muted");
+  };
+
+  node("w_a", ox, oy + 60, "Transcript", "live audio in");
+  node("w_b", ox + 260, oy + 60, "Mark phrases", "attention pass", "subtle");
+  node("w_c", ox + 520, oy - 10, "Draw structure", "canvas objects");
+  node("w_d", ox + 520, oy + 130, "Open questions", "3 unresolved");
+  node("w_e", ox + 780, oy + 60, "Recap document", "markdown out", "accent");
+
+  k.arrow("w_ab", ox + 190, oy + 97, ox + 260, oy + 97);
+  k.arrow("w_bc", ox + 450, oy + 90, ox + 520, oy + 30);
+  k.arrow("w_bd", ox + 450, oy + 104, ox + 520, oy + 164);
+  k.arrow("w_ce", ox + 710, oy + 30, ox + 780, oy + 90);
+  k.arrow("w_de", ox + 710, oy + 164, ox + 780, oy + 104);
+  k.text("w_note", ox + 260, oy + 172, "runs every 8s while the room talks", 11, "muted");
+  return k.out;
+};
+
+/** Mobile: one focused task on one screen. */
+const mobile: Builder = (ox, oy) => {
+  const k = makeKit();
+  k.rect("p_frame", ox, oy, 340, 680, "surface");
+  k.text("p_time", ox + 22, oy + 16, "9:41", 11, "muted");
+  k.line("p_status_rule", ox, oy + 44, ox + 340, oy + 44);
+  k.text("p_back", ox + 20, oy + 64, "‹", 15, "muted");
+  k.text("p_title", ox + 44, oy + 66, "Assign action items", 15);
+  k.line("p_head_rule", ox, oy + 96, ox + 340, oy + 96);
+
+  [
+    ["Seed the room with real data", "Dev", true],
+    ["Write the guided script", "Priya", true],
+    ["Cut the empty state", "Unassigned", false],
+  ].forEach((row, i) => {
+    const y = oy + 128 + i * 104;
+    k.rect(`p_card_${i}`, ox + 20, y, 300, 84, row[2] ? "surface" : "subtle");
+    if (!row[2]) k.line("p_card_bar", ox + 20, y, ox + 20, y + 84, "accent");
+    k.text(`p_card_t_${i}`, ox + 38, y + 18, String(row[0]), 13);
+    k.text(`p_card_s_${i}`, ox + 38, y + 48, String(row[1]), 11, row[2] ? "muted" : "accent");
+  });
+
+  k.text("p_hint", ox + 20, oy + 452, "1 item still needs an owner", 11, "muted");
+  k.rect("p_cta", ox + 20, oy + 592, 300, 48, "accent");
+  k.text("p_cta_t", ox + 108, oy + 608, "Send to Linear", 13, "surface");
   return k.out;
 };
 
 export type Blueprint = {
   id: string;
   label: string;
+  /** The single idea this example demonstrates. */
   blurb: string;
+  /** Machine metadata shown under the artifact. */
+  output: string;
   build: Builder;
 };
 
 export const BLUEPRINTS: Blueprint[] = [
-  {
-    id: "dashboard",
-    label: "Command center",
-    blurb: "Dense app shell: nav, metrics, data table, live activity rail.",
-    build: (x, y) => createProductionWireframe("project command center", x, y),
-  },
-  {
-    id: "commerce",
-    label: "Order ops",
-    blurb: "Commerce back office with revenue metrics and order table.",
-    build: (x, y) => createProductionWireframe("shop checkout order operations", x, y),
-  },
-  {
-    id: "editor",
-    label: "Workflow editor",
-    blurb: "Canvas-style editor shell with components and runs.",
-    build: (x, y) => createProductionWireframe("canvas node workflow editor", x, y),
-  },
-  { id: "mobile", label: "Mobile app", blurb: "Three device screens: feed, session detail, profile.", build: mobileApp },
-  { id: "settings", label: "Billing settings", blurb: "Settings shell, invoice table, and a confirm modal.", build: settingsBilling },
+  { id: "command", label: "Command center", blurb: "One command, three matched actions.", output: "app state", build: command },
+  { id: "commerce", label: "Order ops", blurb: "One order held mid-workflow.", output: "operational state", build: orderOps },
+  { id: "editor", label: "Workflow editor", blurb: "One flow, five nodes.", output: "flow diagram", build: workflow },
+  { id: "mobile", label: "Mobile app", blurb: "One focused mobile task.", output: "mobile screen", build: mobile },
+  { id: "settings", label: "Billing settings", blurb: "Invoices, and one confirmation.", output: "settings screen", build: billing },
 ];
