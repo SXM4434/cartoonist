@@ -137,26 +137,33 @@ export function SessionReplay({
 
   return (
     <>
-      <Button
-        size="sm"
-        variant="outline"
-        data-testid="replay-trigger"
-        onClick={() => {
-          if (open) return close();
-          setOpen(true);
-          void load();
-        }}
-        className={`h-8 gap-1.5 rounded-none border-border ${open ? "bg-foreground text-background" : ""}`}
-      >
-        <History className="h-3.5 w-3.5" />
-        <span className="eyebrow">Replay</span>
-      </Button>
+      {!embedded && (
+        <Button
+          size="sm"
+          variant="outline"
+          data-testid="replay-trigger"
+          onClick={() => {
+            if (open) return close();
+            setOpen(true);
+            void load();
+          }}
+          className={`h-8 gap-1.5 rounded-none border-border ${open ? "bg-foreground text-background" : ""}`}
+        >
+          <History className="h-3.5 w-3.5" />
+          <span className="eyebrow">Replay</span>
+        </Button>
+      )}
 
       {open && (
         <div
           data-testid="replay-bar"
-          className="fixed bottom-28 left-1/2 z-50 w-[min(760px,92vw)] -translate-x-1/2 border border-border bg-background/97 px-4 py-3 shadow-sm backdrop-blur"
+          className={
+            embedded
+              ? "border-b border-border px-2.5 py-2.5"
+              : "fixed bottom-28 left-1/2 z-50 w-[min(760px,92vw)] -translate-x-1/2 border border-border bg-background/97 px-4 py-3 shadow-sm backdrop-blur"
+          }
         >
+
           <div className="flex items-center justify-between gap-3">
             <span className="eyebrow text-primary">
               {loading ? "Loading provenance…" : `Replay — step ${Math.min(idx + 1, frames.length)} of ${frames.length}`}
