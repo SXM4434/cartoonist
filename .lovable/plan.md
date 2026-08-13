@@ -1,61 +1,42 @@
-# Tactile editorial redesign + design-engineering skills
+# Real design-engineering skills — research results + install plan
 
-Two things: install a small set of reusable design skills so every future change follows the same craft rules, then redesign the whole app against them.
+You asked whether these people have actual skills. Here's what's verifiably published, fetched and read (not guessed):
 
-## Part 1 — Three skills
+## What exists
 
-Distilled from the published bodies of work of the design engineers you named (Emil Kowalski's animation teaching, Josh Puckett's product-craft writing, Jakub Krehel's tactile/experimental interface work) plus the wider design-engineering canon (Rauno Freiberg's UI interaction laws, Linear/Vercel-style motion systems).
+**Emil Kowalski — real.** `github.com/emilkowalski/skills` (~28k stars). Three skills, all fetched:
+- `emil-design-eng` (27KB) — his full design-engineering doctrine: animation decision framework, spring physics, transform mastery, clip-path animation, gesture/drag, performance rules, "the Sonner principles", stagger, a review checklist.
+- `animate` (11KB) — a build-order procedure: should this animate at all → purpose → cheapest tool → which properties → easing/duration or spring → interruption and exit.
+- `improve-animations` (8KB) — read-only audit that surveys existing motion code and returns a prioritized fix list.
 
-**1. `motion-craft`** — how anything is allowed to move.
-- Animate `transform` and `opacity` only; never `width`, `height`, `top`, `left`.
-- Duration ladder: 120ms micro (hover, press), 200ms enter, 160ms exit, 300ms+ only for large surfaces.
-- Ease-out for things entering, ease-in for exiting, spring only for gesture-driven or interruptible motion.
-- Every animation is interruptible; nothing blocks input.
-- Origin matters: menus scale from their trigger, sheets slide from their edge.
-- Stagger ≤ 40ms, max ~5 items, then fade the rest.
-- `prefers-reduced-motion` collapses motion to opacity.
-- Motion explains state change, never decorates.
+**Jakub Krehel — real.** `github.com/jakubkrehel/skills` (~3.4k stars). An orchestrator (`better-interface`) plus domain skills, each multi-file: `better-ui` (surfaces, enter/exit, icon transitions, performance), `better-typography` (7 files incl. wrapping/punctuation, variable fonts), `better-colors`, `better-layout`, `better-accessibility`, `better-writing`, and `interface-review`.
 
-**2. `interface-craft`** — the non-negotiable quality bar per component.
-- Every control ships default / hover / active / focus-visible / disabled / loading states.
-- Every list ships empty, loading (skeleton not spinner), error, and one-item states.
-- No spinner for work under 300ms; optimistic updates with rollback.
-- Optical alignment over mathematical; consistent hit targets ≥ 36px.
-- Full keyboard path, visible focus, Escape closes, Enter submits.
-- Copy is UI: verbs on buttons, plain-language empty states, no "Oops".
-- Never rebuild what the design system already has.
+**Anthropic — real.** `anthropics/skills → frontend-design`. "The hero is a thesis", anti-default calibration (it explicitly names warm-cream + serif + terracotta as an AI default to avoid — worth noting given our palette), copy-as-design-material.
 
-**3. `tactile-editorial`** — this app's visual language.
-- Quiet structured canvas: paper background, hairline rules, real grid, generous negative space, locked type ladder, tabular numerals.
-- One expressive element per composition — hollow faux-3D display type, an isometric object, a hand-drawn mark, a scanned-paper texture, a morphing cursor. One, not four.
-- Materials behave physically: paper has grain and thickness, cards press instead of glow, toggles have travel.
-- Kill list: SaaS card grids, gradients as decoration, glassmorphism, glossy 3D, drop shadows for hierarchy, centered-everything heroes, sterile minimalism.
+**Also real and popular (not by these people):** `Nutlope/hallmark` (anti-AI-slop, pre-emit self-critique scoring), `Leonxlnx/taste-skill`, `nextlevelbuilder/ui-ux-pro-max-skill`, `199-biotechnologies/motion-dev-animations-skill`.
 
-All three get saved as active skills so later work picks them up automatically.
+**Does not exist:** no published skill by Josh Puckett, Rauno Freiberg, Paco Coursey, Jhey Tompkins, Amelia Wattenberger, Nate Baldwin, or Tobias Ahlin. Only blogs, talks and courses. Third-party repos that name-drop "interaction design" are unrelated authors.
 
-## Part 2 — Redesign
+## What I'll install
 
-Keeps the existing palette (warm paper, off-black ink, one warm orange) and type ladder — the plan spends its budget on structure, materiality and motion, not on new colors.
+Rather than write my own paraphrase of people who already published the real thing, I'll vendor the genuine skill files into this project and add one original skill for the part nobody covers (your tactile/editorial visual language).
 
-**Foundation**
-- Add the `motion` library (React) for interruptible spring/tween primitives.
-- New CSS layer: paper grain overlay, tactile press/lift utilities, hollow dimensional type utility, hand-drawn rule/underline marks, texture edges.
-- Shared primitives: `<PaperSurface>`, `<PressButton>`, `<DimensionalHeading>`, `<Reveal>` (in-view fade+rise), `<MorphCursor>` (context-aware cursor on canvas/interactive zones), `<Marks>` (SVG hand-drawn circles, arrows, underlines).
+1. **`emil-design-eng`** — vendored from Emil's repo, with attribution header. Governs motion and component craft.
+2. **`animate`** — vendored. The build-order procedure for any new animation.
+3. **`improve-animations`** — vendored. Audit pass to run over the existing canvas/room UI.
+4. **`better-interface`** + its domain files (`better-ui`, `better-typography`, `better-colors`, `better-layout`, `better-accessibility`) — vendored from Jakub's repo.
+5. **`tactile-editorial`** — written by me, the only genuinely new one. Encodes your locked system: warm paper + off-black ink + one warm orange, the 11/13/15/22/32/52/84 ladder, Fraunces/Inter, borders-and-lightness elevation, hand-drawn marks, hollow dimensional type, isometric objects, paper grain and thickness. Includes the kill list and, importantly, a note reconciling with Anthropic's warning that cream+serif+terracotta is an AI default — ours earns it through physicality and hand-drawn marks, not by defaulting to it.
 
-**Screens, in order**
-1. **Landing (`/`)** — asymmetric editorial hero, hollow faux-3D wordmark, one isometric "drawing table" object, hand-drawn arrow to the join field. Join code input becomes a tactile stamped field.
-2. **Onboarding + New session** — one question per view, large type, paper-card stack with real thickness, mic capture as a physical object with breathing waveform, progress as a drawn stroke.
-3. **Dashboard** — session list as stacked index cards / paper slips with pressed hover, not a SaaS card grid. Empty state gets a drawn illustration and a single verb.
-4. **Session lobby** — participant chips as pinned paper tags, join code as a rubber-stamp block, "Start with voice" as a weighted primary object.
-5. **Canvas room chrome** — header, Team Desk, Threads rail, cost meter, style switch all retuned to hairline/paper; panels slide from their own edge; the mic/listening indicator becomes the room's one expressive live element.
-6. **Examples gallery** — blueprint tabs as tactile paper tabs with real selected depth.
+Each vendored skill keeps its upstream source URL and license note in the frontmatter so it can be refreshed later.
 
-**Interaction pass across all screens**
-- Press physics on every button, focus-visible rings in ink not blue, skeletons instead of spinners, keyboard paths, optimistic states, reduced-motion fallback.
+## Then
+
+Once the skills are active, the redesign runs through them rather than through my ad-hoc taste: `animate` for every new motion, `better-typography`/`better-colors` for the type and palette pass, `tactile-editorial` for the expressive layer, `improve-animations` as the final audit over the canvas room.
+
+I'll hold the redesign implementation until you've seen the skills land — say the word and I'll go straight into the screen-by-screen rollout after.
 
 ## Technical notes
 
-- Add dependency: `motion`. No other new runtime deps; marks and textures are inline SVG/CSS, no image assets beyond one or two generated paper-grain and isometric-object files.
-- All tokens stay in `src/styles.css` — new tokens for grain, press depth, and dimensional type shadow offsets; no hardcoded colors in components.
-- Canvas rendering (tldraw layer, blueprints, fidelity/ink system) is untouched; this is chrome and page-level work only.
-- Each screen is verified with Playwright screenshots before moving to the next, per the standing rule.
+- Skills are written to `.agents/skills/<name>/` with `SKILL.md` plus `references/` for multi-file ones, then activated.
+- Vendored content is fetched from `raw.githubusercontent.com` at install time, not retyped, so it matches upstream exactly.
+- Skills are retrieval-triggered — the description line on each one is tuned so motion work pulls Emil's, interface polish pulls Jakub's, and visual-language work pulls the tactile one.
