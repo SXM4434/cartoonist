@@ -10,8 +10,9 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
-  --font-serif: "Anton", "Archivo", ui-sans-serif, sans-serif;
-  --font-display: "Anton", "Archivo", ui-sans-serif, sans-serif;
+  --font-serif: "Archivo Narrow", "Archivo", ui-sans-serif, sans-serif;
+  --font-display: "Archivo Narrow", "Archivo", ui-sans-serif, sans-serif;
+  --font-statement: "Archivo Black", "Archivo", ui-sans-serif, sans-serif;
   --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   --color-background: var(--background);
