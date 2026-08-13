@@ -386,7 +386,7 @@ function MarginNotes() {
 
       <ul className="relative flex flex-col justify-around gap-8 text-right lg:pr-8">
         {left.map((l) => (
-          <li key={l.note} className="font-mono" style={{ fontSize: "var(--step-1)" }}>{l.note}</li>
+          <li key={l.note} style={{ fontSize: "var(--step-1)", lineHeight: 1.5 }}>{l.note}</li>
         ))}
       </ul>
 
@@ -408,7 +408,7 @@ function MarginNotes() {
 
       <ul className="relative flex flex-col justify-around gap-8 lg:pl-8">
         {right.map((r) => (
-          <li key={r.note} className="font-mono" style={{ fontSize: "var(--step-1)" }}>{r.note}</li>
+          <li key={r.note} style={{ fontSize: "var(--step-1)", lineHeight: 1.5 }}>{r.note}</li>
         ))}
       </ul>
     </div>
