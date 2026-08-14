@@ -1021,6 +1021,38 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     onDraft: (data: unknown) => setArtifacts(data as Artifacts),
   });
 
+  // Phase 3.1 — Devil's Advocate. Names the risks/gaps the room is skating
+  // past; each item cites the words that triggered it and can be pinned to
+  // the canvas as a pink sticky.
+  const devil = useDevilsAdvocate({
+    roomId,
+    transcript: speech.finals.join("\n"),
+    memoryBlock: sessionMemoryBlock(sessionMemory),
+    enabled: joined,
+  });
+
+  const pinRisk = useCallback((risk: DevilRisk) => {
+    const occupied = bboxOf(shapesRef.current);
+    const note: SketchPrimitive = {
+      type: "note",
+      id: `n_risk_${risk.id}`,
+      x: occupied ? occupied.maxX + 80 : 80,
+      y: occupied ? occupied.minY : 80,
+      w: 220,
+      h: 180,
+      text: `${risk.kind.toUpperCase()}\n${risk.text}`,
+      color: "pink",
+    } as SketchPrimitive;
+    setShapes((current) => (current.some((s) => s.id === note.id) ? current : [...current, note]));
+    devil.markPinned(risk.id);
+    toast.success("Pinned to canvas");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids: [note.id] } }));
+    }
+  }, [devil]);
+
+
+
 
   const handleIntroSubmit = useCallback(async (data: { name: string; role: string; personality: string; color: string; voiceSamplePath: string | null }) => {
     const isAdd = introMode === "add";
