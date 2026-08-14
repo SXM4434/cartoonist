@@ -1312,7 +1312,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
           <CanvasToolbar drawing={drawing} onToggleDraw={toggleDraw} />
 
-          {frames.length > 1 && replayShapes === null && (
+          {replayShapes === null && (
             <div className="absolute left-4 top-4 z-30 flex max-w-[60%] items-center gap-1 overflow-x-auto border border-border bg-background/90 px-2 py-1.5">
               <span className="eyebrow mr-1 shrink-0 text-muted-foreground">frames</span>
               {frames.map((f) => (
@@ -1331,8 +1331,17 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                   <span className="ml-1.5 hidden max-w-[120px] truncate align-middle md:inline-block">{f.topic}</span>
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => jumpToFrame(ensureFrame(`Topic ${framesRef.current.length + 1}`))}
+                title="Open a new topic frame"
+                className="shrink-0 border border-dashed border-border px-2 py-1 text-[12px] text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
+              >
+                + frame
+              </button>
             </div>
           )}
+
 
           {handQueue.length > 0 && (
             <div className="absolute bottom-24 right-4 z-30 max-w-[200px] border border-border bg-background/90 px-2.5 py-2">
