@@ -16,6 +16,7 @@ import { Route as ExamplesRouteImport } from './routes/examples'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as ApiCanvasOpsRouteImport } from './routes/api/canvas-ops'
 import { Route as ApiCartoonistDrawRouteImport } from './routes/api/cartoonist-draw'
+import { Route as ApiDevilsAdvocateRouteImport } from './routes/api/devils-advocate'
 import { Route as ApiGenerateArtifactsRouteImport } from './routes/api/generate-artifacts'
 import { Route as ApiInferInsightsRouteImport } from './routes/api/infer-insights'
 import { Route as ApiLiveblocksAuthRouteImport } from './routes/api/liveblocks-auth'
@@ -63,6 +64,11 @@ const ApiCanvasOpsRoute = ApiCanvasOpsRouteImport.update({
 const ApiCartoonistDrawRoute = ApiCartoonistDrawRouteImport.update({
   id: '/api/cartoonist-draw',
   path: '/api/cartoonist-draw',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDevilsAdvocateRoute = ApiDevilsAdvocateRouteImport.update({
+  id: '/api/devils-advocate',
+  path: '/api/devils-advocate',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiGenerateArtifactsRoute = ApiGenerateArtifactsRouteImport.update({
@@ -140,6 +146,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/api/canvas-ops': typeof ApiCanvasOpsRoute
   '/api/cartoonist-draw': typeof ApiCartoonistDrawRoute
+  '/api/devils-advocate': typeof ApiDevilsAdvocateRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
   '/api/infer-insights': typeof ApiInferInsightsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
@@ -162,6 +169,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/api/canvas-ops': typeof ApiCanvasOpsRoute
   '/api/cartoonist-draw': typeof ApiCartoonistDrawRoute
+  '/api/devils-advocate': typeof ApiDevilsAdvocateRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
   '/api/infer-insights': typeof ApiInferInsightsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
@@ -185,6 +193,7 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/api/canvas-ops': typeof ApiCanvasOpsRoute
   '/api/cartoonist-draw': typeof ApiCartoonistDrawRoute
+  '/api/devils-advocate': typeof ApiDevilsAdvocateRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
   '/api/infer-insights': typeof ApiInferInsightsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
@@ -209,6 +218,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/api/canvas-ops'
     | '/api/cartoonist-draw'
+    | '/api/devils-advocate'
     | '/api/generate-artifacts'
     | '/api/infer-insights'
     | '/api/liveblocks-auth'
@@ -231,6 +241,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/api/canvas-ops'
     | '/api/cartoonist-draw'
+    | '/api/devils-advocate'
     | '/api/generate-artifacts'
     | '/api/infer-insights'
     | '/api/liveblocks-auth'
@@ -253,6 +264,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/api/canvas-ops'
     | '/api/cartoonist-draw'
+    | '/api/devils-advocate'
     | '/api/generate-artifacts'
     | '/api/infer-insights'
     | '/api/liveblocks-auth'
@@ -276,6 +288,7 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   ApiCanvasOpsRoute: typeof ApiCanvasOpsRoute
   ApiCartoonistDrawRoute: typeof ApiCartoonistDrawRoute
+  ApiDevilsAdvocateRoute: typeof ApiDevilsAdvocateRoute
   ApiGenerateArtifactsRoute: typeof ApiGenerateArtifactsRoute
   ApiInferInsightsRoute: typeof ApiInferInsightsRoute
   ApiLiveblocksAuthRoute: typeof ApiLiveblocksAuthRoute
@@ -340,6 +353,13 @@ declare module '@tanstack/react-router' {
       path: '/api/cartoonist-draw'
       fullPath: '/api/cartoonist-draw'
       preLoaderRoute: typeof ApiCartoonistDrawRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/devils-advocate': {
+      id: '/api/devils-advocate'
+      path: '/api/devils-advocate'
+      fullPath: '/api/devils-advocate'
+      preLoaderRoute: typeof ApiDevilsAdvocateRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/generate-artifacts': {
@@ -444,6 +464,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   ApiCanvasOpsRoute: ApiCanvasOpsRoute,
   ApiCartoonistDrawRoute: ApiCartoonistDrawRoute,
+  ApiDevilsAdvocateRoute: ApiDevilsAdvocateRoute,
   ApiGenerateArtifactsRoute: ApiGenerateArtifactsRoute,
   ApiInferInsightsRoute: ApiInferInsightsRoute,
   ApiLiveblocksAuthRoute: ApiLiveblocksAuthRoute,

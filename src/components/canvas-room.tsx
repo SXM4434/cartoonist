@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Brain, Check, Copy, Eraser, FileDown, Hand, History, Layers, Mic, MicOff, MessageSquare, MoreHorizontal, Send, Smile, Sparkles, UserPlus, Users, Volume2, VolumeX } from "lucide-react";
+import { Brain, Check, Copy, Eraser, FileDown, Hand, History, Layers, Mic, MicOff, MessageSquare, MoreHorizontal, Send, ShieldAlert, Smile, Sparkles, UserPlus, Users, Volume2, VolumeX } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,8 @@ import { useHandQueue } from "@/hooks/use-hand-queue";
 import { useCrossSessionMemory } from "@/hooks/use-cross-session-memory";
 import { useSessionMemory, sessionMemoryBlock } from "@/hooks/use-session-memory";
 import { useLiveArtifacts } from "@/hooks/use-live-artifacts";
+import { useDevilsAdvocate, type Risk as DevilRisk } from "@/hooks/use-devils-advocate";
+import { RisksPanel } from "./room/risks-panel";
 
 import { canvasEventsForRoom, roomGet } from "@/lib/db-rpc";
 
@@ -164,7 +166,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [selfPid, setSelfPid] = useState<string | null>(null);
   const canvasStageRef = useRef<HTMLDivElement | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
-  const [panelTab, setPanelTab] = useState<"people" | "transcript" | "threads" | "memory" | "artifacts">("transcript");
+  const [panelTab, setPanelTab] = useState<"people" | "transcript" | "threads" | "memory" | "risks" | "artifacts">("transcript");
   const [mediatorMuted, setMediatorMuted] = useState(false);
   const inferredStatesRef = useRef<Record<string, InferredState>>({});
   const lastSpokenRef = useRef<string>("");
@@ -1021,6 +1023,38 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     onDraft: (data: unknown) => setArtifacts(data as Artifacts),
   });
 
+  // Phase 3.1 — Devil's Advocate. Names the risks/gaps the room is skating
+  // past; each item cites the words that triggered it and can be pinned to
+  // the canvas as a pink sticky.
+  const devil = useDevilsAdvocate({
+    roomId,
+    transcript: speech.finals.join("\n"),
+    memoryBlock: sessionMemoryBlock(sessionMemory),
+    enabled: joined,
+  });
+
+  const pinRisk = useCallback((risk: DevilRisk) => {
+    const occupied = bboxOf(shapesRef.current);
+    const note: SketchPrimitive = {
+      type: "note",
+      id: `n_risk_${risk.id}`,
+      x: occupied ? occupied.maxX + 80 : 80,
+      y: occupied ? occupied.minY : 80,
+      w: 220,
+      h: 180,
+      text: `${risk.kind.toUpperCase()}\n${risk.text}`,
+      color: "pink",
+    } as SketchPrimitive;
+    setShapes((current) => (current.some((s) => s.id === note.id) ? current : [...current, note]));
+    devil.markPinned(risk.id);
+    toast.success("Pinned to canvas");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids: [note.id] } }));
+    }
+  }, [devil]);
+
+
+
 
   const handleIntroSubmit = useCallback(async (data: { name: string; role: string; personality: string; color: string; voiceSamplePath: string | null }) => {
     const isAdd = introMode === "add";
@@ -1564,6 +1598,22 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               icon: Layers,
               count: threads.length,
               node: <ThreadList threads={threads} echoes={memory.echoes} />,
+            },
+            {
+              id: "risks",
+              label: "Risks",
+              icon: ShieldAlert,
+              count: devil.risks.length,
+              node: (
+                <RisksPanel
+                  risks={devil.risks}
+                  thinking={devil.thinking}
+                  checkedAt={devil.checkedAt}
+                  onCheckNow={devil.checkNow}
+                  onPin={pinRisk}
+                  onDismiss={devil.dismiss}
+                />
+              ),
             },
             {
               id: "memory",
