@@ -43,6 +43,8 @@ import { useReactions } from "@/hooks/use-reactions";
 import { useHandQueue } from "@/hooks/use-hand-queue";
 import { useCrossSessionMemory } from "@/hooks/use-cross-session-memory";
 import { useSessionMemory, sessionMemoryBlock } from "@/hooks/use-session-memory";
+import { useLiveArtifacts } from "@/hooks/use-live-artifacts";
+
 import { canvasEventsForRoom, roomGet } from "@/lib/db-rpc";
 
 type SessionContext = {
