@@ -98,7 +98,7 @@ export function buildChart(spec: ChartSpec, originX = 80, originY = 80): SketchP
     px = Math.min(plotX + plotW - 16, Math.max(plotX + 8, px));
     py = Math.min(plotY + plotH - 12, Math.max(plotY + 8, py));
     placed.push([px, py]);
-    s.push({ type: "ellipse", id: id("e"), x: px - 6, y: py - 6, w: 12, h: 12, tone: item.tone ?? "accent", fill: "solid" });
+    s.push({ type: "rect", id: id("r"), x: px - 6, y: py - 6, w: 12, h: 12, tone: item.tone ?? "accent", fill: "solid" });
     text(px + 12, py - 7, item.label, 13);
   });
 
