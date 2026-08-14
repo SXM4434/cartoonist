@@ -58,13 +58,36 @@ const proseClass =
 export function ArtifactTabs({
   artifacts,
   loading,
+  drafting = false,
+  draftedAt = null,
 }: {
   artifacts: Artifacts;
   loading: boolean;
+  /** v1 P2.4 — a background draft pass is running while the room talks. */
+  drafting?: boolean;
+  draftedAt?: number | null;
 }) {
   const a = artifacts;
+  const words = [a.summary, a.prd, a.userJourney, ...(a.decisions ?? []), ...(a.actionItems ?? []).map((x) => x.task)]
+    .filter(Boolean)
+    .join(" ")
+    .split(/\s+/)
+    .filter(Boolean).length;
   return (
     <Tabs defaultValue="summary" className="w-full">
+      {(drafting || draftedAt) && (
+        <div className="mb-2 flex items-center gap-2 border border-border px-2 py-1">
+          <span
+            className={`h-1.5 w-1.5 shrink-0 ${drafting ? "animate-pulse bg-primary" : "bg-muted-foreground"}`}
+            aria-hidden
+          />
+          <span className="eyebrow text-muted-foreground">
+            {drafting ? "drafting live" : "draft up to date"}
+          </span>
+          <span className="ml-auto text-[12px] tabular-nums text-muted-foreground">{words} words</span>
+        </div>
+      )}
+
       <TabsList className="flex w-full flex-wrap justify-start gap-1 bg-secondary/70 p-1">
         <TabsTrigger value="summary">Summary</TabsTrigger>
         <TabsTrigger value="decisions">Decisions</TabsTrigger>
