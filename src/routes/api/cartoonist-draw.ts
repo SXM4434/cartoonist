@@ -526,7 +526,10 @@ ${latest || transcript}`;
         // caption URL never appeared verbatim in the transcript. Model is
         // told never to invent URLs, but a belt on the suspenders.
         const modality = typeof parsed.modality === "string" ? parsed.modality : "";
-        const rawShapes = Array.isArray(parsed.shapes) ? parsed.shapes : [];
+        const modelShapes = Array.isArray(parsed.shapes) ? parsed.shapes : [];
+        // v1 P2.5 — chart spec is laid out deterministically server-side.
+        const chartShapes = isChartSpec(parsed.chart) ? buildChart(parsed.chart, 0, 0) : [];
+        const rawShapes = chartShapes.length ? [...modelShapes, ...chartShapes] : modelShapes;
         const transcriptForCheck = `${transcript}\n${latest}`;
         // Coerce geometry before it reaches the canvas: tldraw's validator
         // throws on a missing/NaN w or h and takes the whole board down.
