@@ -1018,7 +1018,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const { buildUserAgents, userAgentsPromptBlock } = await import("@/lib/user-agents");
       return userAgentsPromptBlock(buildUserAgents(participants, inferredStatesRef.current));
     },
-    onDraft: (data) => setArtifacts(data as Artifacts),
+    onDraft: (data: unknown) => setArtifacts(data as Artifacts),
   });
 
 
@@ -1604,7 +1604,13 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                       artifacts,
                     })}
                   />
-                  <ArtifactTabs artifacts={artifacts} loading={generating} />
+                  <ArtifactTabs
+                    artifacts={artifacts}
+                    loading={generating}
+                    drafting={liveArtifacts.drafting}
+                    draftedAt={liveArtifacts.draftedAt}
+                  />
+
                 </div>
               ),
             },
