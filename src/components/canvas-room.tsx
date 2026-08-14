@@ -1600,6 +1600,22 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               node: <ThreadList threads={threads} echoes={memory.echoes} />,
             },
             {
+              id: "risks",
+              label: "Risks",
+              icon: ShieldAlert,
+              count: devil.risks.length,
+              node: (
+                <RisksPanel
+                  risks={devil.risks}
+                  thinking={devil.thinking}
+                  checkedAt={devil.checkedAt}
+                  onCheckNow={devil.checkNow}
+                  onPin={pinRisk}
+                  onDismiss={devil.dismiss}
+                />
+              ),
+            },
+            {
               id: "memory",
               label: "Memory",
               icon: Brain,
