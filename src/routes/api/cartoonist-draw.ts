@@ -85,7 +85,20 @@ OUTPUT BUDGET:
 - annotation: 1–3 shapes (text + arrow, optional underline path).
 - Revisions: 1–6 edits/removes and 0–4 new shapes.
 - Every text/note must have meaningful text drawn from the conversation. Never invent facts, numbers, or names not in the transcript.
-- Return ONLY valid JSON, no commentary.`;
+- chart: 0 shapes — the "chart" spec is the whole answer.
+- Return ONLY valid JSON, no commentary.
+
+# CHART MODE (v1 P2.5)
+When modality is "chart", set "shapes": [] and return a "chart" object. We lay out axes, gridlines, dots, bars, and labels for you.
+{
+  "kind": "quadrant" | "bar",
+  "title": "<short title from the conversation>",
+  "xLabel": "<x dimension>", "yLabel": "<y dimension>",
+  "xLow": "<left end>", "xHigh": "<right end>", "yLow": "<bottom>", "yHigh": "<top>",
+  "items": [ { "label": "<thing being compared>", "x": 0..1, "y": 0..1 } ]     // quadrant
+  // for "bar": [ { "label": "...", "value": 0..1 } ]
+}
+Only place items actually named in the conversation. 3–8 items. Positions must reflect what people said, not guesses.`;
 
 const WIREFRAME_SPEC = `# UI WIREFRAME MODE — NON-NEGOTIABLE, MAX FIDELITY
 When modality is ui_wireframe you are a product designer drawing REAL, PRODUCTION-READY SCREENS at high fidelity. Never a flowchart, never labelled boxes with arrows, never a process. Every primitive MUST include "style":"ui".
