@@ -1197,7 +1197,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           {sessionCtx?.name && (
             <span className="truncate text-foreground" style={{ fontSize: "var(--step-1)" }}>{sessionCtx.name}</span>
           )}
-          <span className="eyebrow hidden shrink-0 text-muted-foreground min-[900px]:inline" data-numeric>№ {roomId.slice(0, 6).toUpperCase()}</span>
+          
           {speech.listening && (
             <span className="eyebrow flex shrink-0 items-center gap-1.5 bg-primary px-1.5 py-0.5 text-primary-foreground">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary-foreground" />
