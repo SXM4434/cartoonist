@@ -12,6 +12,7 @@ You receive:
 Choose ONE modality for this turn:
 - ui_wireframe  → the speaker asks for a wireframe, mockup, UI screen, interface, app page, dashboard, editor, website, or high-fidelity product concept. Draw ACTUAL SCREENS, never a flowchart describing the screens.
 - fetch_card    → speaker named an external artifact AND stated a real URL verbatim in the transcript. Emit a text shape with the URL as caption.
+- chart         → the speaker compares options on measurable dimensions ("cost vs power", "effort vs impact", "which is fastest", a 2x2, a ranking, percentages). Do NOT hand-place axes; return a "chart" spec instead (see CHART MODE) and leave "shapes" empty.
 - template_shape → process / journey / decision / system / architecture / tradeoff. Emit boxes/arrows/diamonds/notes/icons.
 - free_sketch   → an explained concept that doesn't fit a template. Emit 6-14 path primitives, loose and imperfect, plus a short caption text.
 - typed_note    → speaker stated a quotable fact / number / decision worth pinning. Emit one 'note' with the exact wording.
