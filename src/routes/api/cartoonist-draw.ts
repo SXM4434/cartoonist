@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { guardExpensiveRoute } from "@/lib/room-guard.server";
+import { buildChart, isChartSpec } from "@/lib/chart-shape";
 
 const SYSTEM_PROMPT = `You are CARTOONIST — a senior visual thinker and sketch artist embedded in a live meeting. You CONTEXTUALIZE the conversation and then DRAW on a shared whiteboard the way a designer would. Whatever best expresses what people are saying — pick the medium that fits, don't default to one shape.
 
@@ -12,6 +13,7 @@ You receive:
 Choose ONE modality for this turn:
 - ui_wireframe  → the speaker asks for a wireframe, mockup, UI screen, interface, app page, dashboard, editor, website, or high-fidelity product concept. Draw ACTUAL SCREENS, never a flowchart describing the screens.
 - fetch_card    → speaker named an external artifact AND stated a real URL verbatim in the transcript. Emit a text shape with the URL as caption.
+- chart         → the speaker compares options on measurable dimensions ("cost vs power", "effort vs impact", "which is fastest", a 2x2, a ranking, percentages). Do NOT hand-place axes; return a "chart" spec instead (see CHART MODE) and leave "shapes" empty.
 - template_shape → process / journey / decision / system / architecture / tradeoff. Emit boxes/arrows/diamonds/notes/icons.
 - free_sketch   → an explained concept that doesn't fit a template. Emit 6-14 path primitives, loose and imperfect, plus a short caption text.
 - typed_note    → speaker stated a quotable fact / number / decision worth pinning. Emit one 'note' with the exact wording.
@@ -25,7 +27,8 @@ Choose ONE modality for this turn:
 
 # STEP 2 — RETURN STRICT JSON
 {
-  "modality": "ui_wireframe"|"fetch_card"|"template_shape"|"free_sketch"|"typed_note"|"annotation"|"skip",
+  "modality": "ui_wireframe"|"chart"|"fetch_card"|"template_shape"|"free_sketch"|"typed_note"|"annotation"|"skip",
+  "chart":    { ...chart spec, only when modality is "chart"... },
   "shapes":   [ ...primitives... ],
   "edits":    [ { "id": "<existing id>", "patch": { ...partial fields... } } ],
   "removes":  [ "<existing id>", ... ],
@@ -83,7 +86,20 @@ OUTPUT BUDGET:
 - annotation: 1–3 shapes (text + arrow, optional underline path).
 - Revisions: 1–6 edits/removes and 0–4 new shapes.
 - Every text/note must have meaningful text drawn from the conversation. Never invent facts, numbers, or names not in the transcript.
-- Return ONLY valid JSON, no commentary.`;
+- chart: 0 shapes — the "chart" spec is the whole answer.
+- Return ONLY valid JSON, no commentary.
+
+# CHART MODE (v1 P2.5)
+When modality is "chart", set "shapes": [] and return a "chart" object. We lay out axes, gridlines, dots, bars, and labels for you.
+{
+  "kind": "quadrant" | "bar",
+  "title": "<short title from the conversation>",
+  "xLabel": "<x dimension>", "yLabel": "<y dimension>",
+  "xLow": "<left end>", "xHigh": "<right end>", "yLow": "<bottom>", "yHigh": "<top>",
+  "items": [ { "label": "<thing being compared>", "x": 0..1, "y": 0..1 } ]     // quadrant
+  // for "bar": [ { "label": "...", "value": 0..1 } ]
+}
+Only place items actually named in the conversation. 3–8 items. Positions must reflect what people said, not guesses.`;
 
 const WIREFRAME_SPEC = `# UI WIREFRAME MODE — NON-NEGOTIABLE, MAX FIDELITY
 When modality is ui_wireframe you are a product designer drawing REAL, PRODUCTION-READY SCREENS at high fidelity. Never a flowchart, never labelled boxes with arrows, never a process. Every primitive MUST include "style":"ui".
@@ -463,7 +479,7 @@ ${latest || transcript}`;
           usage?: Usage;
         };
         const content = data.choices?.[0]?.message?.content ?? "{}";
-        let parsed: { shapes?: unknown; edits?: unknown; removes?: unknown; rationale?: unknown; modality?: unknown; speak?: unknown; thread_ref?: unknown; relation?: unknown } = {};
+        let parsed: { shapes?: unknown; edits?: unknown; removes?: unknown; rationale?: unknown; modality?: unknown; speak?: unknown; thread_ref?: unknown; relation?: unknown; chart?: unknown } = {};
         try {
           parsed = JSON.parse(content);
         } catch {
@@ -511,7 +527,10 @@ ${latest || transcript}`;
         // caption URL never appeared verbatim in the transcript. Model is
         // told never to invent URLs, but a belt on the suspenders.
         const modality = typeof parsed.modality === "string" ? parsed.modality : "";
-        const rawShapes = Array.isArray(parsed.shapes) ? parsed.shapes : [];
+        const modelShapes = Array.isArray(parsed.shapes) ? parsed.shapes : [];
+        // v1 P2.5 — chart spec is laid out deterministically server-side.
+        const chartShapes = isChartSpec(parsed.chart) ? buildChart(parsed.chart, 0, 0) : [];
+        const rawShapes = chartShapes.length ? [...modelShapes, ...chartShapes] : modelShapes;
         const transcriptForCheck = `${transcript}\n${latest}`;
         // Coerce geometry before it reaches the canvas: tldraw's validator
         // throws on a missing/NaN w or h and takes the whole board down.

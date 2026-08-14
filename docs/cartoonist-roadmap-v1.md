@@ -119,6 +119,8 @@ Persona / MermaidNode / Chart deferred to P2.
 - Each artifact shows a "drafting…" pulse and live word-count.
 
 ### 2.5 Fidelity ladder + visualization variety
+- **Status:** chart shipped 2026-08-14. New `chart` modality in `cartoonist-draw`: the renderer returns a compact `{kind: quadrant|bar, title, axis labels, items[]}` spec instead of hand-placing coordinates, and `src/lib/chart-shape.ts` lays out axes, quadrant gridlines, bars, value labels, and de-collided point labels deterministically. Verified live: "2x2 of cost vs power" and "rank by cost as a bar chart" both land clean. Reference lookup (Librarian) and illustration variety still open.
+
 Renderer picks the right tool per intent:
 - **Wireframe** → detailed `WireframeFrame` with device chrome, real labels from the conversation, real components, real copy.
 - **Chart** → new `Chart` custom shape: axes + plotted points. "Tools on a 2×2 cost-vs-power axis" becomes an actual quadrant chart with the tools placed.
