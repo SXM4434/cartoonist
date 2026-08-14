@@ -1006,6 +1006,20 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     }
   }, [speech.finals, participants]);
 
+  // v1 P2.4 — partial artifacts while listening. Background drafts keep the
+  // Artifacts tab warm so it is never an empty "click to generate" surface.
+  const liveArtifacts = useLiveArtifacts({
+    roomId,
+    transcript: speech.finals.join("\n"),
+    enabled: joined && !generating,
+    buildParticipantsBlock: async () => {
+      const { buildUserAgents, userAgentsPromptBlock } = await import("@/lib/user-agents");
+      return userAgentsPromptBlock(buildUserAgents(participants, inferredStatesRef.current));
+    },
+    onDraft: (data) => setArtifacts(data as Artifacts),
+  });
+
+
   const handleIntroSubmit = useCallback(async (data: { name: string; role: string; personality: string; color: string; voiceSamplePath: string | null }) => {
     const isAdd = introMode === "add";
     setIntroOpen(false);
