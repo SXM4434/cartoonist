@@ -44,6 +44,8 @@ import { useHandQueue } from "@/hooks/use-hand-queue";
 import { useCrossSessionMemory } from "@/hooks/use-cross-session-memory";
 import { useSessionMemory, sessionMemoryBlock } from "@/hooks/use-session-memory";
 import { useLiveArtifacts } from "@/hooks/use-live-artifacts";
+import { useDevilsAdvocate, type Risk as DevilRisk } from "@/hooks/use-devils-advocate";
+import { RisksPanel } from "./room/risks-panel";
 
 import { canvasEventsForRoom, roomGet } from "@/lib/db-rpc";
 
