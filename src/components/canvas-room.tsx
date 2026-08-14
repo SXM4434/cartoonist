@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Brain, Check, Copy, Eraser, FileDown, Hand, History, Layers, Mic, MicOff, MessageSquare, MoreHorizontal, Send, Smile, Sparkles, UserPlus, Users, Volume2, VolumeX } from "lucide-react";
+import { Brain, Check, Copy, Eraser, FileDown, Hand, History, Layers, Mic, MicOff, MessageSquare, MoreHorizontal, Send, ShieldAlert, Smile, Sparkles, UserPlus, Users, Volume2, VolumeX } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -166,7 +166,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [selfPid, setSelfPid] = useState<string | null>(null);
   const canvasStageRef = useRef<HTMLDivElement | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
-  const [panelTab, setPanelTab] = useState<"people" | "transcript" | "threads" | "memory" | "artifacts">("transcript");
+  const [panelTab, setPanelTab] = useState<"people" | "transcript" | "threads" | "memory" | "risks" | "artifacts">("transcript");
   const [mediatorMuted, setMediatorMuted] = useState(false);
   const inferredStatesRef = useRef<Record<string, InferredState>>({});
   const lastSpokenRef = useRef<string>("");
