@@ -43,6 +43,8 @@ import { useReactions } from "@/hooks/use-reactions";
 import { useHandQueue } from "@/hooks/use-hand-queue";
 import { useCrossSessionMemory } from "@/hooks/use-cross-session-memory";
 import { useSessionMemory, sessionMemoryBlock } from "@/hooks/use-session-memory";
+import { useLiveArtifacts } from "@/hooks/use-live-artifacts";
+
 import { canvasEventsForRoom, roomGet } from "@/lib/db-rpc";
 
 type SessionContext = {
@@ -1006,6 +1008,20 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     }
   }, [speech.finals, participants]);
 
+  // v1 P2.4 — partial artifacts while listening. Background drafts keep the
+  // Artifacts tab warm so it is never an empty "click to generate" surface.
+  const liveArtifacts = useLiveArtifacts({
+    roomId,
+    transcript: speech.finals.join("\n"),
+    enabled: joined && !generating,
+    buildParticipantsBlock: async () => {
+      const { buildUserAgents, userAgentsPromptBlock } = await import("@/lib/user-agents");
+      return userAgentsPromptBlock(buildUserAgents(participants, inferredStatesRef.current));
+    },
+    onDraft: (data: unknown) => setArtifacts(data as Artifacts),
+  });
+
+
   const handleIntroSubmit = useCallback(async (data: { name: string; role: string; personality: string; color: string; voiceSamplePath: string | null }) => {
     const isAdd = introMode === "add";
     setIntroOpen(false);
@@ -1588,7 +1604,13 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                       artifacts,
                     })}
                   />
-                  <ArtifactTabs artifacts={artifacts} loading={generating} />
+                  <ArtifactTabs
+                    artifacts={artifacts}
+                    loading={generating}
+                    drafting={liveArtifacts.drafting}
+                    draftedAt={liveArtifacts.draftedAt}
+                  />
+
                 </div>
               ),
             },
