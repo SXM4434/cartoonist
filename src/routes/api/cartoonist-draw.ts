@@ -89,17 +89,41 @@ OUTPUT BUDGET:
 - chart: 0 shapes — the "chart" spec is the whole answer.
 - Return ONLY valid JSON, no commentary.
 
-# CHART MODE (v1 P2.5)
-When modality is "chart", set "shapes": [] and return a "chart" object. We lay out axes, gridlines, dots, bars, and labels for you.
+# CHART MODE (v1 P2.5 — full library)
+When modality is "chart", set "shapes": [] and return a "chart" object. We lay out axes, gridlines, wedges, bars, and labels for you. Pick the kind that actually matches what people said — do NOT default to bar or quadrant.
+
+"kind" is one of:
+- quadrant  → two dimensions, 2x2 positioning ("cost vs power")            items: {label, x:0..1, y:0..1}
+- bar       → compare a few options on one measure                          items: {label, value:0..1}
+- hbar      → ranking with long labels                                      items: {label, value:0..1}
+- stacked   → composition per option (series named in "series")             items: {label, values:[0..1,...]}
+- line      → change over time / a trend                                    items: {label, value:0..1} in time order
+- area      → same as line but volume matters                               items: {label, value:0..1}
+- scatter   → many things placed on two axes, no quadrant framing           items: {label, x, y}
+- bubble    → scatter where a third measure is magnitude                    items: {label, x, y, size:0..1}
+- pie       → parts of one whole, 3–6 slices                                items: {label, value:0..1}
+- donut     → same, when a total/center reading is implied                  items: {label, value:0..1}
+- funnel    → drop-off through stages                                       items: {label, value:0..1} descending
+- pyramid   → layered foundation → top (maslow-ish, org layers)             items: {label}
+- timeline  → dated milestones / sequence of events                         items: {label, start:0..1, note?}
+- gantt     → overlapping workstreams over a period                         items: {label, start:0..1, end:0..1}
+- heatmap   → options x criteria intensity grid ("series" = columns)        items: {label, values:[0..1,...]}
+- radar     → one or more options scored across 3–8 axes ("series" = axes)  items: {label, values:[0..1,...]}
+- venn      → 2–3 overlapping concepts                                      items: {label, note?}
+- waterfall → additive gains/losses (value may be negative, -1..1)          items: {label, value}
+- gauge     → one headline percentage / confidence / progress               items: [{label, value:0..1}]
+- matrix    → options x criteria qualitative table ("series" = columns)     items: {label, values:[0..1,...]}
+
+Shape of the object:
 {
-  "kind": "quadrant" | "bar",
+  "kind": "<one of the above>",
   "title": "<short title from the conversation>",
-  "xLabel": "<x dimension>", "yLabel": "<y dimension>",
-  "xLow": "<left end>", "xHigh": "<right end>", "yLow": "<bottom>", "yHigh": "<top>",
-  "items": [ { "label": "<thing being compared>", "x": 0..1, "y": 0..1 } ]     // quadrant
-  // for "bar": [ { "label": "...", "value": 0..1 } ]
+  "xLabel": "...", "yLabel": "...", "xLow": "...", "xHigh": "...", "yLow": "...", "yHigh": "...",
+  "series": ["<column or axis names>"],
+  "unit": "<optional, e.g. %>",
+  "items": [ ... per the kind above ... ]
 }
-Only place items actually named in the conversation. 3–8 items. Positions must reflect what people said, not guesses.`;
+Only place items actually named in the conversation. 3–8 items. Positions and magnitudes must reflect what people said, not guesses. If the numbers were never stated, prefer relative ordering people implied over invented precision.`;
 
 const WIREFRAME_SPEC = `# UI WIREFRAME MODE — NON-NEGOTIABLE, MAX FIDELITY
 When modality is ui_wireframe you are a product designer drawing REAL, PRODUCTION-READY SCREENS at high fidelity. Never a flowchart, never labelled boxes with arrows, never a process. Every primitive MUST include "style":"ui".
