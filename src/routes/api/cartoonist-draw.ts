@@ -26,7 +26,8 @@ Choose ONE modality for this turn:
 
 # STEP 2 — RETURN STRICT JSON
 {
-  "modality": "ui_wireframe"|"fetch_card"|"template_shape"|"free_sketch"|"typed_note"|"annotation"|"skip",
+  "modality": "ui_wireframe"|"chart"|"fetch_card"|"template_shape"|"free_sketch"|"typed_note"|"annotation"|"skip",
+  "chart":    { ...chart spec, only when modality is "chart"... },
   "shapes":   [ ...primitives... ],
   "edits":    [ { "id": "<existing id>", "patch": { ...partial fields... } } ],
   "removes":  [ "<existing id>", ... ],
