@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Brain, Check, Copy, Eraser, FileDown, Hand, History, Layers, Mic, MicOff, MessageSquare, MoreHorizontal, Send, ShieldAlert, Smile, Sparkles, UserPlus, Users, Volume2, VolumeX } from "lucide-react";
+import { Brain, Check, Copy, Eraser, FileDown, Hand, History, Layers, Mic, MicOff, MessageSquare, MoreHorizontal, Search, Send, ShieldAlert, Smile, Sparkles, UserPlus, Users, Volume2, VolumeX } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,8 @@ import { useSessionMemory, sessionMemoryBlock } from "@/hooks/use-session-memory
 import { useLiveArtifacts } from "@/hooks/use-live-artifacts";
 import { useDevilsAdvocate, type Risk as DevilRisk } from "@/hooks/use-devils-advocate";
 import { RisksPanel } from "./room/risks-panel";
+import { useHistorian, type RecallEntry } from "@/hooks/use-historian";
+import { RecallPanel } from "./room/recall-panel";
 
 import { canvasEventsForRoom, roomGet } from "@/lib/db-rpc";
 
@@ -166,7 +168,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [selfPid, setSelfPid] = useState<string | null>(null);
   const canvasStageRef = useRef<HTMLDivElement | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
-  const [panelTab, setPanelTab] = useState<"people" | "transcript" | "threads" | "memory" | "risks" | "artifacts">("transcript");
+  const [panelTab, setPanelTab] = useState<"people" | "transcript" | "threads" | "memory" | "risks" | "recall" | "replay" | "artifacts">("transcript");
   const [mediatorMuted, setMediatorMuted] = useState(false);
   const inferredStatesRef = useRef<Record<string, InferredState>>({});
   const lastSpokenRef = useRef<string>("");
@@ -1033,6 +1035,33 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     enabled: joined,
   });
 
+  // Phase 3.3 — Historian. Answers "what did we say about X earlier?" only
+  // with words the room actually said, and can pin the callback to the canvas.
+  const historian = useHistorian({
+    roomId,
+    transcript: speech.finals.join("\n"),
+    memoryBlock: sessionMemoryBlock(sessionMemory),
+  });
+
+  const pinRecall = useCallback((entry: RecallEntry) => {
+    const occupied = bboxOf(shapesRef.current);
+    const note: SketchPrimitive = {
+      type: "note",
+      id: `n_recall_${entry.id}`,
+      x: occupied ? occupied.maxX + 80 : 80,
+      y: occupied ? occupied.minY + 220 : 80,
+      w: 220,
+      h: 180,
+      text: `EARLIER\n${entry.answer}${entry.quotes[0] ? `\n“${entry.quotes[0].text.slice(0, 120)}”` : ""}`,
+      color: "blue",
+    } as SketchPrimitive;
+    setShapes((current) => (current.some((s) => s.id === note.id) ? current : [...current, note]));
+    toast.success("Pinned to canvas");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids: [note.id] } }));
+    }
+  }, []);
+
   const pinRisk = useCallback((risk: DevilRisk) => {
     const occupied = bboxOf(shapesRef.current);
     const note: SketchPrimitive = {
@@ -1612,6 +1641,19 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                   onCheckNow={devil.checkNow}
                   onPin={pinRisk}
                   onDismiss={devil.dismiss}
+                />
+              ),
+            },
+            {
+              id: "recall",
+              label: "Recall",
+              icon: Search,
+              node: (
+                <RecallPanel
+                  entries={historian.entries}
+                  asking={historian.asking}
+                  onAsk={historian.ask}
+                  onPin={pinRecall}
                 />
               ),
             },
