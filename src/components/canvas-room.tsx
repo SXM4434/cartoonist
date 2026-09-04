@@ -1645,6 +1645,19 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               ),
             },
             {
+              id: "recall",
+              label: "Recall",
+              icon: Search,
+              node: (
+                <RecallPanel
+                  entries={historian.entries}
+                  asking={historian.asking}
+                  onAsk={historian.ask}
+                  onPin={pinRecall}
+                />
+              ),
+            },
+            {
               id: "memory",
               label: "Memory",
               icon: Brain,
