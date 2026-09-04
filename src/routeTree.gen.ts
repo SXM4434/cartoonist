@@ -18,6 +18,7 @@ import { Route as ApiCanvasOpsRouteImport } from './routes/api/canvas-ops'
 import { Route as ApiCartoonistDrawRouteImport } from './routes/api/cartoonist-draw'
 import { Route as ApiDevilsAdvocateRouteImport } from './routes/api/devils-advocate'
 import { Route as ApiGenerateArtifactsRouteImport } from './routes/api/generate-artifacts'
+import { Route as ApiHistorianRouteImport } from './routes/api/historian'
 import { Route as ApiInferInsightsRouteImport } from './routes/api/infer-insights'
 import { Route as ApiLiveblocksAuthRouteImport } from './routes/api/liveblocks-auth'
 import { Route as ApiMediatorTtsRouteImport } from './routes/api/mediator-tts'
@@ -74,6 +75,11 @@ const ApiDevilsAdvocateRoute = ApiDevilsAdvocateRouteImport.update({
 const ApiGenerateArtifactsRoute = ApiGenerateArtifactsRouteImport.update({
   id: '/api/generate-artifacts',
   path: '/api/generate-artifacts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHistorianRoute = ApiHistorianRouteImport.update({
+  id: '/api/historian',
+  path: '/api/historian',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiInferInsightsRoute = ApiInferInsightsRouteImport.update({
@@ -148,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/api/cartoonist-draw': typeof ApiCartoonistDrawRoute
   '/api/devils-advocate': typeof ApiDevilsAdvocateRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
+  '/api/historian': typeof ApiHistorianRoute
   '/api/infer-insights': typeof ApiInferInsightsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
   '/api/mediator-tts': typeof ApiMediatorTtsRoute
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/api/cartoonist-draw': typeof ApiCartoonistDrawRoute
   '/api/devils-advocate': typeof ApiDevilsAdvocateRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
+  '/api/historian': typeof ApiHistorianRoute
   '/api/infer-insights': typeof ApiInferInsightsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
   '/api/mediator-tts': typeof ApiMediatorTtsRoute
@@ -195,6 +203,7 @@ export interface FileRoutesById {
   '/api/cartoonist-draw': typeof ApiCartoonistDrawRoute
   '/api/devils-advocate': typeof ApiDevilsAdvocateRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
+  '/api/historian': typeof ApiHistorianRoute
   '/api/infer-insights': typeof ApiInferInsightsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
   '/api/mediator-tts': typeof ApiMediatorTtsRoute
@@ -220,6 +229,7 @@ export interface FileRouteTypes {
     | '/api/cartoonist-draw'
     | '/api/devils-advocate'
     | '/api/generate-artifacts'
+    | '/api/historian'
     | '/api/infer-insights'
     | '/api/liveblocks-auth'
     | '/api/mediator-tts'
@@ -243,6 +253,7 @@ export interface FileRouteTypes {
     | '/api/cartoonist-draw'
     | '/api/devils-advocate'
     | '/api/generate-artifacts'
+    | '/api/historian'
     | '/api/infer-insights'
     | '/api/liveblocks-auth'
     | '/api/mediator-tts'
@@ -266,6 +277,7 @@ export interface FileRouteTypes {
     | '/api/cartoonist-draw'
     | '/api/devils-advocate'
     | '/api/generate-artifacts'
+    | '/api/historian'
     | '/api/infer-insights'
     | '/api/liveblocks-auth'
     | '/api/mediator-tts'
@@ -290,6 +302,7 @@ export interface RootRouteChildren {
   ApiCartoonistDrawRoute: typeof ApiCartoonistDrawRoute
   ApiDevilsAdvocateRoute: typeof ApiDevilsAdvocateRoute
   ApiGenerateArtifactsRoute: typeof ApiGenerateArtifactsRoute
+  ApiHistorianRoute: typeof ApiHistorianRoute
   ApiInferInsightsRoute: typeof ApiInferInsightsRoute
   ApiLiveblocksAuthRoute: typeof ApiLiveblocksAuthRoute
   ApiMediatorTtsRoute: typeof ApiMediatorTtsRoute
@@ -367,6 +380,13 @@ declare module '@tanstack/react-router' {
       path: '/api/generate-artifacts'
       fullPath: '/api/generate-artifacts'
       preLoaderRoute: typeof ApiGenerateArtifactsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/historian': {
+      id: '/api/historian'
+      path: '/api/historian'
+      fullPath: '/api/historian'
+      preLoaderRoute: typeof ApiHistorianRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/infer-insights': {
@@ -466,6 +486,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCartoonistDrawRoute: ApiCartoonistDrawRoute,
   ApiDevilsAdvocateRoute: ApiDevilsAdvocateRoute,
   ApiGenerateArtifactsRoute: ApiGenerateArtifactsRoute,
+  ApiHistorianRoute: ApiHistorianRoute,
   ApiInferInsightsRoute: ApiInferInsightsRoute,
   ApiLiveblocksAuthRoute: ApiLiveblocksAuthRoute,
   ApiMediatorTtsRoute: ApiMediatorTtsRoute,
