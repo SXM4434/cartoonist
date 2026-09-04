@@ -46,6 +46,8 @@ import { useSessionMemory, sessionMemoryBlock } from "@/hooks/use-session-memory
 import { useLiveArtifacts } from "@/hooks/use-live-artifacts";
 import { useDevilsAdvocate, type Risk as DevilRisk } from "@/hooks/use-devils-advocate";
 import { RisksPanel } from "./room/risks-panel";
+import { useHistorian, type RecallEntry } from "@/hooks/use-historian";
+import { RecallPanel } from "./room/recall-panel";
 
 import { canvasEventsForRoom, roomGet } from "@/lib/db-rpc";
 
