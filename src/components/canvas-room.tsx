@@ -1035,6 +1035,33 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     enabled: joined,
   });
 
+  // Phase 3.3 — Historian. Answers "what did we say about X earlier?" only
+  // with words the room actually said, and can pin the callback to the canvas.
+  const historian = useHistorian({
+    roomId,
+    transcript: speech.finals.join("\n"),
+    memoryBlock: sessionMemoryBlock(sessionMemory),
+  });
+
+  const pinRecall = useCallback((entry: RecallEntry) => {
+    const occupied = bboxOf(shapesRef.current);
+    const note: SketchPrimitive = {
+      type: "note",
+      id: `n_recall_${entry.id}`,
+      x: occupied ? occupied.maxX + 80 : 80,
+      y: occupied ? occupied.minY + 220 : 80,
+      w: 220,
+      h: 180,
+      text: `EARLIER\n${entry.answer}${entry.quotes[0] ? `\n“${entry.quotes[0].text.slice(0, 120)}”` : ""}`,
+      color: "blue",
+    } as SketchPrimitive;
+    setShapes((current) => (current.some((s) => s.id === note.id) ? current : [...current, note]));
+    toast.success("Pinned to canvas");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids: [note.id] } }));
+    }
+  }, []);
+
   const pinRisk = useCallback((risk: DevilRisk) => {
     const occupied = bboxOf(shapesRef.current);
     const note: SketchPrimitive = {
