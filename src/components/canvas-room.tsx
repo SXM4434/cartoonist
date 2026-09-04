@@ -168,7 +168,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [selfPid, setSelfPid] = useState<string | null>(null);
   const canvasStageRef = useRef<HTMLDivElement | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
-  const [panelTab, setPanelTab] = useState<"people" | "transcript" | "threads" | "memory" | "risks" | "artifacts">("transcript");
+  const [panelTab, setPanelTab] = useState<"people" | "transcript" | "threads" | "memory" | "risks" | "recall" | "replay" | "artifacts">("transcript");
   const [mediatorMuted, setMediatorMuted] = useState(false);
   const inferredStatesRef = useRef<Record<string, InferredState>>({});
   const lastSpokenRef = useRef<string>("");
