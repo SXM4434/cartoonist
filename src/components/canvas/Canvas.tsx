@@ -646,7 +646,7 @@ export function Canvas({
 
   return (
     <div className="absolute inset-0 bg-background">
-      <Tldraw hideUi onMount={handleMount} />
+      <Tldraw hideUi licenseKey={import.meta.env.VITE_TLDRAW_LICENSE_KEY} onMount={handleMount} />
       {glow.length > 0 && (
         <div className="pointer-events-none absolute inset-0 z-10">
           {glow.map((r, i) => (
