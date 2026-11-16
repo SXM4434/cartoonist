@@ -47,6 +47,7 @@ import { useDevilsAdvocate, type Risk as DevilRisk } from "@/hooks/use-devils-ad
 import { RisksPanel } from "./room/risks-panel";
 import { useHistorian, type RecallEntry } from "@/hooks/use-historian";
 import { RecallPanel } from "./room/recall-panel";
+import { wakeQuery, voiceAction, pauseNudge } from "@/lib/voice-intent";
 
 import { canvasEventsForRoom, roomGet } from "@/lib/db-rpc";
 
@@ -190,6 +191,19 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const lastThreadIdRef = useRef<string | null>(null);
 
   const speech = useSpeech();
+  const [pausePrompts, setPausePrompts] = useState(false);
+  const voiceQueryRef = useRef<(query: string) => Promise<void>>(async () => {});
+  const voiceSeenRef = useRef(0);
+  const nudgeAtRef = useRef(0);
+  const lastHumanAtRef = useRef(Date.now());
+
+  useEffect(() => {
+    if (speech.partial || speech.level > 0.08) {
+      lastHumanAtRef.current = Date.now();
+      if (ttsAudioRef.current) ttsAudioRef.current.pause();
+      if (window.speechSynthesis?.speaking) window.speechSynthesis.cancel();
+    }
+  }, [speech.partial, speech.level]);
   // v1 P2.2 — rolling full-session memory folded from the transcript.
   const sessionMemory = useSessionMemory(roomId, speech.finals);
   const sessionMemoryRef = useRef(sessionMemory);
@@ -879,6 +893,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     const timer = setTimeout(() => {
       const newText = text.slice(lastSentLenRef.current);
       const endLength = text.length;
+      const query = wakeQuery(newText);
+      if (query !== null) {
+        lastSentLenRef.current = endLength;
+        if (query) void voiceQueryRef.current(query);
+        return;
+      }
       if (NON_SPEECH_TRANSCRIPT.test(newText.trim())) {
         lastSentLenRef.current = endLength;
         return;
@@ -1028,6 +1048,34 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     transcript: speech.finals.join("\n"),
     memoryBlock: sessionMemoryBlock(sessionMemory),
   });
+
+  voiceQueryRef.current = async (query) => {
+    const action = voiceAction(query);
+    if (action === "draw") { await requestDraw(query); return; }
+    if (action === "documents") {
+      await generateArtifacts();
+      playMediatorLine("The session documents are ready to review.");
+      return;
+    }
+    setPanelTab("recall");
+    setPanelOpen(true);
+    const entry = await historian.ask(query);
+    if (entry) playMediatorLine(entry.answer);
+  };
+
+  useEffect(() => {
+    if (speech.finals.length !== voiceSeenRef.current) {
+      voiceSeenRef.current = speech.finals.length;
+      lastHumanAtRef.current = Date.now();
+    }
+    if (!pausePrompts || !speech.listening || mediatorMuted || thinking) return;
+    const timer = window.setInterval(() => {
+      if (nudgeAtRef.current === voiceSeenRef.current) return;
+      const line = pauseNudge(speech.finals.at(-1) ?? "", Date.now() - lastHumanAtRef.current, pausePrompts);
+      if (line) { nudgeAtRef.current = voiceSeenRef.current; playMediatorLine(line); }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [pausePrompts, speech.finals, speech.listening, mediatorMuted, thinking, playMediatorLine]);
 
   const pinRecall = useCallback((entry: RecallEntry) => {
     const occupied = bboxOf(shapesRef.current);
@@ -1635,7 +1683,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               label: "Recall",
               icon: Search,
               node: (
-                <RecallPanel
+                <><label className="flex items-center gap-2 border-b border-border px-2.5 py-2 text-[13px]">
+                  <input type="checkbox" checked={pausePrompts} onChange={e => setPausePrompts(e.target.checked)} />
+                  Spoken pause prompts
+                </label><RecallPanel
                   entries={historian.entries}
                   asking={historian.asking}
                   error={historian.error}
@@ -1646,7 +1697,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                   }}
                   onAsk={historian.ask}
                   onPin={pinRecall}
-                />
+                /></>
               ),
             },
             {
