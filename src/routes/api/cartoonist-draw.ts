@@ -1,6 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { guardExpensiveRoute } from "@/lib/room-guard.server";
 import { buildChart, isChartSpec } from "@/lib/chart-shape";
+import { buildWireframeScreens, parseWireframePlan } from "@/lib/wireframe-layout";
+
+const SCREEN_PLAN_PROMPT = `You design product wireframes from a meeting transcript. Return ONLY JSON:
+{"screens":[{"title":"Screen title","layout":"calendar|list|detail|form","navigation":["label"],"primaryAction":"verb","sections":[{"title":"section","items":["short relevant label"]}]}]}
+Choose 1–3 screens that represent the actual product discussed. A travel-agent itinerary with conflict resolution needs a calendar, itinerary details, and a conflict-resolution view—not a generic project dashboard. Use calendar for schedules, list for collections, detail for an inspector or conversation, form for entry. Each screen has up to 4 sections with up to 4 short items each. Use meaningful labels from the transcript. Do not invent brands, people, prices, metrics, dates or activity. Never return coordinates, primitives, charts, placeholder dashboards, or unrelated tasks. Prioritize the user's latest request with the conversation as context.`;
 
 const SYSTEM_PROMPT = `You are CARTOONIST — a senior visual thinker and sketch artist embedded in a live meeting. You CONTEXTUALIZE the conversation and then DRAW on a shared whiteboard the way a designer would. Whatever best expresses what people are saying — pick the medium that fits, don't default to one shape.
 
@@ -477,8 +482,8 @@ ${latest || transcript}`;
         // Latency: conversational turns never see the wireframe spec — it is
         // ~2.5k tokens of prompt that only matters when drawing screens.
         const baseMessages = [
-          { role: "system", content: uiWireframeIntent ? `${SYSTEM_PROMPT}\n\n${WIREFRAME_SPEC}` : SYSTEM_PROMPT },
-          { role: "user", content: userMsg },
+          { role: "system", content: uiWireframeIntent ? SCREEN_PLAN_PROMPT : SYSTEM_PROMPT },
+          { role: "user", content: uiWireframeIntent ? `${ctxBlock}\nConversation: ${transcript}\nLatest request: ${latest}` : userMsg },
         ];
 
 
@@ -545,6 +550,14 @@ ${latest || transcript}`;
           } catch (err) {
             console.warn("[cartoonist-draw] cost log failed", err);
           }
+        }
+
+        if (uiWireframeIntent) {
+          let plan: unknown;
+          try { plan = JSON.parse(content); } catch { plan = null; }
+          const screens = parseWireframePlan(plan);
+          if (!screens.length) return json({ error: "Could not lay out those screens. Your existing canvas is unchanged.", shapes: [], edits: [], removes: [] });
+          return json({ modality: "ui_wireframe", shapes: buildWireframeScreens(screens, `wf_${crypto.randomUUID().slice(0, 8)}`), edits: [], removes: [], enrichable: false, rationale: "Content-specific screens laid out on a fixed grid." });
         }
 
 

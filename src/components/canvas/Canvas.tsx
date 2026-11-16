@@ -188,7 +188,7 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
         fill: toneFill(shape, rs.fidelity),
         dash,
         size: "s",
-        scale: isUi ? 1 : 0.72,
+        scale: shape.style === "ui" ? 1 : isUi ? 1 : 0.72,
         font,
         align: "start",
         verticalAlign: "start",
@@ -272,7 +272,7 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
       y: shape.y,
       // Text tagged "surface" means "sits on a filled chip". Our fills are
       // pale tints, so render it as ink rather than invisible white.
-      props: { color: color === "white" ? "black" : color, size: textSize(shape.size), font, textAlign: shape.align === "center" ? "middle" : shape.align === "right" ? "end" : "start", w: 360, scale: isUi ? 0.72 : 0.58, richText: toRichText(shape.text), autoSize: true },
+      props: { color: color === "white" ? "black" : color, size: textSize(shape.size), font, textAlign: shape.align === "center" ? "middle" : shape.align === "right" ? "end" : "start", w: shape.w === undefined ? 360 : shape.w / (shape.style === "ui" ? (shape.size ?? 13) / 18 : isUi ? 0.72 : 0.58), scale: shape.style === "ui" ? (shape.size ?? 13) / 18 : isUi ? 0.72 : 0.58, richText: toRichText(shape.text), autoSize: shape.w === undefined },
     }];
   }
   if (shape.type === "arrow") {
@@ -424,7 +424,7 @@ export function Canvas({
     const handler = (ev: Event) => {
       const editor = editorRef.current;
       if (!editor) return;
-      const detail = (ev as CustomEvent<{ ids?: string[] }>).detail;
+      const detail = (ev as CustomEvent<{ ids?: string[]; clearSelection?: boolean }>).detail;
       const rawIds = Array.isArray(detail?.ids) ? detail!.ids : [];
       if (!rawIds.length) return;
       const wanted = new Set(rawIds.map((id) => String(shapeId(id))));
@@ -436,6 +436,7 @@ export function Canvas({
       editor.setCurrentTool("select");
       editor.select(...(present as unknown as Parameters<Editor["select"]>));
       try { editor.zoomToSelection({ animation: { duration: 320 } }); } catch { /* noop */ }
+      if (detail?.clearSelection) editor.selectNone();
     };
     window.addEventListener("cartoonist:focus", handler as EventListener);
     return () => window.removeEventListener("cartoonist:focus", handler as EventListener);

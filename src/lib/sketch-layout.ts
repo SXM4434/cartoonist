@@ -18,7 +18,7 @@ function pointsOf(s: SketchPrimitive): Array<[number, number]> {
     case "text":
       return [
         [s.x, s.y],
-        [s.x + 160, s.y + (s.size ?? 16)],
+        [s.x + (s.w ?? 160), s.y + (s.size ?? 16)],
       ];
     case "icon":
       return [
