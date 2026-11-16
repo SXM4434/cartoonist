@@ -364,6 +364,7 @@ export type Database = {
           outputs: string[] | null
           session_type: string | null
           started_at: string
+          workspace_id: string | null
         }
         Insert: {
           created_at?: string
@@ -379,6 +380,7 @@ export type Database = {
           outputs?: string[] | null
           session_type?: string | null
           started_at?: string
+          workspace_id?: string | null
         }
         Update: {
           created_at?: string
@@ -394,8 +396,17 @@ export type Database = {
           outputs?: string[] | null
           session_type?: string | null
           started_at?: string
+          workspace_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "rooms_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       session_summaries: {
         Row: {
@@ -462,6 +473,85 @@ export type Database = {
         }
         Relationships: []
       }
+      team_invites: {
+        Row: {
+          created_by: string
+          expires_at: string
+          id: string
+          team_id: string
+          token: string
+        }
+        Insert: {
+          created_by: string
+          expires_at?: string
+          id?: string
+          team_id: string
+          token?: string
+        }
+        Update: {
+          created_by?: string
+          expires_at?: string
+          id?: string
+          team_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_invites_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_members: {
+        Row: {
+          role: string
+          team_id: string
+          user_id: string
+        }
+        Insert: {
+          role?: string
+          team_id: string
+          user_id: string
+        }
+        Update: {
+          role?: string
+          team_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       transcript_chunks: {
         Row: {
           created_at: string
@@ -503,6 +593,32 @@ export type Database = {
             columns: ["room_id"]
             isOneToOne: false
             referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspaces: {
+        Row: {
+          id: string
+          name: string
+          team_id: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          team_id: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspaces_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -643,6 +759,46 @@ export type Database = {
           room_id: string
           shapes: number
         }[]
+      }
+      team_create: { Args: { p_name: string }; Returns: string }
+      team_has_access: {
+        Args: { p_owner?: boolean; p_team: string }
+        Returns: boolean
+      }
+      team_invite_accept: { Args: { p_token: string }; Returns: string }
+      team_invite_create: { Args: { p_team: string }; Returns: string }
+      team_member_remove: {
+        Args: { p_team: string; p_user: string }
+        Returns: undefined
+      }
+      workspace_attach_room: {
+        Args: { p_room: string; p_workspace: string }
+        Returns: undefined
+      }
+      workspace_rooms: {
+        Args: never
+        Returns: {
+          created_at: string
+          ended_at: string | null
+          facilitation: string | null
+          goal: string | null
+          host_id: string | null
+          host_role: string | null
+          id: string
+          join_code: string | null
+          mode: string | null
+          name: string
+          outputs: string[] | null
+          session_type: string | null
+          started_at: string
+          workspace_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "rooms"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
     }
     Enums: {
