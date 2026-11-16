@@ -22,16 +22,18 @@ export function RoomPanel({
   onActive,
   open,
   onOpen,
+  mobileOpen,
 }: {
   tabs: RoomPanelTab[];
   active: string;
   onActive: (id: string) => void;
   open: boolean;
   onOpen: (open: boolean) => void;
+  mobileOpen: boolean;
 }) {
   if (!open) {
     return (
-      <aside className="flex w-11 shrink-0 flex-col items-center gap-1 border-l border-border bg-background py-2">
+      <aside className="hidden w-11 shrink-0 flex-col items-center gap-1 border-l border-border bg-background py-2 md:flex">
         <button
           type="button"
           onClick={() => onOpen(true)}
@@ -61,7 +63,7 @@ export function RoomPanel({
   const current = tabs.find((t) => t.id === active) ?? tabs[0];
 
   return (
-    <aside className="flex w-[320px] shrink-0 flex-col border-l border-border bg-background">
+    <aside className={`absolute inset-0 z-40 w-full flex-col border-l border-border bg-background md:static md:flex md:w-[320px] ${mobileOpen ? "flex" : "hidden"}`}>
       <div className="flex items-center justify-between border-b border-border pl-2.5 pr-1">
         <span className="eyebrow py-2 text-muted-foreground">Session panel</span>
         <button

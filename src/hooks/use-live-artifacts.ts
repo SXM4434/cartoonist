@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { eventKey, runAgentEvent } from "@/lib/agent-events";
 import { listAgentEvents, meetingEventStore } from "@/lib/agent-event-store";
+import { loadOptionalAgentEvents } from "@/lib/optional-agent-event-load";
 
 /**
  * v1 P2.4 — partial artifacts while listening.
@@ -54,13 +55,12 @@ export function useLiveArtifacts({
 
   useEffect(() => {
     let active = true;
-    void listAgentEvents(roomId).then(rows => {
-      if (!active) return;
+    void loadOptionalAgentEvents(() => listAgentEvents(roomId), rows => {
       const saved = rows.filter(row => row.agent === "drafter" && row.event_key.includes(":documents:"));
       const latest = saved.find(row => row.status === "completed" && row.result);
       if (latest) onDraftRef.current(latest.result);
       setError(saved.find(row => row.status === "failed")?.error ?? null);
-    }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : "Could not load drafts."); });
+    }, () => active, "artifacts");
     return () => { active = false; };
   }, [roomId]);
 

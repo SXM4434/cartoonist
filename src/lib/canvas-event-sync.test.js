@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { ParticipantBatch, applyCanvasEvent, shouldPublishChange, shouldSeedCanvas } from "./canvas-event-sync";
+import { ParticipantBatch, applyCanvasEvent, phoneRoomCamera, shouldFitRoomOnPhone, shouldPublishChange, shouldSeedCanvas } from "./canvas-event-sync";
 import * as sync from "./canvas-event-sync";
 import { existingParticipantId } from "./participant-identity";
 import * as identity from "./participant-identity";
@@ -52,6 +52,30 @@ test("a brand-new room seeds after an empty event replay", () => {
   expect(shouldSeedCanvas(true, false, ai.size, true, events.length > 0)).toBe(true);
 });
 
+test("the initial room fit waits for loaded content and runs only once below 768 px", () => {
+  expect(shouldFitRoomOnPhone(390, false, true, false)).toBe(false);
+  expect(shouldFitRoomOnPhone(390, true, false, false)).toBe(false);
+  expect(shouldFitRoomOnPhone(390, true, true, false)).toBe(true);
+  expect(shouldFitRoomOnPhone(390, true, true, true)).toBe(false);
+  expect(shouldFitRoomOnPhone(768, true, true, false)).toBe(false);
+  expect(shouldFitRoomOnPhone(1440, true, true, false)).toBe(false);
+});
+
+test("phone camera fits and centers content inside the measured visible canvas", () => {
+  const camera = phoneRoomCamera({ x: 100, y: 200, w: 300, h: 200 }, { x: 0, y: 96, w: 390, h: 500 });
+  expect(camera).toEqual({ x: -55, y: 46, z: 1 });
+  expect((100 + camera.x) * camera.z).toBe(45);
+  expect((200 + camera.y) * camera.z).toBe(246);
+});
+
+test("phone camera anchors oversized content at the readable floor", () => {
+  const camera = phoneRoomCamera({ x: 100, y: 200, w: 1000, h: 700 }, { x: 0, y: 96, w: 390, h: 500 });
+  expect(camera.z).toBe(0.65);
+  expect((100 + camera.x) * camera.z).toBeCloseTo(16);
+  expect((200 + camera.y) * camera.z).toBeCloseTo(112);
+  expect((1100 + camera.x) * camera.z).toBeGreaterThan(390);
+});
+
 test("a returning person reuses their room row", () => {
   const rows = [{ id: "ana", display_name: "SyncTest Ana" }, { id: "ben", display_name: "SyncTest Ben" }];
   expect(existingParticipantId(rows, "ana", "SyncTest Ana")).toBe("ana");
@@ -84,6 +108,14 @@ test("1: cursor paging starts after the last event, even when another insert arr
   expect(sync.canvasPageCursor({ id: "event-2", created_at: "2026-11-16T12:00:00Z" })).toEqual({
     p_after_at: "2026-11-16T12:00:00Z", p_after_id: "event-2",
   });
+});
+
+test("missing canvas functions select the direct table fallback", () => {
+  expect(sync.isMissingCanvasRpc({ code: "PGRST202" })).toBe(true);
+  expect(sync.isMissingCanvasRpc({ code: "42883" })).toBe(true);
+  expect(sync.isMissingCanvasRpc({ code: "42501" })).toBe(false);
+  expect(sync.isMissingCanvasRpc({ code: "PGRST116" })).toBe(false);
+  expect(sync.isMissingCanvasRpc(null)).toBe(false);
 });
 
 test("2: a matching name never claims another browser's participant row", () => {

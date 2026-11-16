@@ -17,32 +17,32 @@ export function CanvasToolbar({
   onKeepDrawing: () => void;
 }) {
   const cell = (active: boolean) =>
-    `flex h-8 items-center gap-1.5 px-2.5 transition active:scale-[0.98] ${
+    `flex h-8 items-center gap-1.5 px-2.5 max-[479px]:w-9 max-[479px]:justify-center max-[479px]:px-0 transition active:scale-[0.98] ${
       active ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
     }`;
 
   return (
-    <div className="absolute left-4 top-4 z-20 flex items-center gap-px border border-border bg-background">
-      <button type="button" onClick={() => drawing && onToggleDraw()} className={cell(!drawing)} title="Select (Esc)">
+    <div data-canvas-toolbar className="absolute left-4 top-4 z-20 flex items-center gap-px border border-border bg-background">
+      <button type="button" onClick={() => drawing && onToggleDraw()} className={cell(!drawing)} title="Select (Esc)" aria-label="Select">
         <MousePointer2 className="h-3.5 w-3.5" />
-        <span className="eyebrow">Select</span>
+        <span className="eyebrow max-[479px]:hidden">Select</span>
       </button>
       <span className="h-8 w-px bg-border" aria-hidden />
-      <button type="button" onClick={() => !drawing && onToggleDraw()} className={cell(drawing)} title="Draw on the canvas">
+      <button type="button" onClick={() => !drawing && onToggleDraw()} className={cell(drawing)} title="Draw on the canvas" aria-label="Draw">
         <Pencil className="h-3.5 w-3.5" />
-        <span className="eyebrow">Draw</span>
+        <span className="eyebrow max-[479px]:hidden">Draw</span>
       </button>
       <span className="h-8 w-px bg-border" aria-hidden />
-      <button type="button" onClick={onKeepDrawing} className={cell(false)} title="Keep the selected Cartoonist drawing">
+      <button type="button" onClick={onKeepDrawing} className={cell(false)} title="Keep the selected Cartoonist drawing" aria-label="Keep selected">
         <Check className="h-3.5 w-3.5" />
-        <span className="eyebrow">Keep selected</span>
+        <span className="eyebrow max-[479px]:hidden">Keep selected</span>
       </button>
       <span className="h-8 w-px bg-border" aria-hidden />
       <Popover>
         <PopoverTrigger asChild>
-          <button type="button" className={cell(false)} title="How Cartoonist renders what it draws">
+          <button type="button" className={cell(false)} title="How Cartoonist renders what it draws" aria-label="Output style">
             <SlidersHorizontal className="h-3.5 w-3.5" />
-            <span className="eyebrow">Output style</span>
+            <span className="eyebrow max-[479px]:hidden">Output style</span>
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" sideOffset={6} className="w-auto rounded-none border-foreground p-3">

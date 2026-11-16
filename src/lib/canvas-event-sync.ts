@@ -14,6 +14,10 @@ export function canvasPageCursor(after: { id: string; created_at: string } | und
   return { p_after_at: after?.created_at ?? null, p_after_id: after?.id ?? null };
 }
 
+export function isMissingCanvasRpc(error: { code?: string } | null): boolean {
+  return error?.code === "PGRST202" || error?.code === "42883";
+}
+
 export function mergeReplayRows<T extends { id: string; created_at: string }>(page: T[], received: T[]): T[] {
   return [...new Map([...page, ...received].map((row) => [row.id, row])).values()]
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime() || a.id.localeCompare(b.id));
@@ -25,6 +29,25 @@ export function mergeHydrated<T extends { id: string }>(
   const merged = new Map(replayed);
   if (!cleared) for (const item of current) if (!touched.has(item.id)) merged.set(item.id, item);
   return [...merged.values()];
+}
+
+export function shouldFitRoomOnPhone(viewportWidth: number, eventsLoaded: boolean, hasContent: boolean, alreadyFitted: boolean): boolean {
+  return viewportWidth < 768 && eventsLoaded && hasContent && !alreadyFitted;
+}
+
+type Rect = { x: number; y: number; w: number; h: number };
+
+export function phoneRoomCamera(bounds: Rect, visible: Rect, padding = 16, readableFloor = 0.65): { x: number; y: number; z: number } {
+  const fitZoom = Math.min(1, (visible.w - padding * 2) / bounds.w, (visible.h - padding * 2) / bounds.h);
+  const z = Math.max(readableFloor, fitZoom);
+  if (fitZoom < readableFloor) {
+    return { x: (visible.x + padding) / z - bounds.x, y: (visible.y + padding) / z - bounds.y, z };
+  }
+  return {
+    x: (visible.x + (visible.w - bounds.w * z) / 2) / z - bounds.x,
+    y: (visible.y + (visible.h - bounds.h * z) / 2) / z - bounds.y,
+    z,
+  };
 }
 
 // The last version of a shape wins while the pen is moving. A completed stroke

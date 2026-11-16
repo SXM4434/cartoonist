@@ -4,7 +4,7 @@ import "tldraw/tldraw.css";
 import { useCanvas } from "./canvas-context";
 import type { SketchPrimitive } from "@/lib/sketch-types";
 import { useRenderStyle, type Fidelity, type RenderStyle } from "@/lib/render-style";
-import { isOverridden, ParticipantBatch, shouldApplyParticipantRecord, shouldPublishChange, type ParticipantOp } from "@/lib/canvas-event-sync";
+import { isOverridden, ParticipantBatch, phoneRoomCamera, shouldApplyParticipantRecord, shouldFitRoomOnPhone, shouldPublishChange, type ParticipantOp } from "@/lib/canvas-event-sync";
 import { toast } from "sonner";
 
 import "@/styles/tldraw.css";
@@ -345,6 +345,8 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
 
 export function Canvas({
   shapes = [],
+  roomId,
+  initialMobileFitReady = false,
   drawingEnabled,
   onHasContentChange,
   participantRecords,
@@ -352,6 +354,8 @@ export function Canvas({
   onGeneratedInteraction,
 }: {
   shapes?: readonly SketchPrimitive[];
+  roomId?: string;
+  initialMobileFitReady?: boolean;
   drawingEnabled: boolean;
   onHasContentChange?: (hasContent: boolean) => void;
   participantRecords?: ReadonlyMap<string, TLRecord | null>;
@@ -362,6 +366,8 @@ export function Canvas({
   const renderStyle = useRenderStyle();
 
   const editorRef = useRef<Editor | null>(null);
+  const canvasHostRef = useRef<HTMLDivElement | null>(null);
+  const fittedRoomRef = useRef<string | null>(null);
   const createdShapeIdsRef = useRef(new Set<string>());
   // id → serialized shape, so incremental batches only touch what changed.
   const shapeSigRef = useRef(new Map<string, string>());
@@ -766,6 +772,25 @@ export function Canvas({
     }
   }, [mounted, participantRecords]);
 
+  // Both generated and participant shapes have reached the editor by this
+  // effect. Frame the loaded room once, then leave the camera to the person.
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!mounted || !editor || !roomId || typeof window === "undefined") return;
+    const bounds = editor.getCurrentPageBounds();
+    const stage = canvasHostRef.current?.parentElement;
+    const stageRect = stage?.getBoundingClientRect();
+    const toolbarRect = stage?.querySelector("[data-canvas-toolbar]")?.getBoundingClientRect();
+    const bottomBarRect = stage?.querySelector("[data-canvas-bottom-bar]")?.getBoundingClientRect();
+    if (!stageRect || !toolbarRect || !bottomBarRect) return;
+    if (!window.matchMedia("(max-width: 767px)").matches || !shouldFitRoomOnPhone(stageRect.width, initialMobileFitReady, Boolean(bounds), fittedRoomRef.current === roomId)) return;
+    if (!bounds || bounds.w <= 0 || bounds.h <= 0) return;
+    const visible = { x: 0, y: toolbarRect.bottom - stageRect.top, w: stageRect.width, h: bottomBarRect.top - toolbarRect.bottom };
+    if (visible.w <= 32 || visible.h <= 32) return;
+    editor.setCamera(phoneRoomCamera(bounds, visible));
+    fittedRoomRef.current = roomId;
+  }, [mounted, roomId, initialMobileFitReady, shapes, participantRecords]);
+
   useEffect(() => {
     const editor = editorRef.current;
     if (!mounted || !editor) return;
@@ -790,7 +815,7 @@ export function Canvas({
   }, [mounted]);
 
   return (
-    <div className="absolute inset-0 bg-background">
+    <div ref={canvasHostRef} className="absolute inset-0 bg-background">
       <Tldraw hideUi onMount={handleMount} />
       {glow.length > 0 && (
         <div className="pointer-events-none absolute inset-0 z-10">
