@@ -1,13 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Capability-scoped database RPCs.
- *
- * Session tables are no longer readable table-wide: anon can only reach rows
- * of a live room, and everything historical goes through these SECURITY
- * DEFINER functions, which require the caller to already know the exact room
- * id(s). That removes room enumeration and cross-room harvesting while
- * keeping the "anyone with the link can join" model intact.
+ * Room RPCs. A live room link permits guest participation. Historical team
+ * rows require database membership, including when a caller knows the room ID.
  *
  * The generated Supabase types don't know about these functions, so calls are
  * funnelled through one narrow cast here instead of sprinkling `as never`.

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { loadSessions, type StoredSession } from "@/lib/profile";
-import { roomsByIds, sessionStats } from "@/lib/db-rpc";
+import { roomsByIds, rpc, sessionStats } from "@/lib/db-rpc";
 
 export type SessionStats = {
   participants: number;
@@ -18,31 +18,41 @@ export type WorkspaceSession = StoredSession & {
 
 const EMPTY: SessionStats = { participants: 0, shapes: 0, messages: 0, lastActivity: null };
 
-/**
- * Hydrates the locally-remembered session list with live counts from the
- * backend so the workspace home shows real weight, not just names.
- */
+type TeamRoom = { id: string; name: string; goal: string | null; outputs: string[] | null; join_code: string | null; ended_at: string | null; created_at: string };
+
+/** Load team meetings from membership-scoped database rows, then add valid local rooms. */
 export function useWorkspaceSessions() {
   const [sessions, setSessions] = useState<WorkspaceSession[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     const local = loadSessions();
-    if (local.length === 0) {
-      setSessions([]);
-      setLoading(false);
-      return;
-    }
-    // Show names instantly, hydrate stats after.
-    setSessions(local.map((s) => ({ ...s, stats: EMPTY })));
-
     const ids = local.map((s) => s.roomId).filter((id) => /^[0-9a-f-]{36}$/i.test(id));
-    if (ids.length === 0) {
-      setLoading(false);
-      return;
+    const { data: auth } = await supabase.auth.getUser();
+    const [rooms, teamRooms] = await Promise.all([
+      ids.length ? roomsByIds(ids) : Promise.resolve([]),
+      auth.user ? rpc<TeamRoom[]>("workspace_rooms") : Promise.resolve([]),
+    ]);
+    const allowedLocal = new Map((rooms ?? []).map((r) => [r.id, r]));
+    const combined = new Map<string, WorkspaceSession>();
+    for (const room of teamRooms ?? []) {
+      combined.set(room.id, {
+        roomId: room.id, joinCode: room.join_code ?? "", name: room.name,
+        goal: room.goal ?? "", outputs: room.outputs ?? [],
+        createdAt: new Date(room.created_at).getTime(),
+        goalFromDb: room.goal, endedAt: room.ended_at, stats: { ...EMPTY },
+      });
     }
-
-    const [rooms, rows] = await Promise.all([roomsByIds(ids), sessionStats(ids)]);
+    for (const stored of local) {
+      const room = allowedLocal.get(stored.roomId);
+      if (!room || combined.has(stored.roomId)) continue;
+      combined.set(stored.roomId, {
+        ...stored, name: room.name, joinCode: room.join_code ?? stored.joinCode,
+        goalFromDb: room.goal, endedAt: room.ended_at, stats: { ...EMPTY },
+      });
+    }
+    const sessionIds = [...combined.keys()];
+    const rows = sessionIds.length ? await sessionStats(sessionIds) : [];
 
     const stats = new Map<string, SessionStats>();
     (rows ?? []).forEach((r) => {
@@ -54,21 +64,7 @@ export function useWorkspaceSessions() {
       });
     });
 
-    const roomMap = new Map((rooms ?? []).map((r) => [r.id, r]));
-
-    setSessions(
-      local.map((s) => {
-        const r = roomMap.get(s.roomId);
-        return {
-          ...s,
-          name: r?.name ?? s.name,
-          joinCode: r?.join_code ?? s.joinCode,
-          goalFromDb: r?.goal ?? null,
-          endedAt: r?.ended_at ?? null,
-          stats: stats.get(s.roomId) ?? { ...EMPTY },
-        };
-      }),
-    );
+    setSessions([...combined.values()].map((s) => ({ ...s, stats: stats.get(s.roomId) ?? { ...EMPTY } })));
     setLoading(false);
   }, []);
 

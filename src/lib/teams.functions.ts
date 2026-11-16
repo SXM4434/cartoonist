@@ -1,8 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { z } from "zod";
+import { assertTeamAccount, teamActionSchema } from "@/lib/team-access";
 
 export const teamOverview = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  assertTeamAccount(context.userId, context.claims);
   const [teams, workspaces, members] = await Promise.all([
     context.supabase.from("teams").select("id,name"),
     context.supabase.from("workspaces").select("id,name,team_id"),
@@ -13,13 +14,9 @@ export const teamOverview = createServerFn({ method: "POST" }).middleware([requi
 });
 
 export const teamAction = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
-  .inputValidator(z.discriminatedUnion("action", [
-    z.object({ action: z.literal("create"), name: z.string().trim().min(1).max(80) }),
-    z.object({ action: z.literal("invite"), team: z.string().uuid() }),
-    z.object({ action: z.literal("accept"), token: z.string().uuid() }),
-    z.object({ action: z.literal("remove"), team: z.string().uuid(), user: z.string().uuid() }),
-  ]))
+  .inputValidator(teamActionSchema)
   .handler(async ({ data, context }) => {
+    assertTeamAccount(context.userId, context.claims);
     const result = data.action === "create" ? await context.supabase.rpc("team_create", { p_name: data.name })
       : data.action === "invite" ? await context.supabase.rpc("team_invite_create", { p_team: data.team })
       : data.action === "accept" ? await context.supabase.rpc("team_invite_accept", { p_token: data.token })

@@ -26,8 +26,8 @@ export const uploadVoiceSample = createServerFn({ method: "POST" })
       if (error || !user.user) throw new Error("Sign in again before saving a recording.");
       owner = user.user.id;
     }
-    const { data: rooms, error: roomError } = await client.rpc("room_get", { p_id: roomId });
-    if (roomError || !rooms?.length || rooms[0].ended_at) throw new Error("This meeting is unavailable.");
+    const { data: live, error: roomError } = await client.rpc("is_live_room", { p_room: roomId });
+    if (roomError || live !== true) throw new Error("This meeting is unavailable.");
     const path = `${owner ?? "guests"}/${roomId}/${crypto.randomUUID()}.webm`;
     if (owner) {
       const { error } = await client.storage.from("voice-samples").upload(path, file, { contentType: file.type, upsert: false });
