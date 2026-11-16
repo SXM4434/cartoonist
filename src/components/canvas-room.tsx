@@ -1638,6 +1638,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                 <RecallPanel
                   entries={historian.entries}
                   asking={historian.asking}
+                  error={historian.error}
+                  onFocus={(threadId, shapeIds) => {
+                    const ids = shapeIds.length ? shapeIds : threads.find(t => t.id === threadId)?.shapeIds ?? [];
+                    if (ids.length) window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids } }));
+                    else toast.info("This drawing is no longer on the canvas.");
+                  }}
                   onAsk={historian.ask}
                   onPin={pinRecall}
                 />

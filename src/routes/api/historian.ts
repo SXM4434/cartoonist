@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { guardExpensiveRoute } from "@/lib/room-guard.server";
+import { matchRecallDrawings } from "@/lib/recall-provenance";
 
 /**
  * Phase 3.3 — Historian recall.
@@ -104,7 +105,15 @@ export const Route = createFileRoute("/api/historian")({
             ? "That never came up."
             : (parsed.answer ?? "").replace(/\s+/g, " ").trim().slice(0, 400) || "That never came up.";
 
-        return json({ answer, quotes });
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { data: events } = await supabaseAdmin.from("canvas_events")
+          .select("thread_id,transcript_span,op").eq("room_id", body.roomId ?? "").order("created_at", { ascending: false }).limit(2000);
+        const linkedQuotes = matchRecallDrawings(quotes, events ?? []);
+        const { data: saved, error } = await supabaseAdmin.from("room_recall").insert({
+          room_id: body.roomId ?? "", question, answer, quotes: linkedQuotes,
+        }).select("id,created_at").single();
+        if (error) return json({ error: "Could not save Recall. Please try again." }, 500);
+        return json({ answer, quotes: linkedQuotes, id: saved.id, at: new Date(saved.created_at).getTime() });
       },
     },
   },

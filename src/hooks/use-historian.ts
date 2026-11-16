@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { rpc } from "@/lib/db-rpc";
 
 /**
  * Phase 3.3 — Historian recall (client side).
@@ -7,7 +8,7 @@ import { useCallback, useRef, useState } from "react";
  * empty quote list means "nobody said that".
  */
 
-export type RecallQuote = { text: string; speaker: string };
+export type RecallQuote = { text: string; speaker: string; threadId?: string; shapeIds?: string[] };
 
 export type RecallEntry = {
   id: string;
@@ -21,6 +22,20 @@ export function useHistorian(opts: { roomId: string; transcript: string; memoryB
   const { roomId } = opts;
   const [entries, setEntries] = useState<RecallEntry[]>([]);
   const [asking, setAsking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pending = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setEntries([]);
+    void rpc<Array<{ id: string; question: string; answer: string; quotes: RecallQuote[]; created_at: string }>>("recall_list", { p_room: roomId }).then(rows => {
+      if (!cancelled && rows) setEntries(current => {
+        const combined = [...current, ...rows.map(row => ({ ...row, at: new Date(row.created_at).getTime() }))];
+        return [...new Map(combined.map(row => [row.id, row])).values()].sort((a, b) => b.at - a.at).slice(0, 50);
+      });
+    });
+    return () => { cancelled = true; };
+  }, [roomId]);
 
   const transcriptRef = useRef(opts.transcript);
   transcriptRef.current = opts.transcript;
@@ -30,7 +45,9 @@ export function useHistorian(opts: { roomId: string; transcript: string; memoryB
   const ask = useCallback(
     async (question: string) => {
       const q = question.trim();
-      if (!q || asking) return;
+      if (!q || pending.current) return null;
+      pending.current = true;
+      setError(null);
       setAsking(true);
       try {
         const res = await fetch("/api/historian", {
@@ -44,24 +61,28 @@ export function useHistorian(opts: { roomId: string; transcript: string; memoryB
           }),
         });
         const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error ?? "Could not search the session.");
         const entry: RecallEntry = {
-          id: crypto.randomUUID().slice(0, 8),
+          id: data.id ?? crypto.randomUUID(),
           question: q,
           answer: typeof data?.answer === "string" ? data.answer : (data?.error ?? "Could not search the session."),
           quotes: Array.isArray(data?.quotes) ? (data.quotes as RecallQuote[]) : [],
-          at: Date.now(),
+          at: data.at ?? Date.now(),
         };
-        setEntries((current) => [entry, ...current].slice(0, 12));
-      } catch {
-        /* recall is advisory — never block the room */
+        setEntries((current) => [entry, ...current].slice(0, 50));
+        return entry;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not search the session.");
+        return null;
       } finally {
+        pending.current = false;
         setAsking(false);
       }
     },
-    [roomId, asking],
+    [roomId],
   );
 
   const clear = useCallback(() => setEntries([]), []);
 
-  return { entries, asking, ask, clear };
+  return { entries, asking, error, ask, clear };
 }
