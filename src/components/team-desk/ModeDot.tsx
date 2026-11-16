@@ -13,7 +13,7 @@ export function ModeDot({ mode, color }: { mode: ParticipantMode; color: string 
     >
       {pulse && (
         <span
-          className="absolute inline-flex h-full w-full animate-ping"
+          className="absolute inline-flex h-full w-full animate-pulse"
           style={{ backgroundColor: color, opacity: 0.45 }}
         />
       )}

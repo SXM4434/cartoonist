@@ -9,27 +9,33 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as OnboardingRouteImport } from './routes/onboarding'
-import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as SessionsNewRouteImport } from './routes/sessions.new'
-import { Route as SessionsSessionIdRouteImport } from './routes/sessions.$sessionId'
-import { Route as RRoomIdRouteImport } from './routes/r.$roomId'
-import { Route as ApiTranscribeSampleRouteImport } from './routes/api/transcribe-sample'
-import { Route as ApiTranscribeChunkRouteImport } from './routes/api/transcribe-chunk'
-import { Route as ApiSessionRecapRouteImport } from './routes/api/session-recap'
-import { Route as ApiParseIntroRouteImport } from './routes/api/parse-intro'
-import { Route as ApiMediatorTtsRouteImport } from './routes/api/mediator-tts'
-import { Route as ApiLiveblocksAuthRouteImport } from './routes/api/liveblocks-auth'
-import { Route as ApiInferInsightsRouteImport } from './routes/api/infer-insights'
-import { Route as ApiGenerateArtifactsRouteImport } from './routes/api/generate-artifacts'
-import { Route as ApiCartoonistDrawRouteImport } from './routes/api/cartoonist-draw'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as DirectionsRouteImport } from './routes/directions'
+import { Route as ExamplesRouteImport } from './routes/examples'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as TeamsRouteImport } from './routes/teams'
 import { Route as ApiCanvasOpsRouteImport } from './routes/api/canvas-ops'
+import { Route as ApiCartoonistDrawRouteImport } from './routes/api/cartoonist-draw'
+import { Route as ApiDevilsAdvocateRouteImport } from './routes/api/devils-advocate'
+import { Route as ApiGenerateArtifactsRouteImport } from './routes/api/generate-artifacts'
+import { Route as ApiHistorianRouteImport } from './routes/api/historian'
+import { Route as ApiInferInsightsRouteImport } from './routes/api/infer-insights'
+import { Route as ApiLiveblocksAuthRouteImport } from './routes/api/liveblocks-auth'
+import { Route as ApiMediatorTtsRouteImport } from './routes/api/mediator-tts'
+import { Route as ApiParseIntroRouteImport } from './routes/api/parse-intro'
+import { Route as ApiSessionRecapRouteImport } from './routes/api/session-recap'
+import { Route as ApiSessionSummaryRouteImport } from './routes/api/session-summary'
+import { Route as ApiTranscribeChunkRouteImport } from './routes/api/transcribe-chunk'
+import { Route as ApiTranscribeSampleRouteImport } from './routes/api/transcribe-sample'
+import { Route as RRoomIdRouteImport } from './routes/r.$roomId'
+import { Route as SessionsSessionIdRouteImport } from './routes/sessions.$sessionId'
+import { Route as SessionsNewRouteImport } from './routes/sessions.new'
 import { Route as ApiElevenlabsScribeTokenRouteImport } from './routes/api/elevenlabs/scribe-token'
 
-const OnboardingRoute = OnboardingRouteImport.update({
-  id: '/onboarding',
-  path: '/onboarding',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -37,64 +43,29 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const DirectionsRoute = DirectionsRouteImport.update({
+  id: '/directions',
+  path: '/directions',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SessionsNewRoute = SessionsNewRouteImport.update({
-  id: '/sessions/new',
-  path: '/sessions/new',
+const ExamplesRoute = ExamplesRouteImport.update({
+  id: '/examples',
+  path: '/examples',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SessionsSessionIdRoute = SessionsSessionIdRouteImport.update({
-  id: '/sessions/$sessionId',
-  path: '/sessions/$sessionId',
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RRoomIdRoute = RRoomIdRouteImport.update({
-  id: '/r/$roomId',
-  path: '/r/$roomId',
+const TeamsRoute = TeamsRouteImport.update({
+  id: '/teams',
+  path: '/teams',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiTranscribeSampleRoute = ApiTranscribeSampleRouteImport.update({
-  id: '/api/transcribe-sample',
-  path: '/api/transcribe-sample',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiTranscribeChunkRoute = ApiTranscribeChunkRouteImport.update({
-  id: '/api/transcribe-chunk',
-  path: '/api/transcribe-chunk',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiSessionRecapRoute = ApiSessionRecapRouteImport.update({
-  id: '/api/session-recap',
-  path: '/api/session-recap',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiParseIntroRoute = ApiParseIntroRouteImport.update({
-  id: '/api/parse-intro',
-  path: '/api/parse-intro',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiMediatorTtsRoute = ApiMediatorTtsRouteImport.update({
-  id: '/api/mediator-tts',
-  path: '/api/mediator-tts',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiLiveblocksAuthRoute = ApiLiveblocksAuthRouteImport.update({
-  id: '/api/liveblocks-auth',
-  path: '/api/liveblocks-auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiInferInsightsRoute = ApiInferInsightsRouteImport.update({
-  id: '/api/infer-insights',
-  path: '/api/infer-insights',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiGenerateArtifactsRoute = ApiGenerateArtifactsRouteImport.update({
-  id: '/api/generate-artifacts',
-  path: '/api/generate-artifacts',
+const ApiCanvasOpsRoute = ApiCanvasOpsRouteImport.update({
+  id: '/api/canvas-ops',
+  path: '/api/canvas-ops',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiCartoonistDrawRoute = ApiCartoonistDrawRouteImport.update({
@@ -102,9 +73,74 @@ const ApiCartoonistDrawRoute = ApiCartoonistDrawRouteImport.update({
   path: '/api/cartoonist-draw',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiCanvasOpsRoute = ApiCanvasOpsRouteImport.update({
-  id: '/api/canvas-ops',
-  path: '/api/canvas-ops',
+const ApiDevilsAdvocateRoute = ApiDevilsAdvocateRouteImport.update({
+  id: '/api/devils-advocate',
+  path: '/api/devils-advocate',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGenerateArtifactsRoute = ApiGenerateArtifactsRouteImport.update({
+  id: '/api/generate-artifacts',
+  path: '/api/generate-artifacts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHistorianRoute = ApiHistorianRouteImport.update({
+  id: '/api/historian',
+  path: '/api/historian',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiInferInsightsRoute = ApiInferInsightsRouteImport.update({
+  id: '/api/infer-insights',
+  path: '/api/infer-insights',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLiveblocksAuthRoute = ApiLiveblocksAuthRouteImport.update({
+  id: '/api/liveblocks-auth',
+  path: '/api/liveblocks-auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMediatorTtsRoute = ApiMediatorTtsRouteImport.update({
+  id: '/api/mediator-tts',
+  path: '/api/mediator-tts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiParseIntroRoute = ApiParseIntroRouteImport.update({
+  id: '/api/parse-intro',
+  path: '/api/parse-intro',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSessionRecapRoute = ApiSessionRecapRouteImport.update({
+  id: '/api/session-recap',
+  path: '/api/session-recap',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSessionSummaryRoute = ApiSessionSummaryRouteImport.update({
+  id: '/api/session-summary',
+  path: '/api/session-summary',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTranscribeChunkRoute = ApiTranscribeChunkRouteImport.update({
+  id: '/api/transcribe-chunk',
+  path: '/api/transcribe-chunk',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTranscribeSampleRoute = ApiTranscribeSampleRouteImport.update({
+  id: '/api/transcribe-sample',
+  path: '/api/transcribe-sample',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RRoomIdRoute = RRoomIdRouteImport.update({
+  id: '/r/$roomId',
+  path: '/r/$roomId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SessionsSessionIdRoute = SessionsSessionIdRouteImport.update({
+  id: '/sessions/$sessionId',
+  path: '/sessions/$sessionId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SessionsNewRoute = SessionsNewRouteImport.update({
+  id: '/sessions/new',
+  path: '/sessions/new',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiElevenlabsScribeTokenRoute =
@@ -117,15 +153,21 @@ const ApiElevenlabsScribeTokenRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/directions': typeof DirectionsRoute
+  '/examples': typeof ExamplesRoute
   '/onboarding': typeof OnboardingRoute
+  '/teams': typeof TeamsRoute
   '/api/canvas-ops': typeof ApiCanvasOpsRoute
   '/api/cartoonist-draw': typeof ApiCartoonistDrawRoute
+  '/api/devils-advocate': typeof ApiDevilsAdvocateRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
+  '/api/historian': typeof ApiHistorianRoute
   '/api/infer-insights': typeof ApiInferInsightsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
   '/api/mediator-tts': typeof ApiMediatorTtsRoute
   '/api/parse-intro': typeof ApiParseIntroRoute
   '/api/session-recap': typeof ApiSessionRecapRoute
+  '/api/session-summary': typeof ApiSessionSummaryRoute
   '/api/transcribe-chunk': typeof ApiTranscribeChunkRoute
   '/api/transcribe-sample': typeof ApiTranscribeSampleRoute
   '/r/$roomId': typeof RRoomIdRoute
@@ -136,15 +178,21 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/directions': typeof DirectionsRoute
+  '/examples': typeof ExamplesRoute
   '/onboarding': typeof OnboardingRoute
+  '/teams': typeof TeamsRoute
   '/api/canvas-ops': typeof ApiCanvasOpsRoute
   '/api/cartoonist-draw': typeof ApiCartoonistDrawRoute
+  '/api/devils-advocate': typeof ApiDevilsAdvocateRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
+  '/api/historian': typeof ApiHistorianRoute
   '/api/infer-insights': typeof ApiInferInsightsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
   '/api/mediator-tts': typeof ApiMediatorTtsRoute
   '/api/parse-intro': typeof ApiParseIntroRoute
   '/api/session-recap': typeof ApiSessionRecapRoute
+  '/api/session-summary': typeof ApiSessionSummaryRoute
   '/api/transcribe-chunk': typeof ApiTranscribeChunkRoute
   '/api/transcribe-sample': typeof ApiTranscribeSampleRoute
   '/r/$roomId': typeof RRoomIdRoute
@@ -156,15 +204,21 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/directions': typeof DirectionsRoute
+  '/examples': typeof ExamplesRoute
   '/onboarding': typeof OnboardingRoute
+  '/teams': typeof TeamsRoute
   '/api/canvas-ops': typeof ApiCanvasOpsRoute
   '/api/cartoonist-draw': typeof ApiCartoonistDrawRoute
+  '/api/devils-advocate': typeof ApiDevilsAdvocateRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
+  '/api/historian': typeof ApiHistorianRoute
   '/api/infer-insights': typeof ApiInferInsightsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
   '/api/mediator-tts': typeof ApiMediatorTtsRoute
   '/api/parse-intro': typeof ApiParseIntroRoute
   '/api/session-recap': typeof ApiSessionRecapRoute
+  '/api/session-summary': typeof ApiSessionSummaryRoute
   '/api/transcribe-chunk': typeof ApiTranscribeChunkRoute
   '/api/transcribe-sample': typeof ApiTranscribeSampleRoute
   '/r/$roomId': typeof RRoomIdRoute
@@ -177,15 +231,21 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/dashboard'
+    | '/directions'
+    | '/examples'
     | '/onboarding'
+    | '/teams'
     | '/api/canvas-ops'
     | '/api/cartoonist-draw'
+    | '/api/devils-advocate'
     | '/api/generate-artifacts'
+    | '/api/historian'
     | '/api/infer-insights'
     | '/api/liveblocks-auth'
     | '/api/mediator-tts'
     | '/api/parse-intro'
     | '/api/session-recap'
+    | '/api/session-summary'
     | '/api/transcribe-chunk'
     | '/api/transcribe-sample'
     | '/r/$roomId'
@@ -196,15 +256,21 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/dashboard'
+    | '/directions'
+    | '/examples'
     | '/onboarding'
+    | '/teams'
     | '/api/canvas-ops'
     | '/api/cartoonist-draw'
+    | '/api/devils-advocate'
     | '/api/generate-artifacts'
+    | '/api/historian'
     | '/api/infer-insights'
     | '/api/liveblocks-auth'
     | '/api/mediator-tts'
     | '/api/parse-intro'
     | '/api/session-recap'
+    | '/api/session-summary'
     | '/api/transcribe-chunk'
     | '/api/transcribe-sample'
     | '/r/$roomId'
@@ -215,15 +281,21 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/dashboard'
+    | '/directions'
+    | '/examples'
     | '/onboarding'
+    | '/teams'
     | '/api/canvas-ops'
     | '/api/cartoonist-draw'
+    | '/api/devils-advocate'
     | '/api/generate-artifacts'
+    | '/api/historian'
     | '/api/infer-insights'
     | '/api/liveblocks-auth'
     | '/api/mediator-tts'
     | '/api/parse-intro'
     | '/api/session-recap'
+    | '/api/session-summary'
     | '/api/transcribe-chunk'
     | '/api/transcribe-sample'
     | '/r/$roomId'
@@ -235,15 +307,21 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
+  DirectionsRoute: typeof DirectionsRoute
+  ExamplesRoute: typeof ExamplesRoute
   OnboardingRoute: typeof OnboardingRoute
+  TeamsRoute: typeof TeamsRoute
   ApiCanvasOpsRoute: typeof ApiCanvasOpsRoute
   ApiCartoonistDrawRoute: typeof ApiCartoonistDrawRoute
+  ApiDevilsAdvocateRoute: typeof ApiDevilsAdvocateRoute
   ApiGenerateArtifactsRoute: typeof ApiGenerateArtifactsRoute
+  ApiHistorianRoute: typeof ApiHistorianRoute
   ApiInferInsightsRoute: typeof ApiInferInsightsRoute
   ApiLiveblocksAuthRoute: typeof ApiLiveblocksAuthRoute
   ApiMediatorTtsRoute: typeof ApiMediatorTtsRoute
   ApiParseIntroRoute: typeof ApiParseIntroRoute
   ApiSessionRecapRoute: typeof ApiSessionRecapRoute
+  ApiSessionSummaryRoute: typeof ApiSessionSummaryRoute
   ApiTranscribeChunkRoute: typeof ApiTranscribeChunkRoute
   ApiTranscribeSampleRoute: typeof ApiTranscribeSampleRoute
   RRoomIdRoute: typeof RRoomIdRoute
@@ -254,11 +332,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/onboarding': {
-      id: '/onboarding'
-      path: '/onboarding'
-      fullPath: '/onboarding'
-      preLoaderRoute: typeof OnboardingRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -268,88 +346,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/directions': {
+      id: '/directions'
+      path: '/directions'
+      fullPath: '/directions'
+      preLoaderRoute: typeof DirectionsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/sessions/new': {
-      id: '/sessions/new'
-      path: '/sessions/new'
-      fullPath: '/sessions/new'
-      preLoaderRoute: typeof SessionsNewRouteImport
+    '/examples': {
+      id: '/examples'
+      path: '/examples'
+      fullPath: '/examples'
+      preLoaderRoute: typeof ExamplesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/sessions/$sessionId': {
-      id: '/sessions/$sessionId'
-      path: '/sessions/$sessionId'
-      fullPath: '/sessions/$sessionId'
-      preLoaderRoute: typeof SessionsSessionIdRouteImport
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/r/$roomId': {
-      id: '/r/$roomId'
-      path: '/r/$roomId'
-      fullPath: '/r/$roomId'
-      preLoaderRoute: typeof RRoomIdRouteImport
+    '/teams': {
+      id: '/teams'
+      path: '/teams'
+      fullPath: '/teams'
+      preLoaderRoute: typeof TeamsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/transcribe-sample': {
-      id: '/api/transcribe-sample'
-      path: '/api/transcribe-sample'
-      fullPath: '/api/transcribe-sample'
-      preLoaderRoute: typeof ApiTranscribeSampleRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/transcribe-chunk': {
-      id: '/api/transcribe-chunk'
-      path: '/api/transcribe-chunk'
-      fullPath: '/api/transcribe-chunk'
-      preLoaderRoute: typeof ApiTranscribeChunkRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/session-recap': {
-      id: '/api/session-recap'
-      path: '/api/session-recap'
-      fullPath: '/api/session-recap'
-      preLoaderRoute: typeof ApiSessionRecapRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/parse-intro': {
-      id: '/api/parse-intro'
-      path: '/api/parse-intro'
-      fullPath: '/api/parse-intro'
-      preLoaderRoute: typeof ApiParseIntroRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/mediator-tts': {
-      id: '/api/mediator-tts'
-      path: '/api/mediator-tts'
-      fullPath: '/api/mediator-tts'
-      preLoaderRoute: typeof ApiMediatorTtsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/liveblocks-auth': {
-      id: '/api/liveblocks-auth'
-      path: '/api/liveblocks-auth'
-      fullPath: '/api/liveblocks-auth'
-      preLoaderRoute: typeof ApiLiveblocksAuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/infer-insights': {
-      id: '/api/infer-insights'
-      path: '/api/infer-insights'
-      fullPath: '/api/infer-insights'
-      preLoaderRoute: typeof ApiInferInsightsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/generate-artifacts': {
-      id: '/api/generate-artifacts'
-      path: '/api/generate-artifacts'
-      fullPath: '/api/generate-artifacts'
-      preLoaderRoute: typeof ApiGenerateArtifactsRouteImport
+    '/api/canvas-ops': {
+      id: '/api/canvas-ops'
+      path: '/api/canvas-ops'
+      fullPath: '/api/canvas-ops'
+      preLoaderRoute: typeof ApiCanvasOpsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/cartoonist-draw': {
@@ -359,11 +388,102 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCartoonistDrawRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/canvas-ops': {
-      id: '/api/canvas-ops'
-      path: '/api/canvas-ops'
-      fullPath: '/api/canvas-ops'
-      preLoaderRoute: typeof ApiCanvasOpsRouteImport
+    '/api/devils-advocate': {
+      id: '/api/devils-advocate'
+      path: '/api/devils-advocate'
+      fullPath: '/api/devils-advocate'
+      preLoaderRoute: typeof ApiDevilsAdvocateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/generate-artifacts': {
+      id: '/api/generate-artifacts'
+      path: '/api/generate-artifacts'
+      fullPath: '/api/generate-artifacts'
+      preLoaderRoute: typeof ApiGenerateArtifactsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/historian': {
+      id: '/api/historian'
+      path: '/api/historian'
+      fullPath: '/api/historian'
+      preLoaderRoute: typeof ApiHistorianRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/infer-insights': {
+      id: '/api/infer-insights'
+      path: '/api/infer-insights'
+      fullPath: '/api/infer-insights'
+      preLoaderRoute: typeof ApiInferInsightsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/liveblocks-auth': {
+      id: '/api/liveblocks-auth'
+      path: '/api/liveblocks-auth'
+      fullPath: '/api/liveblocks-auth'
+      preLoaderRoute: typeof ApiLiveblocksAuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/mediator-tts': {
+      id: '/api/mediator-tts'
+      path: '/api/mediator-tts'
+      fullPath: '/api/mediator-tts'
+      preLoaderRoute: typeof ApiMediatorTtsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/parse-intro': {
+      id: '/api/parse-intro'
+      path: '/api/parse-intro'
+      fullPath: '/api/parse-intro'
+      preLoaderRoute: typeof ApiParseIntroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/session-recap': {
+      id: '/api/session-recap'
+      path: '/api/session-recap'
+      fullPath: '/api/session-recap'
+      preLoaderRoute: typeof ApiSessionRecapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/session-summary': {
+      id: '/api/session-summary'
+      path: '/api/session-summary'
+      fullPath: '/api/session-summary'
+      preLoaderRoute: typeof ApiSessionSummaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/transcribe-chunk': {
+      id: '/api/transcribe-chunk'
+      path: '/api/transcribe-chunk'
+      fullPath: '/api/transcribe-chunk'
+      preLoaderRoute: typeof ApiTranscribeChunkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/transcribe-sample': {
+      id: '/api/transcribe-sample'
+      path: '/api/transcribe-sample'
+      fullPath: '/api/transcribe-sample'
+      preLoaderRoute: typeof ApiTranscribeSampleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/r/$roomId': {
+      id: '/r/$roomId'
+      path: '/r/$roomId'
+      fullPath: '/r/$roomId'
+      preLoaderRoute: typeof RRoomIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sessions/$sessionId': {
+      id: '/sessions/$sessionId'
+      path: '/sessions/$sessionId'
+      fullPath: '/sessions/$sessionId'
+      preLoaderRoute: typeof SessionsSessionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sessions/new': {
+      id: '/sessions/new'
+      path: '/sessions/new'
+      fullPath: '/sessions/new'
+      preLoaderRoute: typeof SessionsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/elevenlabs/scribe-token': {
@@ -379,15 +499,21 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
+  DirectionsRoute: DirectionsRoute,
+  ExamplesRoute: ExamplesRoute,
   OnboardingRoute: OnboardingRoute,
+  TeamsRoute: TeamsRoute,
   ApiCanvasOpsRoute: ApiCanvasOpsRoute,
   ApiCartoonistDrawRoute: ApiCartoonistDrawRoute,
+  ApiDevilsAdvocateRoute: ApiDevilsAdvocateRoute,
   ApiGenerateArtifactsRoute: ApiGenerateArtifactsRoute,
+  ApiHistorianRoute: ApiHistorianRoute,
   ApiInferInsightsRoute: ApiInferInsightsRoute,
   ApiLiveblocksAuthRoute: ApiLiveblocksAuthRoute,
   ApiMediatorTtsRoute: ApiMediatorTtsRoute,
   ApiParseIntroRoute: ApiParseIntroRoute,
   ApiSessionRecapRoute: ApiSessionRecapRoute,
+  ApiSessionSummaryRoute: ApiSessionSummaryRoute,
   ApiTranscribeChunkRoute: ApiTranscribeChunkRoute,
   ApiTranscribeSampleRoute: ApiTranscribeSampleRoute,
   RRoomIdRoute: RRoomIdRoute,
@@ -398,3 +524,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

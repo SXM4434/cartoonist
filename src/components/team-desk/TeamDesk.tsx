@@ -22,6 +22,7 @@ export function TeamDesk({
   onCheckInAs,
   onStartKiosk,
   kioskActive,
+  embedded = false,
 }: {
   roomId: string;
   participants: ParticipantWithHumanLayer[];
@@ -33,6 +34,8 @@ export function TeamDesk({
   onCheckInAs?: (pid: string) => void;
   onStartKiosk?: () => void;
   kioskActive?: boolean;
+  /** Inside the unified right panel the panel owns the chrome. */
+  embedded?: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const { modeFor } = useParticipantState({ roomId, selfPid, selfSpeaking, selfTyping });
@@ -59,7 +62,7 @@ export function TeamDesk({
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  if (collapsed) {
+  if (collapsed && !embedded) {
     return (
       <aside className="flex w-11 shrink-0 flex-col items-center gap-1 border-l border-border bg-background py-2">
         <button
@@ -88,10 +91,10 @@ export function TeamDesk({
   }
 
   return (
-    <aside className="flex w-[280px] shrink-0 flex-col border-l border-border bg-background">
+    <aside className={embedded ? "flex h-full min-h-0 flex-col bg-background" : "flex w-[280px] shrink-0 flex-col border-l border-border bg-background"}>
       <div className="flex items-center justify-between border-b border-border px-2.5 py-2">
-        <span className="eyebrow text-foreground">
-          Team Desk
+        <span className="eyebrow text-muted-foreground">
+          {present.size > 0 ? "In the room" : "People"}
           {present.size > 0 && (
             <span className="ml-2 inline-flex items-center gap-1 text-muted-foreground normal-case tracking-normal">
               <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--accent,#3fb56b)]" />
@@ -123,14 +126,16 @@ export function TeamDesk({
             <ClipboardEdit className="h-3 w-3" />
             <span className="eyebrow">Check-in</span>
           </Button>
-          <button
-            type="button"
-            onClick={() => setCollapsed(true)}
-            title="Collapse (T)"
-            className="flex h-6 w-6 items-center justify-center border border-border text-muted-foreground transition hover:bg-foreground hover:text-background"
-          >
-            <PanelRightClose className="h-3 w-3" />
-          </button>
+          {!embedded && (
+            <button
+              type="button"
+              onClick={() => setCollapsed(true)}
+              title="Collapse (T)"
+              className="flex h-6 w-6 items-center justify-center border border-border text-muted-foreground transition hover:bg-foreground hover:text-background"
+            >
+              <PanelRightClose className="h-3 w-3" />
+            </button>
+          )}
         </div>
       </div>
       <div className="flex-1 space-y-1.5 overflow-y-auto px-2 py-2">

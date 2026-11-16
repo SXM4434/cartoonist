@@ -3,6 +3,8 @@ import { compressLegacySegments, getIndices, Tldraw, type Editor, type TLShapePa
 import "tldraw/tldraw.css";
 import { useCanvas } from "./canvas-context";
 import type { SketchPrimitive } from "@/lib/sketch-types";
+import { useRenderStyle, type Fidelity, type RenderStyle } from "@/lib/render-style";
+
 import "@/styles/tldraw.css";
 
 type RichText = { type: "doc"; content: Array<{ type: "paragraph"; content?: Array<{ type: "text"; text: string }> }> };
@@ -38,20 +40,68 @@ const textSize = (size?: number): "s" | "m" | "l" => {
   return "s";
 };
 
+type CanvasTone = NonNullable<SketchPrimitive["tone"]>;
+
+// Color depends on fidelity: lo-fi is a pure graphite sketch, mid keeps one
+// accent plus state colors, hi-fi uses the full semantic palette.
+const toneColor = (tone: CanvasTone | undefined, fidelity: Fidelity) => {
+  if (fidelity === "lofi") return tone === "surface" ? "white" : tone === "muted" || tone === "subtle" ? "grey" : "black";
+  if (tone === "accent") return "blue";
+  if (tone === "muted") return "grey";
+  if (tone === "success") return fidelity === "hifi" ? "green" : "black";
+  if (tone === "danger") return "red";
+  if (tone === "subtle") return "grey";
+  if (tone === "surface") return "white";
+  return "black";
+};
+
+// Never "semi" — tldraw's semi fill is the translucent wash that made shapes
+// look like ghosts. Fills are either fully opaque or absent.
+const toneFill = (shape: SketchPrimitive, fidelity: Fidelity): "none" | "solid" => {
+  if (fidelity === "lofi") return "none";
+  const tone = shape.tone;
+  const explicit = "fill" in shape && Boolean(shape.fill);
+  if (fidelity === "mid") {
+    return explicit || tone === "accent" || tone === "danger" || tone === "success" ? "solid" : "none";
+  }
+  return explicit || tone === "surface" || tone === "subtle" || tone === "accent" || tone === "success" || tone === "danger"
+    ? "solid"
+    : "none";
+};
+
+
 const clampNoteSize = (w?: number, h?: number) => ({
   w: Math.min(Math.max(w ?? 154, 120), 178),
   h: Math.min(Math.max(h ?? 104, 82), 116),
 });
 
-const sketchLine = (id: string, x1: number, y1: number, x2: number, y2: number, dashed?: boolean): TLShapePartial => ({
-  id: shapeId(id),
-  type: "arrow",
-  x: x1,
-  y: y1,
-  opacity: 1,
-  isLocked: false,
-  props: { kind: "arc", color: "black", fill: "none", dash: dashed ? "dashed" : "draw", size: "s", arrowheadStart: "none", arrowheadEnd: "none", font: "draw", labelColor: "black", start: { x: 0, y: 0 }, end: { x: x2 - x1, y: y2 - y1 }, bend: 0, richText: toRichText(""), labelPosition: 0.5, scale: 0.72, elbowMidPoint: 0.5 },
-});
+// A rule is a rule in both inks. Keeping it a `line` in pencil AND clean means
+// toggling ink never flips the tldraw type behind a stable shape id — a flip
+// made tldraw merge line props into an arrow record ("props.spline: Unexpected
+// property") and remount its shape component mid-render.
+const sketchLine = (id: string, x1: number, y1: number, x2: number, y2: number, dashed?: boolean): TLShapePartial => {
+  const idx = getIndices(2);
+  return {
+    id: shapeId(id),
+    type: "line",
+    x: x1,
+    y: y1,
+    opacity: 1,
+    isLocked: false,
+    props: {
+      color: "black",
+      dash: dashed ? "dashed" : "draw",
+      size: "s",
+      spline: "line",
+      scale: 1,
+      points: {
+        [idx[0]]: { id: idx[0], index: idx[0], x: 0, y: 0 },
+        [idx[1]]: { id: idx[1], index: idx[1], x: x2 - x1, y: y2 - y1 },
+      },
+    },
+  };
+};
+
 
 const pathToLine = (shape: Extract<SketchPrimitive, { type: "path" }>): TLShapePartial[] => {
   const rawPoints = shape.points.filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
@@ -104,32 +154,48 @@ const strokeToDraw = (shape: Extract<SketchPrimitive, { type: "stroke" }>): TLSh
   }];
 };
 
-function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
+function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial[] {
   const common = { id: shapeId(shape.id), opacity: 1, isLocked: false };
+  // "clean" ink always draws geometric shapes; "pencil" always draws by hand,
+  // regardless of what the AI tagged the primitive as.
+  const isUi = rs.ink === "clean";
+  const color = toneColor(shape.tone, rs.fidelity);
+  const dash = isUi ? "solid" : "draw";
+  const font = isUi ? "sans" : "draw";
+
   if (shape.type === "rect" || shape.type === "ellipse" || shape.type === "diamond") {
     // A label that can't fit the box gets wrapped one letter per line by
     // tldraw. In dense wireframes that reads as garbage, so any label too
     // wide for its box is lifted out into a free text primitive beside it.
     const label = (shape.label ?? "").trim();
-    const fitsInside = label.length > 0 && shape.w >= label.length * 6.2 + 14 && shape.h >= 22;
+    // Hard guard: the model occasionally omits w/h or emits NaN, and tldraw's
+    // validator throws (crashing the whole canvas) instead of skipping it.
+    const num = (v: unknown, fallback: number) =>
+      typeof v === "number" && Number.isFinite(v) ? v : fallback;
+    const bw = Math.max(2, num(shape.w, 160));
+    const bh = Math.max(2, num(shape.h, 60));
+    const fitsInside = label.length > 0 && bw >= label.length * 6.2 + 14 && bh >= 22;
     const box: TLShapePartial = {
       ...common,
       type: "geo",
-      x: shape.x,
-      y: shape.y,
+      x: num(shape.x, 0),
+      y: num(shape.y, 0),
       props: {
         geo: shape.type === "rect" ? "rectangle" : shape.type,
-        w: shape.w,
-        h: shape.h,
-        color: "black",
-        fill: shape.fill ? "semi" : "none",
-        dash: "draw",
+        w: bw,
+        h: bh,
+        color,
+        fill: toneFill(shape, rs.fidelity),
+        dash,
         size: "s",
-        scale: 0.72,
-        font: "draw",
+        scale: shape.style === "ui" ? 1 : isUi ? 1 : 0.72,
+        font,
         align: "start",
         verticalAlign: "start",
-        labelColor: "black",
+        // tldraw's "solid" fill is a pale tint of the ink color, so white
+        // label text on an accent/danger fill disappears. Always keep labels
+        // in the ink color so text stays legible on every fill.
+        labelColor: color === "white" ? "black" : color,
         richText: toRichText(fitsInside ? label : ""),
       },
     };
@@ -137,9 +203,9 @@ function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
       return [box, {
         id: shapeId(`${shape.id}-lbl`),
         type: "text",
-        x: shape.x + shape.w + 6,
-        y: shape.y + Math.max(0, shape.h / 2 - 8),
-        props: { color: "black", size: "s", font: "draw", textAlign: "start", w: 260, scale: 0.5, richText: toRichText(label), autoSize: true },
+        x: num(shape.x, 0) + bw + 6,
+        y: num(shape.y, 0) + Math.max(0, bh / 2 - 8),
+        props: { color, size: "s", font, textAlign: "start", w: 260, scale: isUi ? 0.72 : 0.5, richText: toRichText(label), autoSize: true },
       } as TLShapePartial];
     }
     return [box];
@@ -158,12 +224,12 @@ function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
         geo: "rectangle",
         w,
         h,
-        color: geoNoteColor(shape.color),
+        color: rs.fidelity === "lofi" ? "grey" : geoNoteColor(shape.color),
         fill: "solid",
-        dash: "draw",
+        dash,
         size: "s",
         scale: 0.64,
-        font: "draw",
+        font,
         align: "start",
         verticalAlign: "start",
         labelColor: "black",
@@ -184,17 +250,19 @@ function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
         h,
         color: "black",
         fill: "none",
-        dash: "draw",
+        dash,
         size: "s",
         scale: 0.64,
-        font: "draw",
+        font,
         align: "start",
         verticalAlign: "start",
         labelColor: "black",
         richText: toRichText(""),
       },
     });
-    return [fill, outline("a", -1.5, -1, -0.006), outline("b", 1, 1.5, 0.008)];
+    // Clean ink gets a single crisp border; pencil ink gets the multi-stroke wobble.
+    return isUi ? [fill, outline("a", 0, 0, 0)] : [fill, outline("a", -1.5, -1, -0.006), outline("b", 1, 1.5, 0.008)];
+
   }
   if (shape.type === "text") {
     return [{
@@ -202,7 +270,9 @@ function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
       type: "text",
       x: shape.x,
       y: shape.y,
-      props: { color: "black", size: textSize(shape.size), font: "draw", textAlign: shape.align === "center" ? "middle" : shape.align === "right" ? "end" : "start", w: 360, scale: 0.58, richText: toRichText(shape.text), autoSize: true },
+      // Text tagged "surface" means "sits on a filled chip". Our fills are
+      // pale tints, so render it as ink rather than invisible white.
+      props: { color: color === "white" ? "black" : color, size: textSize(shape.size), font, textAlign: shape.align === "center" ? "middle" : shape.align === "right" ? "end" : "start", w: shape.w === undefined ? 360 : shape.w / (shape.style === "ui" ? (shape.size ?? 13) / 18 : isUi ? 0.72 : 0.58), scale: shape.style === "ui" ? (shape.size ?? 13) / 18 : isUi ? 0.72 : 0.58, richText: toRichText(shape.text), autoSize: shape.w === undefined },
     }];
   }
   if (shape.type === "arrow") {
@@ -211,11 +281,31 @@ function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
       type: "arrow",
       x: shape.x1,
       y: shape.y1,
-      props: { kind: "arc", color: "black", fill: "none", dash: shape.dashed ? "dashed" : "draw", size: "s", arrowheadStart: "none", arrowheadEnd: "arrow", font: "draw", labelColor: "black", start: { x: 0, y: 0 }, end: { x: shape.x2 - shape.x1, y: shape.y2 - shape.y1 }, bend: 0, richText: toRichText(shape.label ?? ""), labelPosition: 0.5, scale: 0.82, elbowMidPoint: 0.5 },
+      props: { kind: "arc", color: "black", fill: "none", dash: shape.dashed ? "dashed" : dash, size: "s", arrowheadStart: "none", arrowheadEnd: "arrow", font, labelColor: "black", start: { x: 0, y: 0 }, end: { x: shape.x2 - shape.x1, y: shape.y2 - shape.y1 }, bend: 0, richText: toRichText(shape.label ?? ""), labelPosition: 0.5, scale: 0.82, elbowMidPoint: 0.5 },
     }];
   }
   if (shape.type === "line") {
-    return [sketchLine(shape.id, shape.x1, shape.y1, shape.x2, shape.y2, shape.dashed)];
+    if (!isUi) return [sketchLine(shape.id, shape.x1, shape.y1, shape.x2, shape.y2, shape.dashed)];
+    // A UI rule is a rule, not an arrow: tldraw's arrow shape reserves a gap
+    // mid-span for its (empty) label, which broke every table rule in half.
+    const idx = getIndices(2);
+    return [{
+      ...common,
+      type: "line",
+      x: shape.x1,
+      y: shape.y1,
+      props: {
+        color,
+        dash: shape.dashed ? "dashed" : "solid",
+        size: "s",
+        spline: "line",
+        scale: 1,
+        points: {
+          [idx[0]]: { id: idx[0], index: idx[0], x: 0, y: 0 },
+          [idx[1]]: { id: idx[1], index: idx[1], x: shape.x2 - shape.x1, y: shape.y2 - shape.y1 },
+        },
+      },
+    }];
   }
   if (shape.type === "path") {
     return pathToLine(shape);
@@ -235,7 +325,7 @@ function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
       type: "geo",
       x: shape.x,
       y: shape.y,
-      props: { geo: shape.kind === "cloud" || shape.kind === "heart" || shape.kind === "star" ? shape.kind : shape.kind === "user" || shape.kind === "users" ? "ellipse" : "rectangle", w: size, h: size, color: "black", fill: "none", dash: "draw", size: "s", scale: 0.7, font: "draw", align: "middle", verticalAlign: "middle", labelColor: "black", richText: toRichText(showInside ? label : "") },
+      props: { geo: shape.kind === "cloud" || shape.kind === "heart" || shape.kind === "star" ? shape.kind : shape.kind === "user" || shape.kind === "users" ? "ellipse" : "rectangle", w: size, h: size, color, fill: "none", dash, size: "s", scale: isUi ? 1 : 0.7, font, align: "middle", verticalAlign: "middle", labelColor: color, richText: toRichText(showInside ? label : "") },
     }];
     if (label && !showInside && size >= 26) {
       out.push({
@@ -243,7 +333,7 @@ function toTldrawShapes(shape: SketchPrimitive): TLShapePartial[] {
         type: "text",
         x: shape.x + size + 6,
         y: shape.y + size / 2 - 8,
-        props: { color: "black", size: "s", font: "draw", textAlign: "start", w: 260, scale: 0.5, richText: toRichText(label), autoSize: true },
+        props: { color, size: "s", font, textAlign: "start", w: 260, scale: isUi ? 0.72 : 0.5, richText: toRichText(label), autoSize: true },
       } as TLShapePartial);
     }
     return out;
@@ -261,6 +351,8 @@ export function Canvas({
   onHasContentChange?: (hasContent: boolean) => void;
 }) {
   const { setEditor } = useCanvas();
+  const renderStyle = useRenderStyle();
+
   const editorRef = useRef<Editor | null>(null);
   const createdShapeIdsRef = useRef(new Set<string>());
   // id → serialized shape, so incremental batches only touch what changed.
@@ -332,7 +424,7 @@ export function Canvas({
     const handler = (ev: Event) => {
       const editor = editorRef.current;
       if (!editor) return;
-      const detail = (ev as CustomEvent<{ ids?: string[] }>).detail;
+      const detail = (ev as CustomEvent<{ ids?: string[]; clearSelection?: boolean }>).detail;
       const rawIds = Array.isArray(detail?.ids) ? detail!.ids : [];
       if (!rawIds.length) return;
       const wanted = new Set(rawIds.map((id) => String(shapeId(id))));
@@ -344,6 +436,7 @@ export function Canvas({
       editor.setCurrentTool("select");
       editor.select(...(present as unknown as Parameters<Editor["select"]>));
       try { editor.zoomToSelection({ animation: { duration: 320 } }); } catch { /* noop */ }
+      if (detail?.clearSelection) editor.selectNone();
     };
     window.addEventListener("cartoonist:focus", handler as EventListener);
     return () => window.removeEventListener("cartoonist:focus", handler as EventListener);
@@ -480,7 +573,7 @@ export function Canvas({
       const props = (s.props ?? {}) as Record<string, unknown>;
       return Object.values(props).every((v) => finite(v));
     };
-    const desired = shapes.flatMap(toTldrawShapes).filter(isSane);
+    const desired = shapes.flatMap((s) => toTldrawShapes(s, renderStyle)).filter(isSane);
     const desiredById = new Map(desired.map((s) => [String(s.id), s]));
     // Current AI-authored shapes on the page (anything we created before).
     const currentAiIds = new Set<string>();
@@ -489,21 +582,35 @@ export function Canvas({
     }
     const toCreate: TLShapePartial[] = [];
     const toUpdate: TLShapePartial[] = [];
+    const toRecreate: TLShapePartial[] = [];
+
     const nextSig = new Map<string, string>();
+    const toDelete: string[] = [];
     for (const [id, shape] of desiredById) {
       const sig = JSON.stringify(shape);
       nextSig.set(id, sig);
       if (!currentAiIds.has(id)) { toCreate.push(shape); continue; }
+      // Switching ink (pencil ↔ clean) or fidelity can change the tldraw type
+      // behind the same primitive id — e.g. a rule renders as `arrow` in pencil
+      // and `line` in clean. updateShapes merges props into the existing
+      // record, so a type flip produces an invalid shape ("arrow.props.spline:
+      // Unexpected property") and kills the whole batch. Recreate instead.
+      const existing = editor.getShape(id as unknown as Parameters<Editor["getShape"]>[0]);
+      if (existing && existing.type !== shape.type) {
+        toDelete.push(id);
+        toRecreate.push(shape);
+        continue;
+      }
       // Perf: only push shapes whose serialized form actually changed. Before
       // this, every incremental batch re-updated all ~170 wireframe shapes.
       if (shapeSigRef.current.get(id) !== sig) toUpdate.push(shape);
     }
-    const toDelete: string[] = [];
     for (const id of currentAiIds) {
       if (!desiredById.has(id)) toDelete.push(id);
     }
+
     shapeSigRef.current = nextSig;
-    if (!toCreate.length && !toUpdate.length && !toDelete.length) return;
+    if (!toCreate.length && !toUpdate.length && !toDelete.length && !toRecreate.length) return;
     try {
       editor.run(() => {
         if (toDelete.length) editor.deleteShapes(toDelete as unknown as Parameters<Editor["deleteShapes"]>[0]);
@@ -513,11 +620,30 @@ export function Canvas({
         // AI batches don't belong in the user's undo stack — recording 170
         // shape creations made every subsequent interaction sluggish.
       }, { history: "ignore" });
+      // Type-flipped shapes are recreated on the next frame. Deleting and
+      // recreating the same shape id in one transaction makes React reuse the
+      // shape component across two different shape utils, which throws
+      // "Rendered more hooks than during the previous render".
+      if (toRecreate.length) {
+        requestAnimationFrame(() => {
+          const ed = editorRef.current;
+          if (!ed) return;
+          try {
+            ed.run(() => {
+              ed.createShapes(toRecreate);
+              toRecreate.forEach((s) => createdShapeIdsRef.current.add(String(s.id)));
+            }, { history: "ignore" });
+          } catch (err) {
+            console.warn("[canvas] skipped a recreate batch", err);
+          }
+        });
+      }
     } catch (err) {
       console.warn("[canvas] skipped a bad shape batch", err);
     }
+
     onHasContentChange?.(editor.getCurrentPageShapeIds().size > 0);
-  }, [mounted, onHasContentChange, shapes]);
+  }, [mounted, onHasContentChange, shapes, renderStyle]);
 
   return (
     <div className="absolute inset-0 bg-background">
@@ -562,7 +688,7 @@ export function Canvas({
           <div className="mb-1 text-[10px] uppercase tracking-wider" style={{ color: "var(--primary)" }}>
             ↗ {openRelation.relation} — linked thread
           </div>
-          <div className="font-serif text-foreground" style={{ fontSize: "var(--step-0)", lineHeight: 1.4 }}>
+          <div className="font-display text-foreground" style={{ fontSize: "var(--step-0)", lineHeight: 1.4 }}>
             {openRelation.peer || "(no transcript)"}
           </div>
           <div className="mt-2 flex justify-end gap-2">

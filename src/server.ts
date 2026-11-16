@@ -42,8 +42,12 @@ export default {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
+      // The framework can wrap a disconnected request as an HTTPError.
+      // It is a cancellation, not a failed room render.
+      if (request.signal.aborted) return new Response(null, { status: 499 });
       return await normalizeCatastrophicSsrResponse(response);
     } catch (error) {
+      if (request.signal.aborted) return new Response(null, { status: 499 });
       console.error(error);
       return new Response(renderErrorPage(), {
         status: 500,

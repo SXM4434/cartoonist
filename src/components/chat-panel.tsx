@@ -164,7 +164,7 @@ export function ChatPanel({
   return (
     <div className="flex h-full flex-col border-l border-border bg-background">
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
-        <span className="eyebrow text-foreground">Stream</span>
+        <span className="eyebrow text-foreground">Conversation</span>
         <span className="eyebrow text-muted-foreground" data-numeric>{rendered.length}</span>
       </div>
 

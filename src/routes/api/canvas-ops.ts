@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { guardExpensiveRoute } from "@/lib/room-guard.server";
 
 const SYSTEM_PROMPT = `You are Cartoonist, an AI mediator that watches a live meeting and decides what visual artifacts to draw on a shared canvas.
 
@@ -41,6 +42,7 @@ export const Route = createFileRoute("/api/canvas-ops")({
           transcript?: string;
           canvasSummary?: string;
           participants?: string[];
+          roomId?: string;
         };
         try {
           body = await request.json();
@@ -50,6 +52,11 @@ export const Route = createFileRoute("/api/canvas-ops")({
             headers: { "Content-Type": "application/json" },
           });
         }
+
+        const blocked = await guardExpensiveRoute(request, {
+          route: "canvas-ops", maxBytes: 200_000, limit: 30, roomId: body.roomId,
+        });
+        if (blocked) return blocked;
 
         const transcript = (body.transcript ?? "").trim();
         if (transcript.length < 20) {

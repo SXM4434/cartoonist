@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { guardExpensiveRoute } from "@/lib/room-guard.server";
 
 // ElevenLabs TTS for the mediator's spoken interjections.
 // Client posts { text }, server returns audio/mpeg bytes.
@@ -11,12 +12,17 @@ export const Route = createFileRoute("/api/mediator-tts")({
         if (!apiKey) {
           return new Response("ElevenLabs not configured", { status: 500 });
         }
-        let body: { text?: string; voiceId?: string } = {};
+        let body: { text?: string; voiceId?: string; roomId?: string } = {};
         try {
           body = await request.json();
         } catch {
           return new Response("Invalid JSON", { status: 400 });
         }
+        const blocked = await guardExpensiveRoute(request, {
+          route: "mediator-tts", maxBytes: 20_000, limit: 60, roomId: body.roomId,
+        });
+        if (blocked) return blocked;
+
         const text = (body.text ?? "").trim().slice(0, 300);
         if (!text) return new Response("Empty text", { status: 400 });
 

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { guardExpensiveRoute } from "@/lib/room-guard.server";
 
 const SYSTEM_PROMPT = `You are Cartoonist, an AI mediator that converts team conversations into actionable artifacts.
 
@@ -27,7 +28,7 @@ export const Route = createFileRoute("/api/generate-artifacts")({
           );
         }
 
-        let body: { transcript?: string; participantsBlock?: string };
+        let body: { transcript?: string; participantsBlock?: string; roomId?: string };
         try {
           body = await request.json();
         } catch {
@@ -36,6 +37,11 @@ export const Route = createFileRoute("/api/generate-artifacts")({
             headers: { "Content-Type": "application/json" },
           });
         }
+
+        const blocked = await guardExpensiveRoute(request, {
+          route: "generate-artifacts", maxBytes: 200_000, limit: 10, roomId: body.roomId,
+        });
+        if (blocked) return blocked;
 
         const transcript = (body.transcript ?? "").trim();
         if (transcript.length < 20) {

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { guardExpensiveRoute } from "@/lib/room-guard.server";
 
 // Three modes:
 //   kind=profile  → extract { displayName, role } from a short self-intro
@@ -46,7 +47,11 @@ export const Route = createFileRoute("/api/parse-intro")({
       POST: async ({ request }) => {
         const apiKey = process.env.LOVABLE_API_KEY;
         if (!apiKey) return Response.json({ error: "LOVABLE_API_KEY missing" }, { status: 500 });
-        const { transcript, kind } = (await request.json().catch(() => ({}))) as { transcript?: string; kind?: "profile" | "goal" | "checkin" };
+        const { transcript, kind, roomId } = (await request.json().catch(() => ({}))) as { transcript?: string; kind?: "profile" | "goal" | "checkin"; roomId?: string };
+        const blocked = await guardExpensiveRoute(request, {
+          route: "parse-intro", maxBytes: 60_000, limit: 20, requireRoom: false, roomId,
+        });
+        if (blocked) return blocked;
         if (!transcript || transcript.trim().length < 4)
           return Response.json({ error: "empty transcript" }, { status: 400 });
 

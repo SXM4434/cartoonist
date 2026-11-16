@@ -7,7 +7,12 @@ function ensureInit() {
   mermaid.initialize({
     startOnLoad: false,
     theme: "base",
-    securityLevel: "loose",
+    // AI-generated diagram text is influenced by meeting transcripts, so it is
+    // untrusted input. "strict" sanitizes HTML labels and disables click
+    // bindings; never relax this to "loose"/"antiscript".
+    securityLevel: "strict",
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
     themeVariables: {
       fontFamily: "Inter, sans-serif",
       primaryColor: "#f4ebdc",

@@ -53,18 +53,41 @@ function Empty({ loading, label }: { loading: boolean; label: string }) {
 }
 
 const proseClass =
-  "prose prose-sm max-w-none prose-headings:font-serif prose-headings:tracking-tight prose-h2:mt-6 prose-h2:mb-2 prose-p:my-2 prose-li:my-0.5 prose-strong:text-foreground prose-a:text-primary";
+  "prose prose-sm max-w-none prose-headings:font-display prose-headings:tracking-tight prose-h2:mt-6 prose-h2:mb-2 prose-p:my-2 prose-li:my-0.5 prose-strong:text-foreground prose-a:text-primary";
 
 export function ArtifactTabs({
   artifacts,
   loading,
+  drafting = false,
+  draftedAt = null,
 }: {
   artifacts: Artifacts;
   loading: boolean;
+  /** v1 P2.4 — a background draft pass is running while the room talks. */
+  drafting?: boolean;
+  draftedAt?: number | null;
 }) {
   const a = artifacts;
+  const words = [a.summary, a.prd, a.userJourney, ...(a.decisions ?? []), ...(a.actionItems ?? []).map((x) => x.task)]
+    .filter(Boolean)
+    .join(" ")
+    .split(/\s+/)
+    .filter(Boolean).length;
   return (
     <Tabs defaultValue="summary" className="w-full">
+      {(drafting || draftedAt) && (
+        <div className="mb-2 flex items-center gap-2 border border-border px-2 py-1">
+          <span
+            className={`h-1.5 w-1.5 shrink-0 ${drafting ? "animate-pulse bg-primary" : "bg-muted-foreground"}`}
+            aria-hidden
+          />
+          <span className="eyebrow text-muted-foreground">
+            {drafting ? "drafting live" : "draft up to date"}
+          </span>
+          <span className="ml-auto text-[12px] tabular-nums text-muted-foreground">{words} words</span>
+        </div>
+      )}
+
       <TabsList className="flex w-full flex-wrap justify-start gap-1 bg-secondary/70 p-1">
         <TabsTrigger value="summary">Summary</TabsTrigger>
         <TabsTrigger value="decisions">Decisions</TabsTrigger>
@@ -167,7 +190,7 @@ export function ArtifactTabs({
 function Header({ title, copy }: { title: string; copy?: string }) {
   return (
     <div className="mb-4 flex items-center justify-between border-b border-border/60 pb-3">
-      <h3 className="font-serif text-lg font-semibold tracking-tight">{title}</h3>
+      <h3 className="font-display text-lg font-semibold tracking-tight">{title}</h3>
       {copy && <CopyBtn text={copy} />}
     </div>
   );

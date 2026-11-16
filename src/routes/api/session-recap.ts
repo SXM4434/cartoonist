@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { guardExpensiveRoute } from "@/lib/room-guard.server";
 
 const SYSTEM_PROMPT = `You are CARTOONIST closing out a working session. From the transcript, the shape summary, and the roster you receive, return a tight structured recap — the kind of thing a good facilitator hands the team when the meeting ends.
 
@@ -43,6 +44,11 @@ export const Route = createFileRoute("/api/session-recap")({
           participants?: Array<{ name: string; role?: string | null }> | null;
         };
         try { body = await request.json(); } catch { return json({ error: "Invalid recap request" }, 400); }
+
+        const blocked = await guardExpensiveRoute(request, {
+          route: "session-recap", maxBytes: 200_000, limit: 6, roomId: body.roomId,
+        });
+        if (blocked) return blocked;
 
         const transcript = compact(body.transcript, 8000);
         if (transcript.length < 40) {

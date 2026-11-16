@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -314,6 +314,41 @@ export type Database = {
           },
         ]
       }
+      room_recall: {
+        Row: {
+          answer: string
+          created_at: string
+          id: string
+          question: string
+          quotes: Json
+          room_id: string
+        }
+        Insert: {
+          answer: string
+          created_at?: string
+          id?: string
+          question: string
+          quotes?: Json
+          room_id: string
+        }
+        Update: {
+          answer?: string
+          created_at?: string
+          id?: string
+          question?: string
+          quotes?: Json
+          room_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_recall_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rooms: {
         Row: {
           created_at: string
@@ -329,6 +364,7 @@ export type Database = {
           outputs: string[] | null
           session_type: string | null
           started_at: string
+          workspace_id: string | null
         }
         Insert: {
           created_at?: string
@@ -344,6 +380,7 @@ export type Database = {
           outputs?: string[] | null
           session_type?: string | null
           started_at?: string
+          workspace_id?: string | null
         }
         Update: {
           created_at?: string
@@ -359,8 +396,58 @@ export type Database = {
           outputs?: string[] | null
           session_type?: string | null
           started_at?: string
+          workspace_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "rooms_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_summaries: {
+        Row: {
+          chars_covered: number
+          decisions: string[]
+          entities: string[]
+          open_questions: string[]
+          room_id: string
+          summary: string
+          topics: string[]
+          updated_at: string
+        }
+        Insert: {
+          chars_covered?: number
+          decisions?: string[]
+          entities?: string[]
+          open_questions?: string[]
+          room_id: string
+          summary?: string
+          topics?: string[]
+          updated_at?: string
+        }
+        Update: {
+          chars_covered?: number
+          decisions?: string[]
+          entities?: string[]
+          open_questions?: string[]
+          room_id?: string
+          summary?: string
+          topics?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_summaries_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: true
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       speaker_map: {
         Row: {
@@ -383,6 +470,85 @@ export type Database = {
           id?: string
           participant_id?: string
           room_id?: string
+        }
+        Relationships: []
+      }
+      team_invites: {
+        Row: {
+          created_by: string
+          expires_at: string
+          id: string
+          team_id: string
+          token: string
+        }
+        Insert: {
+          created_by: string
+          expires_at?: string
+          id?: string
+          team_id: string
+          token?: string
+        }
+        Update: {
+          created_by?: string
+          expires_at?: string
+          id?: string
+          team_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_invites_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_members: {
+        Row: {
+          role: string
+          team_id: string
+          user_id: string
+        }
+        Insert: {
+          role?: string
+          team_id: string
+          user_id: string
+        }
+        Update: {
+          role?: string
+          team_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
         }
         Relationships: []
       }
@@ -431,12 +597,209 @@ export type Database = {
           },
         ]
       }
+      workspaces: {
+        Row: {
+          id: string
+          name: string
+          team_id: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          team_id: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspaces_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      canvas_events_for_room: {
+        Args: { p_limit?: number; p_room: string }
+        Returns: {
+          created_at: string
+          op: Json
+          source: string
+          t_offset_ms: number
+          thread_id: string
+          transcript_span: Json
+        }[]
+      }
       gen_join_code: { Args: never; Returns: string }
+      insights_add: {
+        Args: { p_room: string; p_rows: Json }
+        Returns: undefined
+      }
+      insights_dismiss: {
+        Args: { p_id: string; p_room: string }
+        Returns: undefined
+      }
+      insights_list: {
+        Args: { p_room: string }
+        Returns: {
+          confidence: number
+          id: string
+          kind: string
+          source_quote: string
+          subject_name: string
+          text: string
+        }[]
+      }
+      is_live_room: { Args: { p_room: string }; Returns: boolean }
+      memory_index: {
+        Args: { p_exclude: string; p_room_ids: string[] }
+        Returns: {
+          created_at: string
+          room_id: string
+          room_name: string
+          thread_id: string
+          transcript_span: Json
+        }[]
+      }
+      recall_list: {
+        Args: { p_room: string }
+        Returns: {
+          answer: string
+          created_at: string
+          id: string
+          question: string
+          quotes: Json
+          room_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "room_recall"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      relation_add: {
+        Args: {
+          p_confidence: number
+          p_from_room: string
+          p_from_thread: string
+          p_reason: string
+          p_relation: string
+          p_to_room: string
+          p_to_thread: string
+        }
+        Returns: undefined
+      }
+      relations_list: {
+        Args: { p_room: string }
+        Returns: {
+          confidence: number
+          created_at: string
+          reason: string
+          relation: string
+          to_room_id: string
+          to_thread_id: string
+        }[]
+      }
+      room_by_code: { Args: { p_code: string }; Returns: string }
+      room_create: {
+        Args: {
+          p_facilitation: string
+          p_goal: string
+          p_host_role: string
+          p_mode: string
+          p_name: string
+          p_outputs: string[]
+          p_session_type: string
+        }
+        Returns: {
+          id: string
+          join_code: string
+          name: string
+        }[]
+      }
+      room_get: {
+        Args: { p_id: string }
+        Returns: {
+          ended_at: string
+          facilitation: string
+          goal: string
+          host_role: string
+          id: string
+          join_code: string
+          name: string
+          outputs: string[]
+        }[]
+      }
+      rooms_by_ids: {
+        Args: { p_ids: string[] }
+        Returns: {
+          ended_at: string
+          goal: string
+          id: string
+          join_code: string
+          name: string
+        }[]
+      }
+      session_stats: {
+        Args: { p_ids: string[] }
+        Returns: {
+          last_activity: string
+          messages: number
+          participants: number
+          room_id: string
+          shapes: number
+        }[]
+      }
+      team_create: { Args: { p_name: string }; Returns: string }
+      team_has_access: {
+        Args: { p_owner?: boolean; p_team: string }
+        Returns: boolean
+      }
+      team_invite_accept: { Args: { p_token: string }; Returns: string }
+      team_invite_create: { Args: { p_team: string }; Returns: string }
+      team_member_remove: {
+        Args: { p_team: string; p_user: string }
+        Returns: undefined
+      }
+      workspace_attach_room: {
+        Args: { p_room: string; p_workspace: string }
+        Returns: undefined
+      }
+      workspace_rooms: {
+        Args: never
+        Returns: {
+          created_at: string
+          ended_at: string | null
+          facilitation: string | null
+          goal: string | null
+          host_id: string | null
+          host_role: string | null
+          id: string
+          join_code: string | null
+          mode: string | null
+          name: string
+          outputs: string[] | null
+          session_type: string | null
+          started_at: string
+          workspace_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "rooms"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
       [_ in never]: never
@@ -455,12 +818,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -484,11 +847,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -509,11 +872,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -534,11 +897,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -551,11 +914,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

@@ -97,7 +97,7 @@ export function CanvasBoard({
         {participants.length === 0 && cards.length === 0 && (
           <div className="absolute left-10 top-10 max-w-md border border-border bg-background p-5">
             <p className="eyebrow text-primary">Ready</p>
-            <p className="mt-2 font-serif" style={{ fontSize: "var(--step-3)" }}>
+            <p className="mt-2 font-display" style={{ fontSize: "var(--step-3)" }}>
               Start the demo or add an anonymous note.
             </p>
           </div>

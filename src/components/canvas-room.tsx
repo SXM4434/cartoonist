@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, Eraser, FileDown, Mic, MicOff, MessageSquare, Pencil, Send, Sparkles, UserPlus, Volume2, VolumeX } from "lucide-react";
+import { Brain, Check, Copy, Eraser, FileDown, Hand, History, Layers, Mic, MicOff, MessageSquare, MoreHorizontal, Search, Send, ShieldAlert, Smile, Sparkles, UserPlus, Users, Volume2, VolumeX } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import type { ParticipantWithHumanLayer } from "@/lib/canvas-types";
 import type { FreehandStroke, SketchPrimitive } from "@/lib/sketch-types";
+import { bboxOf, placeBatchClear } from "@/lib/sketch-layout";
+import { frameTitlePrimitives, placeInFrame, frameIndexOfShape, topicKey, type StoryFrame } from "@/lib/storyboard";
+
 import { EMPTY_HUMAN_LAYER, type HumanLayer } from "@/lib/human-layer";
 import { useSpeech } from "@/lib/use-speech";
 import { useLiveDiarization } from "@/hooks/use-live-diarization";
@@ -12,18 +16,22 @@ import { SessionPack } from "./session-pack";
 import { ArtifactTabs, type Artifacts } from "./artifact-tabs";
 import { SessionRecap } from "./session-recap";
 import { SessionReplay } from "./session-replay";
-import { KnownAboutYou } from "./known-about-you";
+import { MemoryPanel } from "./known-about-you";
 
 import { IntroModal } from "./intro-modal";
 import { Canvas } from "./canvas/Canvas";
+import { getRenderStyle } from "@/lib/render-style";
+
 import { CanvasProvider } from "./canvas/canvas-context";
 import { ChatPanel } from "./chat-panel";
 import { CostMeter } from "./cost-meter";
+import { getCostCap } from "@/lib/cost-cap";
 import { CheckIn } from "./team-desk/CheckIn";
 import { TeamDesk } from "./team-desk/TeamDesk";
-import { ThreadRail, type CanvasThread } from "./team-desk/ThreadRail";
+import { ThreadList, type CanvasThread } from "./team-desk/ThreadRail";
+import { CanvasToolbar } from "./room/canvas-toolbar";
+import { RoomPanel, type RoomPanelTab } from "./room/room-panel";
 import type { InferredState } from "./team-desk/use-inferred-state";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { buildUserAgents, userAgentsPromptBlock } from "@/lib/user-agents";
 import { playStreamingTTS } from "@/lib/tts-stream";
 import { useLiveCursors } from "@/hooks/use-live-cursors";
@@ -33,6 +41,15 @@ import { ReactionsOverlay } from "./team-desk/ReactionsOverlay";
 import { useReactions } from "@/hooks/use-reactions";
 import { useHandQueue } from "@/hooks/use-hand-queue";
 import { useCrossSessionMemory } from "@/hooks/use-cross-session-memory";
+import { useSessionMemory, sessionMemoryBlock } from "@/hooks/use-session-memory";
+import { useLiveArtifacts } from "@/hooks/use-live-artifacts";
+import { useDevilsAdvocate, type Risk as DevilRisk } from "@/hooks/use-devils-advocate";
+import { RisksPanel } from "./room/risks-panel";
+import { useHistorian, type RecallEntry } from "@/hooks/use-historian";
+import { RecallPanel } from "./room/recall-panel";
+import { wakeQuery, voiceAction, pauseNudge } from "@/lib/voice-intent";
+
+import { canvasEventsForRoom, roomGet } from "@/lib/db-rpc";
 
 type SessionContext = {
   name: string;
@@ -131,6 +148,11 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [kioskQueue, setKioskQueue] = useState<string[]>([]);
   const [kioskMode, setKioskMode] = useState(false);
   const [shapes, setShapes] = useState<SketchPrimitive[]>([]);
+  const shapesRef = useRef<SketchPrimitive[]>([]);
+  useEffect(() => {
+    shapesRef.current = shapes;
+  }, [shapes]);
+
   // Session replay overrides what the canvas renders while scrubbing.
   const [replayShapes, setReplayShapes] = useState<SketchPrimitive[] | null>(null);
   const [freehand, setFreehand] = useState<FreehandStroke[]>([]);
@@ -138,7 +160,6 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [copied, setCopied] = useState(false);
   const [artifacts, setArtifacts] = useState<Artifacts>({});
   const [generating, setGenerating] = useState(false);
-  const [exportOpen, setExportOpen] = useState(false);
   const [askText, setAskText] = useState("");
   const [thinking, setThinking] = useState(false);
   const [drawError, setDrawError] = useState<string | null>(null);
@@ -146,12 +167,20 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [inputMode, setInputMode] = useState<"voice" | "chat">("voice");
   const [selfPid, setSelfPid] = useState<string | null>(null);
   const canvasStageRef = useRef<HTMLDivElement | null>(null);
-  const [chatOpen, setChatOpen] = useState(true);
+  const [panelOpen, setPanelOpen] = useState(true);
+  const [panelTab, setPanelTab] = useState<"people" | "transcript" | "threads" | "memory" | "risks" | "recall" | "replay" | "artifacts">("transcript");
   const [mediatorMuted, setMediatorMuted] = useState(false);
   const inferredStatesRef = useRef<Record<string, InferredState>>({});
   const lastSpokenRef = useRef<string>("");
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const [threads, setThreads] = useState<CanvasThread[]>([]);
+  // v1 P2.3 — storyboard frames. Canvas grows left→right, one frame per topic.
+  const [frames, setFrames] = useState<StoryFrame[]>([]);
+  const framesRef = useRef<StoryFrame[]>([]);
+  framesRef.current = frames;
+  const [activeFrame, setActiveFrame] = useState(0);
+  const activeFrameRef = useRef(0);
+  activeFrameRef.current = activeFrame;
   // v2.P6 — brief peek toast when the mediator returns to an older thread.
   const [reopenPeek, setReopenPeek] = useState<{ relation: string | null; latest: string; oldLatest: string } | null>(null);
 
@@ -162,10 +191,63 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const lastThreadIdRef = useRef<string | null>(null);
 
   const speech = useSpeech();
+  const [pausePrompts, setPausePrompts] = useState(false);
+  const voiceQueryRef = useRef<(query: string) => Promise<void>>(async () => {});
+  const voiceSeenRef = useRef(0);
+  const nudgeAtRef = useRef(0);
+  const lastHumanAtRef = useRef(Date.now());
+
+  useEffect(() => {
+    if (speech.partial || speech.level > 0.08) {
+      lastHumanAtRef.current = Date.now();
+      if (ttsAudioRef.current) ttsAudioRef.current.pause();
+      if (window.speechSynthesis?.speaking) window.speechSynthesis.cancel();
+    }
+  }, [speech.partial, speech.level]);
+  // v1 P2.2 — rolling full-session memory folded from the transcript.
+  const sessionMemory = useSessionMemory(roomId, speech.finals);
+  const sessionMemoryRef = useRef(sessionMemory);
+  sessionMemoryRef.current = sessionMemory;
   const startedAtRef = useRef(Date.now());
   const lastSentLenRef = useRef(0);
   const drawInFlightRef = useRef(false);
+  const retryTimerRef = useRef<number | null>(null);
+  const [retryTick, setRetryTick] = useState(0);
   const seededRef = useRef(false);
+
+  // v1 P2.3 — open a storyboard frame (idempotent per topic) and return its index.
+  const ensureFrame = useCallback((topic: string): number => {
+    const existing = framesRef.current;
+    const key = topicKey(topic);
+    if (existing.length > 0) {
+      const current = existing[existing.length - 1];
+      if (!key || topicKey(current.topic) === key) return current.index;
+    }
+    const index = existing.length;
+    const title = topic || `Topic ${index + 1}`;
+    const strip = frameTitlePrimitives(index, title, Date.now() - startedAtRef.current);
+    setShapes((current) => {
+      const ids = new Set(current.map((s) => s.id));
+      return [...current, ...strip.filter((s) => !ids.has(s.id))];
+    });
+    const frame: StoryFrame = { index, topic: title, at: Date.now(), x: 0, shapeIds: strip.map((s) => s.id) };
+    framesRef.current = [...existing, frame];
+    setFrames(framesRef.current);
+    activeFrameRef.current = index;
+    setActiveFrame(index);
+    return index;
+  }, []);
+
+  const jumpToFrame = useCallback((index: number) => {
+    const frame = framesRef.current[index];
+    if (!frame) return;
+    setActiveFrame(index);
+    const ids = frame.shapeIds.length ? frame.shapeIds : [];
+    if (ids.length && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids } }));
+    }
+  }, []);
+
 
   const selfParticipant = participants.find((p) => p.id === selfPid);
   const remoteCursors = useLiveCursors({
@@ -239,7 +321,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     if (opts?.localFirst && playBrowserVoice()) return;
     void (async () => {
       try {
-        const audio = await playStreamingTTS({ text: speak, volume: 0.95, onEnd: onDone });
+        const audio = await playStreamingTTS({ roomId, text: speak, volume: 0.95, onEnd: onDone });
         if (audio) ttsAudioRef.current = audio;
       } catch {
         playBrowserVoice();
@@ -319,10 +401,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     }
 
     (async () => {
-      const { data: room } = await supabase
-        .from("rooms")
-        .select("name,goal,outputs,facilitation,host_role")
-        .eq("id", roomId).maybeSingle();
+      const room = await roomGet(roomId);
       if (room) {
         setSessionCtx({
           name: (room as { name: string }).name ?? "",
@@ -348,13 +427,8 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase
-        .from("canvas_events")
-        .select("op,source,transcript_span,thread_id,created_at")
-        .eq("room_id", roomId)
-        .order("created_at", { ascending: true })
-        .limit(2000);
-      if (cancelled || error || !data || data.length === 0) return;
+      const data = await canvasEventsForRoom(roomId, 2000);
+      if (cancelled || !data || data.length === 0) return;
       if (seededRef.current) return;
 
       const byId = new Map<string, SketchPrimitive>();
@@ -554,35 +628,43 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
 
   const summarizeCanvas = useCallback(() => {
-    if (shapes.length === 0) return "(empty)";
-    return shapes
-      .slice(-30)
+    const current = shapesRef.current;
+    if (current.length === 0) return "(empty)";
+    // Detail passes need the complete screen geometry. The old last-30 slice
+    // hid frames and panels from later passes, so components were guessed and
+    // stacked. This compact digest fits hundreds of primitives while retaining
+    // exact bounds, hierarchy cues, copy, and semantic styling.
+    return current
+      .slice(-320)
       .map((s) => {
+        const visual = `${s.style === "ui" ? ":ui" : ""}${s.tone ? `:${s.tone}` : ""}`;
         switch (s.type) {
           case "arrow":
             return `arrow[${s.id}] ${s.x1},${s.y1}→${s.x2},${s.y2}${s.label ? ` "${s.label}"` : ""}`;
           case "line":
             return `line[${s.id}] ${s.x1},${s.y1}→${s.x2},${s.y2}`;
           case "text":
-            return `text[${s.id}] @${s.x},${s.y} "${s.text}"`;
+            return `text[${s.id}${visual}] @${s.x},${s.y} "${s.text.slice(0, 80)}"`;
           case "note":
             return `note[${s.id}] @${s.x},${s.y} "${s.text}"`;
           case "icon":
-            return `icon[${s.id}] ${s.kind} @${s.x},${s.y}${s.label ? ` "${s.label}"` : ""}`;
+            return `icon[${s.id}${visual}] ${s.kind} @${s.x},${s.y} ${s.size ?? 24}${s.label ? ` "${s.label}"` : ""}`;
           case "path":
             return `path[${s.id}] ${s.points.length}pts`;
           case "stroke":
             return `stroke[${s.id}]`;
           default:
-            return `${s.type}[${s.id}] @${s.x},${s.y} ${s.w}x${s.h}${s.label ? ` "${s.label}"` : ""}`;
+            return `${s.type}[${s.id}${visual}] @${s.x},${s.y} ${s.w}x${s.h}${s.label ? ` "${s.label}"` : ""}`;
         }
       })
       .join("\n");
-  }, [shapes]);
+  }, []);
 
-  const requestDraw = useCallback(async (latest: string, enrichPass = 0): Promise<boolean> => {
+  const requestDraw = useCallback(async (latest: string, enrichPass = 0, maxFidelity = false): Promise<boolean> => {
     const cleanLatest = latest.trim();
     if (!cleanLatest || NON_SPEECH_TRANSCRIPT.test(cleanLatest) || drawInFlightRef.current) return false;
+    const requestsUi = /\b(high[-\s]?fi(?:delity)?|wireframes?|mockups?|ui screens?|interface|dashboard|editor|app (?:screen|page)|website (?:screen|page)|production[-\s]?ready)\b/i.test(cleanLatest);
+    // Wait for a content-specific plan; never seed an unrelated demo dashboard.
     drawInFlightRef.current = true;
     setThinking(true);
     setDrawError(null);
@@ -613,15 +695,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const openThreads = threads.slice(-8).map((t) => ({ id: t.id, latest: t.latest, modality: t.modality }));
       // Raise-hand queue → mediator surfaces the next hand at natural pauses.
       const handsUp = handQueue.map((h) => h.name);
-      const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 90000);
+      // Let the model finish rather than discarding a paid generation on a timer.
       const res = await fetch("/api/cartoonist-draw", {
         method: "POST",
-        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId, transcript: fullContext, latest: cleanLatest, existing: summarizeCanvas(), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads, handsUp, enrichPass }),
+        body: JSON.stringify({ roomId, transcript: fullContext, latest: cleanLatest, existing: summarizeCanvas(), occupied: bboxOf(shapesRef.current), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads, handsUp, enrichPass, maxFidelity: maxFidelity || requestsUi, fidelity: getRenderStyle().fidelity, ink: getRenderStyle().ink, costCapUsd: getCostCap(roomId), memoryBlock: sessionMemoryBlock(sessionMemoryRef.current) }),
       });
-      window.clearTimeout(timeout);
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.error) {
         setDrawError(data?.error ?? "AI draw failed");
@@ -633,10 +712,28 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const speak = typeof data?.speak === "string" ? data.speak.trim() : "";
       playMediatorLine(speak);
 
-      const incoming = Array.isArray(data.shapes) ? (data.shapes as SketchPrimitive[]) : [];
+      let incoming = Array.isArray(data.shapes) ? (data.shapes as SketchPrimitive[]) : [];
+      if (data?.modality === "ui_wireframe") {
+        incoming = incoming.map((shape) => ({ ...shape, style: "ui" as const }));
+      }
       const edits = Array.isArray(data.edits) ? (data.edits as Array<{ id: string; patch: Record<string, unknown> }>) : [];
       const removes = Array.isArray(data.removes) ? (data.removes as string[]) : [];
+      // v1 P2.3 — storyboard placement. Each topic owns a 1200px frame; a fresh
+      // batch is left-aligned in the active frame and stacked under whatever is
+      // already there. Enrichment passes (enrichPass > 0) draw in place.
+      let landedFrame = activeFrameRef.current;
+      if (enrichPass === 0 && incoming.length > 0) {
+        const topics = sessionMemoryRef.current.topics ?? [];
+        const topic = topics[topics.length - 1] ?? sessionCtx?.name ?? "Opening";
+        landedFrame = ensureFrame(topic);
+        const inFrame = shapesRef.current.filter((s) => frameIndexOfShape(s) === landedFrame);
+        const placed = placeInFrame(incoming, landedFrame, inFrame);
+        // Guard: never let a batch overlap what is already inside the frame.
+        incoming = placeBatchClear(inFrame, placed);
+      }
+
       if (incoming.length === 0 && edits.length === 0 && removes.length === 0) return true;
+
       setShapes((current) => {
         const byId = new Map(current.map((s) => [s.id, s]));
         // 1) removes (only touch AI-authored shapes already in state)
@@ -739,6 +836,22 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         }
         return Array.from(byId.values());
       });
+      // v1 P2.3 — file the new marks under the active frame and pan the camera
+      // there so the room follows the story instead of hunting for it.
+      if (incoming.length > 0) {
+        const ids = incoming.map((s) => s.id);
+        framesRef.current = framesRef.current.map((f) =>
+          f.index === landedFrame ? { ...f, shapeIds: [...f.shapeIds, ...ids] } : f,
+        );
+        setFrames(framesRef.current);
+        if (enrichPass === 0 && typeof window !== "undefined") {
+          const bounds = bboxOf(incoming);
+          const focusIds = data?.modality === "ui_wireframe" && bounds
+            ? incoming.filter(s => "x" in s ? s.x < bounds.minX + 1000 : s.type === "line" ? s.x1 < bounds.minX + 1000 : false).map(s => s.id)
+            : ids;
+          window.setTimeout(() => window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids: focusIds, clearSelection: true } })), 180);
+        }
+      }
       // v2.P6 — cross-session recall: if this utterance echoes a thread from an
       // earlier session, persist the edge and ghost-surface it in the room.
       try {
@@ -748,8 +861,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       // Progressive fidelity: the structural pass is already on screen; ask
       // for additive detail so the wireframe thickens live instead of the
       // room staring at a blank canvas for minutes.
-      if ((data as { enrichable?: boolean }).enrichable && enrichPass < 2) {
-        window.setTimeout(() => { void requestDrawRef.current?.(cleanLatest, enrichPass + 1); }, 120);
+      const maxPasses = Number((data as { maxPasses?: unknown }).maxPasses ?? 2) || 2;
+      const wantsMax = maxFidelity || (data as { maxFidelity?: boolean }).maxFidelity === true;
+      if ((data as { enrichable?: boolean }).enrichable && enrichPass < maxPasses) {
+        window.setTimeout(() => { void requestDrawRef.current?.(cleanLatest, enrichPass + 1, wantsMax); }, 120);
       }
       return true;
     } catch (e) {
@@ -760,7 +875,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       drawInFlightRef.current = false;
       setThinking(false);
     }
-  }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, handQueue, threads, playMediatorLine]);
+  }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, handQueue, threads, playMediatorLine, ensureFrame]);
 
   // Self-reference so a completed pass can chain the next enrichment pass.
   const requestDrawRef = useRef<typeof requestDraw | null>(null);
@@ -778,16 +893,31 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     const timer = setTimeout(() => {
       const newText = text.slice(lastSentLenRef.current);
       const endLength = text.length;
+      const query = wakeQuery(newText);
+      if (query !== null) {
+        lastSentLenRef.current = endLength;
+        if (query) void voiceQueryRef.current(query);
+        return;
+      }
       if (NON_SPEECH_TRANSCRIPT.test(newText.trim())) {
         lastSentLenRef.current = endLength;
         return;
       }
       void requestDraw(newText).then((handled) => {
-        if (handled) lastSentLenRef.current = Math.max(lastSentLenRef.current, endLength);
+        if (handled) {
+          lastSentLenRef.current = Math.max(lastSentLenRef.current, endLength);
+        } else if (drawInFlightRef.current) {
+          // Lane busy (a wireframe ladder is running). Retry shortly instead of
+          // waiting for brand-new speech — that was the "limbo" stall.
+          retryTimerRef.current = window.setTimeout(() => setRetryTick((n) => n + 1), 900);
+        }
       });
-    }, 1200);
-    return () => clearTimeout(timer);
-  }, [requestDraw, speech.finals, speech.listening, inputMode, thinking]);
+    }, 600);
+    return () => {
+      clearTimeout(timer);
+      if (retryTimerRef.current) { window.clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
+    };
+  }, [requestDraw, speech.finals, speech.listening, inputMode, thinking, retryTick]);
 
   // v2.P6 — publish a per-shape relations map to Canvas so it can render
   // persistent ↗ chips glued to any shape belonging to a reopened / related
@@ -807,12 +937,32 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     window.dispatchEvent(new CustomEvent("cartoonist:relations", { detail: { items } }));
   }, [threads]);
 
+  // While someone is recording an intro / check-in on this device, the room
+  // must let go of the mic — otherwise two recorders fight over one input and
+  // the personal sample comes back empty.
+  const captureBlocked = introOpen || checkInOpen;
+  const resumeListeningRef = useRef(false);
+  useEffect(() => {
+    if (captureBlocked) {
+      if (speech.listening) {
+        resumeListeningRef.current = true;
+        speech.stop();
+      }
+      return;
+    }
+    if (resumeListeningRef.current) {
+      resumeListeningRef.current = false;
+      void speech.start();
+    }
+  }, [captureBlocked, speech]);
+
   // Live diarization: rolling 8s chunks → ElevenLabs Scribe diarize → speaker_map
   const diarization = useLiveDiarization({
     roomId,
-    enabled: inputMode === "voice" && speech.listening,
+    enabled: inputMode === "voice" && speech.listening && !captureBlocked,
     startedAtMs: startedAtRef.current,
   });
+
 
   // Chat → AI handler (transcript persistence happens inside ChatPanel)
   const handleChatMessage = useCallback((text: string) => {
@@ -844,7 +994,8 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   }, []);
 
   const generateArtifacts = useCallback(async () => {
-    setExportOpen(true);
+    setPanelTab("artifacts");
+    setPanelOpen(true);
     const transcript = speech.finals.length ? speech.finals.join("\n") : "(no transcript yet — start the mic or type to Cartoonist)";
     setGenerating(true);
     setArtifacts({});
@@ -855,7 +1006,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const res = await fetch("/api/generate-artifacts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript, participantsBlock }),
+        body: JSON.stringify({ roomId, transcript, participantsBlock }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Failed");
@@ -866,6 +1017,107 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       setGenerating(false);
     }
   }, [speech.finals, participants]);
+
+  // v1 P2.4 — partial artifacts while listening. Background drafts keep the
+  // Artifacts tab warm so it is never an empty "click to generate" surface.
+  const liveArtifacts = useLiveArtifacts({
+    roomId,
+    transcript: speech.finals.join("\n"),
+    enabled: joined && !generating,
+    buildParticipantsBlock: async () => {
+      const { buildUserAgents, userAgentsPromptBlock } = await import("@/lib/user-agents");
+      return userAgentsPromptBlock(buildUserAgents(participants, inferredStatesRef.current));
+    },
+    onDraft: (data: unknown) => setArtifacts(data as Artifacts),
+  });
+
+  // Phase 3.1 — Devil's Advocate. Names the risks/gaps the room is skating
+  // past; each item cites the words that triggered it and can be pinned to
+  // the canvas as a pink sticky.
+  const devil = useDevilsAdvocate({
+    roomId,
+    transcript: speech.finals.join("\n"),
+    memoryBlock: sessionMemoryBlock(sessionMemory),
+    enabled: joined,
+  });
+
+  // Phase 3.3 — Historian. Answers "what did we say about X earlier?" only
+  // with words the room actually said, and can pin the callback to the canvas.
+  const historian = useHistorian({
+    roomId,
+    transcript: speech.finals.join("\n"),
+    memoryBlock: sessionMemoryBlock(sessionMemory),
+  });
+
+  voiceQueryRef.current = async (query) => {
+    const action = voiceAction(query);
+    if (action === "draw") { await requestDraw(query); return; }
+    if (action === "documents") {
+      await generateArtifacts();
+      playMediatorLine("The session documents are ready to review.");
+      return;
+    }
+    setPanelTab("recall");
+    setPanelOpen(true);
+    const entry = await historian.ask(query);
+    if (entry) playMediatorLine(entry.answer);
+  };
+
+  useEffect(() => {
+    if (speech.finals.length !== voiceSeenRef.current) {
+      voiceSeenRef.current = speech.finals.length;
+      lastHumanAtRef.current = Date.now();
+    }
+    if (!pausePrompts || !speech.listening || mediatorMuted || thinking) return;
+    const timer = window.setInterval(() => {
+      if (nudgeAtRef.current === voiceSeenRef.current) return;
+      const line = pauseNudge(speech.finals.at(-1) ?? "", Date.now() - lastHumanAtRef.current, pausePrompts);
+      if (line) { nudgeAtRef.current = voiceSeenRef.current; playMediatorLine(line); }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [pausePrompts, speech.finals, speech.listening, mediatorMuted, thinking, playMediatorLine]);
+
+  const pinRecall = useCallback((entry: RecallEntry) => {
+    const occupied = bboxOf(shapesRef.current);
+    const note: SketchPrimitive = {
+      type: "note",
+      id: `n_recall_${entry.id}`,
+      x: occupied ? occupied.maxX + 80 : 80,
+      y: occupied ? occupied.minY + 220 : 80,
+      w: 220,
+      h: 180,
+      text: `EARLIER\n${entry.answer}${entry.quotes[0] ? `\n“${entry.quotes[0].text.slice(0, 120)}”` : ""}`,
+      color: "blue",
+    } as SketchPrimitive;
+    setShapes((current) => (current.some((s) => s.id === note.id) ? current : [...current, note]));
+    toast.success("Pinned to canvas");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids: [note.id] } }));
+    }
+  }, []);
+
+  const pinRisk = useCallback((risk: DevilRisk) => {
+    const occupied = bboxOf(shapesRef.current);
+    const note: SketchPrimitive = {
+      type: "note",
+      id: `n_risk_${risk.id}`,
+      x: occupied ? occupied.maxX + 80 : 80,
+      y: occupied ? occupied.minY : 80,
+      w: 220,
+      h: 180,
+      text: `${risk.kind.toUpperCase()}\n${risk.text}`,
+      color: "pink",
+    } as SketchPrimitive;
+    setShapes((current) => (current.some((s) => s.id === note.id) ? current : [...current, note]));
+    devil.markPinned(risk.id);
+    toast.success("Pinned to canvas");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids: [note.id] } }));
+    }
+  }, [devil]);
+
+
+
 
   const handleIntroSubmit = useCallback(async (data: { name: string; role: string; personality: string; color: string; voiceSamplePath: string | null }) => {
     const isAdd = introMode === "add";
@@ -1036,166 +1288,96 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
   return (
     <div className="flex h-screen flex-col bg-background">
-      <header className="z-10 grid grid-cols-[1fr_auto_1fr] items-center border-b border-border bg-background px-5 py-2.5">
-        <div className="flex items-baseline gap-3">
-          <span className="eyebrow text-foreground">Cartoonist</span>
-          <span className="eyebrow text-muted-foreground" data-numeric>№ {roomId.slice(0, 6).toUpperCase()}</span>
+      <header className="z-10 flex items-center justify-between gap-4 border-b border-border bg-background px-5 py-2.5">
+        <div className="flex min-w-0 items-baseline gap-3">
+          <span className="eyebrow shrink-0 text-foreground">Cartoonist</span>
+          {sessionCtx?.name && (
+            <span className="truncate text-foreground" style={{ fontSize: "var(--step-1)" }}>{sessionCtx.name}</span>
+          )}
+          
           {speech.listening && (
-            <span className="eyebrow flex items-center gap-1.5 text-primary">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+            <span className="eyebrow flex shrink-0 items-center gap-1.5 bg-primary px-1.5 py-0.5 text-primary-foreground">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary-foreground" />
               Listening
             </span>
           )}
-          {thinking && <span className="eyebrow text-muted-foreground">Drawing…</span>}
+          {thinking && (
+            <span className="eyebrow flex shrink-0 items-center gap-1.5 bg-foreground px-1.5 py-0.5 text-background">
+              <Sparkles className="h-3 w-3" />
+              Drawing
+            </span>
+          )}
         </div>
 
-        <div className="flex items-center gap-1.5">
-          {participants.map((p) => (
-            <div key={p.id} className="flex h-6 w-6 items-center justify-center border border-border font-medium uppercase text-background" style={{ backgroundColor: p.color, fontSize: "var(--step-0)" }} title={p.name}>
-              {p.name.slice(0, 1)}
-            </div>
-          ))}
+        <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
-            onClick={openAddPerson}
-            title="Add someone on this device"
-            className="flex h-6 w-6 items-center justify-center border border-dashed border-border text-muted-foreground transition hover:border-foreground hover:text-foreground"
+            onClick={() => { setPanelTab("people"); setPanelOpen(true); }}
+            title="People in this room"
+            className="flex items-center gap-1"
           >
-            <UserPlus className="h-3 w-3" />
+            {participants.slice(0, 5).map((p) => (
+              <span key={p.id} className="flex h-6 w-6 items-center justify-center border border-border font-medium uppercase text-background" style={{ backgroundColor: p.color, fontSize: "var(--step-0)" }} title={p.name}>
+                {p.name.slice(0, 1)}
+              </span>
+            ))}
+            {participants.length > 5 && (
+              <span className="eyebrow tabular-nums text-muted-foreground">+{participants.length - 5}</span>
+            )}
           </button>
-        </div>
-
-
-        <div className="flex items-center justify-end gap-1.5">
-          <Button size="sm" variant="outline" onClick={toggleDraw} className={`h-8 gap-1.5 rounded-none border-border ${drawing ? "bg-foreground text-background" : ""}`}>
-            <Pencil className="h-3.5 w-3.5" /><span className="eyebrow">Draw</span>
-          </Button>
-          <Button size="sm" variant="outline" onClick={clearCanvas} className="h-8 gap-1.5 rounded-none border-border">
-            <Eraser className="h-3.5 w-3.5" /><span className="eyebrow">Clear</span>
-          </Button>
           <Button size="sm" variant="outline" onClick={copyLink} className="h-8 gap-1.5 rounded-none border-border">
-            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}<span className="eyebrow">Share</span>
+            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            <span className="eyebrow max-[900px]:sr-only">Share</span>
           </Button>
-          <Button size="sm" variant="outline" onClick={() => setChatOpen((v) => !v)} className={`h-8 gap-1.5 rounded-none border-border ${chatOpen ? "bg-foreground text-background" : ""}`}>
-            <MessageSquare className="h-3.5 w-3.5" /><span className="eyebrow">Chat</span>
-          </Button>
-          <ThreadRail threads={threads} echoes={memory.echoes} />
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              setMediatorMuted((v) => {
-                const next = !v;
-                if (next && typeof window !== "undefined") {
-                  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-                  if (ttsAudioRef.current) { try { ttsAudioRef.current.pause(); } catch { /* noop */ } }
-                }
-                return next;
-              });
-            }}
-            title={mediatorMuted ? "Unmute mediator voice" : "Mute mediator voice"}
-            className={`h-8 gap-1.5 rounded-none border-border ${mediatorMuted ? "" : "bg-foreground text-background"}`}
-          >
-            {mediatorMuted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
-            <span className="eyebrow">{mediatorMuted ? "Muted" : "Voice"}</span>
-          </Button>
-          {inputMode === "voice" ? (
-            speech.listening ? (
-              <Button size="sm" onClick={speech.stop} className="h-8 gap-1.5 rounded-none bg-foreground text-background hover:bg-foreground/90">
-                <MicOff className="h-3.5 w-3.5" /><span className="eyebrow">Stop</span>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button size="sm" variant="outline" className="h-8 w-8 rounded-none border-border p-0" aria-label="Session menu">
+                <MoreHorizontal className="h-3.5 w-3.5" />
               </Button>
-            ) : (
-              <Button size="sm" onClick={() => void speech.start()} className="h-8 gap-1.5 rounded-none bg-primary text-primary-foreground hover:bg-primary/90">
-                <Mic className="h-3.5 w-3.5" /><span className="eyebrow">Listen</span>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              sideOffset={6}
+              className="w-60 rounded-none border-foreground p-1.5 [&_button]:w-full [&_button]:justify-start"
+            >
+              <Button size="sm" variant="ghost" onClick={openAddPerson} className="h-8 gap-2 rounded-none">
+                <UserPlus className="h-3.5 w-3.5" /><span className="eyebrow">Add someone here</span>
               </Button>
-            )
-          ) : (
-            <Button size="sm" onClick={() => {
-              setInputMode("voice");
-              window.localStorage.setItem(`cartoonist_input_mode_${roomId}`, "voice");
-              if (selfPid) void supabase.from("participants").update({ input_mode: "both" } as never).eq("id", selfPid);
-              void speech.start();
-            }} className="h-8 gap-1.5 rounded-none bg-primary text-primary-foreground hover:bg-primary/90">
-              <Mic className="h-3.5 w-3.5" /><span className="eyebrow">Add voice</span>
-            </Button>
-          )}
-          <Sheet open={exportOpen} onOpenChange={setExportOpen}>
-            <SheetTrigger asChild>
-              <Button size="sm" variant="outline" onClick={generateArtifacts} className="h-8 gap-1.5 rounded-none border-border">
-                <FileDown className="h-3.5 w-3.5" /><span className="eyebrow">Export</span>
+              <Button size="sm" variant="ghost" onClick={() => { setPanelTab("artifacts"); setPanelOpen(true); void generateArtifacts(); }} className="h-8 gap-2 rounded-none">
+                <FileDown className="h-3.5 w-3.5" /><span className="eyebrow">Export artifacts</span>
               </Button>
-            </SheetTrigger>
-            <SheetContent className="w-[90vw] overflow-y-auto sm:max-w-2xl">
-              <SheetHeader>
-                <SheetTitle className="font-serif" style={{ fontSize: "var(--step-3)" }}>Meeting artifacts</SheetTitle>
-              </SheetHeader>
-              <div className="mt-4">
-                <SessionPack
-                  build={() => ({
-                    roomId,
-                    sessionName: sessionCtx?.name ?? null,
-                    goal: sessionCtx?.goal ?? null,
-                    outputs: Array.isArray(sessionCtx?.outputs) ? sessionCtx.outputs.join(", ") : (sessionCtx?.outputs ?? null),
-                    participants: participants.map((p) => ({ name: p.name, role: p.role ?? null })),
-                    threads: threads.map((t) => ({ id: t.id, latest: t.latest, modality: t.modality })),
-                    transcript: speech.finals.join("\n"),
-                    canvasSummary: summarizeCanvas(),
-                    artifacts,
-                  })}
-                />
-              </div>
-              <div className="mt-4"><ArtifactTabs artifacts={artifacts} loading={generating} /></div>
-            </SheetContent>
-          </Sheet>
-          <KnownAboutYou
-            roomId={roomId}
-            buildRequest={() => ({
-              transcript: speech.finals.length ? speech.finals.join("\n") : "",
-              participants: participants.map((p) => ({ id: p.id, name: p.name, role: p.role ?? null })),
-            })}
-          />
-          <SessionReplay roomId={roomId} onFrame={setReplayShapes} />
-          <SessionRecap
-            roomId={roomId}
-            buildRequest={() => ({
-              transcript: speech.finals.length ? speech.finals.join("\n") : "",
-              canvasSummary: summarizeCanvas(),
-              sessionContext: sessionCtx ? { name: sessionCtx.name, goal: sessionCtx.goal, outputs: sessionCtx.outputs } : null,
-              participants: participants.map((p) => ({ name: p.name, role: p.role ?? null })),
-            })}
-          />
-
+              <Button
+                size="sm"
+                variant="ghost"
+                data-testid="memory-trigger"
+                onClick={() => { setPanelTab("memory"); setPanelOpen(true); }}
+                className="h-8 gap-2 rounded-none"
+              >
+                <Brain className="h-3.5 w-3.5" /><span className="eyebrow">Memory</span>
+              </Button>
+              <SessionRecap
+                roomId={roomId}
+                buildRequest={() => ({
+                  transcript: speech.finals.length ? speech.finals.join("\n") : "",
+                  canvasSummary: summarizeCanvas(),
+                  sessionContext: sessionCtx ? { name: sessionCtx.name, goal: sessionCtx.goal, outputs: sessionCtx.outputs } : null,
+                  participants: participants.map((p) => ({ name: p.name, role: p.role ?? null })),
+                })}
+              />
+              <span className="my-1 block h-px bg-border" />
+              <Button size="sm" variant="ghost" onClick={clearCanvas} className="h-8 gap-2 rounded-none text-destructive hover:text-destructive">
+                <Eraser className="h-3.5 w-3.5" /><span className="eyebrow">Clear canvas</span>
+              </Button>
+            </PopoverContent>
+          </Popover>
         </div>
       </header>
 
-      {/* Live mic feedback bar — impossible to miss */}
-      {(speech.listening || speech.error || !speech.supported) && (
-        <div className="flex items-center gap-3 border-b border-border bg-background px-5 py-2">
-          {speech.listening && (
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
-              </span>
-              <div className="flex h-5 items-end gap-[2px]">
-                {micBars.map((_, i) => {
-                  const threshold = (i + 1) / micBarCount;
-                  const active = speech.level > threshold * 0.8;
-                  const h = active ? 4 + Math.min(16, speech.level * 20) : 3;
-                  return <span key={i} className="w-[3px] bg-foreground/80 transition-all" style={{ height: `${h}px`, opacity: active ? 1 : 0.25 }} />;
-                })}
-              </div>
-            </div>
-          )}
-          <span className="eyebrow text-muted-foreground shrink-0">
-            {speech.listening ? "Hearing" : speech.error ? "Mic error" : "Mic"}
-          </span>
-          <span className="truncate text-foreground" style={{ fontSize: "var(--step-1)" }}>
-            {speech.error
-              ? speech.error
-              : !speech.supported
-              ? "Voice transcription works in Chrome / Edge. Use the prompt below to draw."
-              : recentTranscript || "say something — Cartoonist will draw it…"}
+      {(speech.error || !speech.supported) && (
+        <div className="flex items-center gap-3 border-b border-border bg-background px-5 py-1.5">
+          <span className="eyebrow shrink-0 text-muted-foreground">{speech.error ? "Mic error" : "Mic"}</span>
+          <span className="truncate text-foreground/80" style={{ fontSize: "var(--step-0)" }}>
+            {speech.error ? speech.error : "Voice transcription works in Chrome / Edge. Use the prompt below to draw."}
           </span>
         </div>
       )}
@@ -1241,56 +1423,43 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           <CursorsOverlay cursors={remoteCursors} />
           <ReactionsOverlay reactions={reactions} />
 
-          {/* Live reactions strip — click an emoji to broadcast a floating burst */}
-          <div className="absolute bottom-20 right-5 z-30 flex items-center gap-1 border border-border bg-background/95 px-2 py-1.5 shadow-sm">
-            <span className="eyebrow mr-1 text-muted-foreground">react</span>
-            {(["👍", "💡", "❓", "🔥", "❤️", "😂"] as const).map((e) => (
-              <button
-                key={e}
-                type="button"
-                onClick={() => emitReaction(e)}
-                aria-label={`React ${e}`}
-                className="h-7 w-7 text-lg leading-none transition hover:scale-125"
-                style={{ fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif' }}
-              >
-                {e}
-              </button>
-            ))}
-            <span className="mx-1 h-5 w-px bg-border" />
-            <button
-              type="button"
-              onClick={handleToggleHand}
-              aria-label={isRaised ? "Lower hand" : "Raise hand"}
-              title={isRaised ? "Lower hand" : "Raise hand"}
-              className={`h-7 px-2 text-lg leading-none transition hover:scale-110 ${isRaised ? "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]" : ""}`}
-              style={{ fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif' }}
-            >
-              ✋
-            </button>
-          </div>
+          <CanvasToolbar drawing={drawing} onToggleDraw={toggleDraw} />
 
-          {/* Raise-hand queue: quieter voices get a lane. Ordered by ts. */}
+          {replayShapes === null && frames.length > 0 && (
+            <div className="absolute left-4 top-16 z-30 flex max-w-[60%] items-center gap-1 overflow-x-auto border border-border bg-background/90 px-2 py-1.5">
+              <span className="eyebrow mr-1 shrink-0 text-muted-foreground">frames</span>
+              {frames.map((f) => (
+                <button
+                  key={f.index}
+                  type="button"
+                  onClick={() => jumpToFrame(f.index)}
+                  title={f.topic}
+                  className={`shrink-0 border px-2 py-1 text-[12px] transition-colors ${
+                    f.index === activeFrame
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span className="tabular-nums">{f.index + 1}</span>
+                  <span className="ml-1.5 hidden max-w-[120px] truncate align-middle md:inline-block">{f.topic}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+
+
           {handQueue.length > 0 && (
-            <div className="absolute bottom-32 right-5 z-30 max-w-[240px] border border-border bg-background/95 px-2.5 py-2 shadow-sm">
-              <div className="eyebrow mb-1 flex items-center justify-between text-muted-foreground">
-                <span>hands up · {handQueue.length}</span>
-              </div>
+            <div className="absolute bottom-24 right-4 z-30 max-w-[200px] border border-border bg-background/90 px-2.5 py-2">
+              <div className="eyebrow mb-1 text-muted-foreground">hands up · {handQueue.length}</div>
               <ul className="flex flex-col gap-1">
                 {handQueue.map((h, i) => (
                   <li key={h.pid} className="flex items-center gap-2 text-[13px]">
                     <span className="tabular-nums text-muted-foreground">{i + 1}.</span>
-                    <span
-                      className="inline-block h-2 w-2 shrink-0 rounded-full"
-                      style={{ background: h.color }}
-                      aria-hidden
-                    />
+                    <span className="inline-block h-2 w-2 shrink-0" style={{ background: h.color }} aria-hidden />
                     <span className="truncate" style={{ color: h.color }}>{h.name}</span>
                     {h.pid === handPid && (
-                      <button
-                        type="button"
-                        onClick={() => lowerHand()}
-                        className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
-                      >
+                      <button type="button" onClick={() => lowerHand()} className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground">
                         lower
                       </button>
                     )}
@@ -1302,58 +1471,38 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
           {reopenPeek && (
             <div
-              className="pointer-events-none absolute left-1/2 top-6 z-20 -translate-x-1/2 border border-primary bg-background px-4 py-2 shadow-sm"
+              className="pointer-events-none absolute left-1/2 top-6 z-20 -translate-x-1/2 border border-primary bg-background px-4 py-2"
               style={{ animation: "cartoonistPeek 4.2s ease-out forwards" }}
             >
-              <p className="eyebrow text-primary">
-                ↺ {reopenPeek.relation ? reopenPeek.relation : "returning"} — earlier thread
-              </p>
-              <p className="mt-1 max-w-sm truncate font-serif" style={{ fontSize: "var(--step-0)" }}>
-                {reopenPeek.oldLatest}
-              </p>
+              <p className="eyebrow text-primary">↺ {reopenPeek.relation ? reopenPeek.relation : "returning"} — earlier thread</p>
+              <p className="mt-1 max-w-sm truncate" style={{ fontSize: "var(--step-0)" }}>{reopenPeek.oldLatest}</p>
             </div>
           )}
 
-          {/* v2.P6 — cross-session ghost callback. */}
           {memory.peek && (
             <div
               data-testid="memory-peek"
-              className="absolute right-6 top-6 z-20 max-w-sm border border-dashed bg-background/95 px-4 py-3 shadow-sm"
+              className="absolute right-6 top-6 z-20 max-w-sm border border-dashed bg-background/95 px-4 py-3"
               style={{ borderColor: "var(--accent-warm, #E07A3E)" }}
             >
               <div className="flex items-start justify-between gap-3">
-                <p className="eyebrow" style={{ color: "var(--accent-warm, #E07A3E)" }}>
-                  ↗ this came up before — {memory.peek.roomName}
-                </p>
-                <button
-                  type="button"
-                  onClick={memory.dismissPeek}
-                  className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
-                >
+                <p className="eyebrow" style={{ color: "var(--accent-warm, #E07A3E)" }}>↗ this came up before — {memory.peek.roomName}</p>
+                <button type="button" onClick={memory.dismissPeek} className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground">
                   dismiss
                 </button>
               </div>
-              <p className="mt-1.5 font-serif" style={{ fontSize: "var(--step-1)", lineHeight: 1.35 }}>
-                {memory.peek.text}
-              </p>
-              <a
-                href={`/r/${memory.peek.roomId}`}
-                className="mt-2 inline-block text-[11px] uppercase tracking-wider underline underline-offset-4"
-              >
+              <p className="mt-1.5" style={{ fontSize: "var(--step-1)", lineHeight: 1.35 }}>{memory.peek.text}</p>
+              <a href={`/r/${memory.peek.roomId}`} className="mt-2 inline-block text-[11px] uppercase tracking-wider underline underline-offset-4">
                 open that session
               </a>
             </div>
           )}
 
-
-
           {shapes.length === 0 && freehand.length === 0 && (
-            <div className="pointer-events-none absolute left-8 top-8 max-w-md border border-border bg-background p-5">
+            <div className="pointer-events-none absolute left-4 top-16 max-w-md border border-border bg-background p-5">
               <p className="eyebrow text-primary">Whiteboard ready</p>
-              <p className="mt-2 font-serif" style={{ fontSize: "var(--step-3)" }}>
-                {inputMode === "chat"
-                  ? "Type in the Stream on the right, or ask Cartoonist to draw below."
-                  : "Hit Listen and start talking, or ask Cartoonist to draw something below."}
+              <p className="mt-2" style={{ fontSize: "var(--step-3)", lineHeight: 1.15 }}>
+                Talk, or ask Cartoonist to draw.
               </p>
               <p className="mt-2 text-foreground/70" style={{ fontSize: "var(--step-0)" }}>
                 Try: "draw the signup flow with email, Google, and a verify-email step."
@@ -1361,52 +1510,247 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
             </div>
           )}
 
-          <form
-            onSubmit={(e) => { e.preventDefault(); void askDraw(); }}
-            className="absolute bottom-5 left-1/2 z-10 flex w-[min(640px,calc(100%-2.5rem))] -translate-x-1/2 items-center gap-2 border border-border bg-background px-3 py-2"
-          >
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
-            <input
-              value={askText}
-              onChange={(e) => setAskText(e.target.value)}
-              placeholder="Ask Cartoonist to draw something…"
-              className="flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
-              style={{ fontSize: "var(--step-1)" }}
-            />
-            <Button type="submit" size="sm" variant="outline" disabled={!askText.trim() || thinking} className="h-7 rounded-none border-border">
-              <Send className="h-3.5 w-3.5" />
-            </Button>
-          </form>
+          {/* One control zone: Cartoonist prompt with the meeting controls attached. */}
+          <div className="absolute bottom-4 left-1/2 z-20 w-[min(720px,calc(100%-2rem))] -translate-x-1/2">
+            {speech.listening && (
+              <div className="mb-1.5 flex items-center gap-2 border border-border bg-background px-3 py-1.5">
+                <div className="flex h-4 items-end gap-[2px]">
+                  {micBars.map((_, i) => {
+                    const threshold = (i + 1) / micBarCount;
+                    const active = speech.level > threshold * 0.8;
+                    const h = active ? 4 + Math.min(12, speech.level * 16) : 3;
+                    return <span key={i} className="w-[3px] bg-foreground/80 transition-[height,opacity] duration-75" style={{ height: `${h}px`, opacity: active ? 1 : 0.25 }} />;
+                  })}
+                </div>
+                <span className="truncate text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
+                  {recentTranscript || "hearing the room…"}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center gap-px border border-foreground bg-background">
+              <button
+                type="button"
+                onClick={() => {
+                  if (speech.listening) { speech.stop(); return; }
+                  if (inputMode !== "voice") {
+                    setInputMode("voice");
+                    window.localStorage.setItem(`cartoonist_input_mode_${roomId}`, "voice");
+                    if (selfPid) void supabase.from("participants").update({ input_mode: "both" } as never).eq("id", selfPid);
+                  }
+                  void speech.start();
+                }}
+                title={speech.listening ? "Stop listening to the room" : "Let Cartoonist hear the room"}
+                className={`flex h-10 items-center gap-1.5 px-3 transition active:scale-[0.98] ${speech.listening ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {speech.listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                <span className="eyebrow">{speech.listening ? "Stop" : "Hear room"}</span>
+              </button>
+              <span className="h-6 w-px bg-border" aria-hidden />
+              <form onSubmit={(e) => { e.preventDefault(); void askDraw(); }} className="flex min-w-0 flex-1 items-center gap-2 px-3">
+                <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
+                <input
+                  value={askText}
+                  onChange={(e) => setAskText(e.target.value)}
+                  placeholder="Ask Cartoonist to draw something…"
+                  className="h-10 min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
+                  style={{ fontSize: "var(--step-1)" }}
+                />
+                <button type="submit" disabled={!askText.trim() || thinking} className="text-muted-foreground transition hover:text-foreground disabled:opacity-30">
+                  <Send className="h-4 w-4" />
+                </button>
+              </form>
+              <span className="h-6 w-px bg-border" aria-hidden />
+              <button
+                type="button"
+                onClick={handleToggleHand}
+                title={isRaised ? "Lower hand" : "Raise hand"}
+                className={`flex h-10 w-10 items-center justify-center transition active:scale-[0.98] ${isRaised ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <Hand className="h-4 w-4" />
+              </button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button type="button" title="React" className="flex h-10 w-10 items-center justify-center text-muted-foreground transition hover:text-foreground active:scale-[0.98]">
+                    <Smile className="h-4 w-4" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" side="top" sideOffset={8} className="flex w-auto gap-1 rounded-none border-foreground p-1.5">
+                  {(["👍", "💡", "❓", "🔥", "❤️", "😂"] as const).map((e) => (
+                    <button
+                      key={e}
+                      type="button"
+                      onClick={() => emitReaction(e)}
+                      aria-label={`React ${e}`}
+                      className="h-8 w-8 text-lg leading-none transition motion-safe:hover:scale-125"
+                      style={{ fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif' }}
+                    >
+                      {e}
+                    </button>
+                  ))}
+                </PopoverContent>
+              </Popover>
+              <button
+                type="button"
+                onClick={() => {
+                  setMediatorMuted((v) => {
+                    const next = !v;
+                    if (next && typeof window !== "undefined") {
+                      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+                      if (ttsAudioRef.current) { try { ttsAudioRef.current.pause(); } catch { /* noop */ } }
+                    }
+                    return next;
+                  });
+                }}
+                title={mediatorMuted ? "Cartoonist voice is off" : "Cartoonist speaks back"}
+                className={`flex h-10 w-10 items-center justify-center transition active:scale-[0.98] ${mediatorMuted ? "text-muted-foreground hover:text-foreground" : "bg-foreground text-background"}`}
+              >
+                {mediatorMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
 
           <CostMeter roomId={roomId} />
         </div>
 
+        <RoomPanel
+          open={panelOpen}
+          onOpen={setPanelOpen}
+          active={panelTab}
+          onActive={(id) => setPanelTab(id as typeof panelTab)}
+          tabs={[
+            {
+              id: "people",
+              label: "People",
+              icon: Users,
+              count: participants.length,
+              node: (
+                <TeamDesk
+                  embedded
+                  roomId={roomId}
+                  participants={participants}
+                  selfPid={selfPid}
+                  selfSpeaking={speech.listening}
+                  selfTyping={false}
+                  onInferredStates={(s) => { inferredStatesRef.current = s; }}
+                  onEditProfile={() => { if (selfPid) openCheckInFor(selfPid); }}
+                  onCheckInAs={openCheckInFor}
+                  onStartKiosk={startKiosk}
+                  kioskActive={kioskMode}
+                />
+              ),
+            },
+            {
+              id: "transcript",
+              label: "Transcript",
+              icon: MessageSquare,
+              node: (
+                <div className="h-full min-h-0">
+                  <ChatPanel
+                    roomId={roomId}
+                    selfParticipantId={selfPid}
+                    selfName={participants[0]?.name ?? "You"}
+                    selfColor={participants[0]?.color ?? "#E07A3E"}
+                    onChatMessage={handleChatMessage}
+                  />
+                </div>
+              ),
+            },
+            {
+              id: "threads",
+              label: "Threads",
+              icon: Layers,
+              count: threads.length,
+              node: <ThreadList threads={threads} echoes={memory.echoes} />,
+            },
+            {
+              id: "risks",
+              label: "Risks",
+              icon: ShieldAlert,
+              count: devil.risks.length,
+              node: (
+                <RisksPanel
+                  risks={devil.risks}
+                  thinking={devil.thinking}
+                  checkedAt={devil.checkedAt}
+                  onCheckNow={devil.checkNow}
+                  onPin={pinRisk}
+                  onDismiss={devil.dismiss}
+                />
+              ),
+            },
+            {
+              id: "recall",
+              label: "Recall",
+              icon: Search,
+              node: (
+                <><label className="flex items-center gap-2 border-b border-border px-2.5 py-2 text-[13px]">
+                  <input type="checkbox" checked={pausePrompts} onChange={e => setPausePrompts(e.target.checked)} />
+                  Spoken pause prompts
+                </label><RecallPanel
+                  entries={historian.entries}
+                  asking={historian.asking}
+                  error={historian.error}
+                  onFocus={(threadId, shapeIds) => {
+                    const ids = shapeIds.length ? shapeIds : threads.find(t => t.id === threadId)?.shapeIds ?? [];
+                    if (ids.length) window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids } }));
+                    else toast.info("This drawing is no longer on the canvas.");
+                  }}
+                  onAsk={historian.ask}
+                  onPin={pinRecall}
+                /></>
+              ),
+            },
+            {
+              id: "memory",
+              label: "Memory",
+              icon: Brain,
+              node: (
+                <MemoryPanel
+                  roomId={roomId}
+                  buildRequest={() => ({
+                    transcript: speech.finals.length ? speech.finals.join("\n") : "",
+                    participants: participants.map((p) => ({ id: p.id, name: p.name, role: p.role ?? null })),
+                  })}
+                />
+              ),
+            },
+            {
+              id: "replay",
+              label: "Replay",
+              icon: History,
+              node: <SessionReplay embedded roomId={roomId} onFrame={setReplayShapes} />,
+            },
+            {
+              id: "artifacts",
+              label: "Artifacts",
+              icon: FileDown,
+              node: (
+                <div className="space-y-4 px-2.5 py-2.5">
+                  <SessionPack
+                    build={() => ({
+                      roomId,
+                      sessionName: sessionCtx?.name ?? null,
+                      goal: sessionCtx?.goal ?? null,
+                      outputs: Array.isArray(sessionCtx?.outputs) ? sessionCtx.outputs.join(", ") : (sessionCtx?.outputs ?? null),
+                      participants: participants.map((p) => ({ name: p.name, role: p.role ?? null })),
+                      threads: threads.map((t) => ({ id: t.id, latest: t.latest, modality: t.modality })),
+                      transcript: speech.finals.join("\n"),
+                      canvasSummary: summarizeCanvas(),
+                      artifacts,
+                    })}
+                  />
+                  <ArtifactTabs
+                    artifacts={artifacts}
+                    loading={generating}
+                    drafting={liveArtifacts.drafting}
+                    draftedAt={liveArtifacts.draftedAt}
+                  />
 
-        <div className="flex w-[280px] shrink-0 flex-col">
-          <TeamDesk
-            roomId={roomId}
-            participants={participants}
-            selfPid={selfPid}
-            selfSpeaking={speech.listening}
-            selfTyping={false}
-            onInferredStates={(s) => { inferredStatesRef.current = s; }}
-            onEditProfile={() => { if (selfPid) openCheckInFor(selfPid); }}
-            onCheckInAs={openCheckInFor}
-            onStartKiosk={startKiosk}
-            kioskActive={kioskMode}
-          />
-          {chatOpen && (
-            <div className="min-h-0 flex-1 border-t border-border">
-              <ChatPanel
-                roomId={roomId}
-                selfParticipantId={selfPid}
-                selfName={participants[0]?.name ?? "You"}
-                selfColor={participants[0]?.color ?? "#E07A3E"}
-                onChatMessage={handleChatMessage}
-              />
-            </div>
-          )}
-        </div>
+                </div>
+              ),
+            },
+          ] satisfies RoomPanelTab[]}
+        />
       </div>
 
       <IntroModal

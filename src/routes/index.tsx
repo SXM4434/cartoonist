@@ -1,18 +1,21 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { loadProfile } from "@/lib/profile";
+import { roomByCode } from "@/lib/db-rpc";
+import { WorkingSurface, useStageCycle } from "@/components/design/working-surface";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Cartoonist — Teams that draw it out, together" },
-      { name: "description", content: "Cartoonist quietly listens to your meetings — surfacing overlooked ideas, drawing the conversation live, and turning the messy back-and-forth into shippable plans." },
-      { property: "og:title", content: "Cartoonist — Teams that draw it out, together" },
-      { property: "og:description", content: "An AI mediator that turns meetings into a live visual canvas." },
+      { title: "Cartoonist — It draws while you talk" },
+      { name: "description", content: "Cartoonist listens to the meeting, marks what matters, and draws the conversation into structure — wireframes, flows, decisions and a PRD you can ship." },
+      { property: "og:title", content: "Cartoonist — It draws while you talk" },
+      { property: "og:description", content: "Speech in, structure out. Cartoonist turns the messy back-and-forth into shared, shippable artifacts." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Landing,
@@ -23,6 +26,7 @@ function Landing() {
   const [code, setCode] = useState("");
   const [joining, setJoining] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
+  const { stage, index } = useStageCycle();
 
   const goTry = () => {
     if (loadProfile()) navigate({ to: "/dashboard" });
@@ -34,15 +38,14 @@ function Landing() {
     if (!c) return;
     setJoining(true);
     try {
-      const { data, error } = await supabase.from("rooms").select("id").eq("join_code", c).maybeSingle();
-      if (error) throw error;
-      if (!data) { toast.error("No session with that code"); return; }
+      const id = await roomByCode(c);
+      if (!id) { toast.error("No session with that code"); return; }
       if (!loadProfile()) {
-        sessionStorage.setItem("cartoonist_pending_join", data.id);
+        sessionStorage.setItem("cartoonist_pending_join", id);
         navigate({ to: "/onboarding" });
         return;
       }
-      navigate({ to: "/sessions/$sessionId", params: { sessionId: data.id } });
+      navigate({ to: "/sessions/$sessionId", params: { sessionId: id } });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not join");
     } finally { setJoining(false); }
@@ -50,82 +53,424 @@ function Landing() {
 
   return (
     <main className="min-h-screen bg-background">
-      <header className="mx-auto flex max-w-6xl items-center justify-between rounded-2xl border-2 border-foreground bg-card mt-4 mx-4 sm:mx-auto px-5 py-3">
-        <div className="flex items-center gap-2.5">
-          <span className="text-3xl">🤖</span>
-          <span className="font-serif font-semibold" style={{ fontSize: "var(--step-3)" }}>Cartoonist</span>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="ghost" onClick={goTry} className="rounded-full">Dashboard</Button>
+      {/* Toolbar, not a nav bar */}
+      <header className="sticky top-0 z-30 border-b border-foreground bg-background">
+        <div className="mx-auto flex max-w-[1240px] items-center justify-between gap-4 px-6 py-2.5">
+          <a href="/" className="flex items-center gap-2 no-underline">
+            <Glyph className="h-5 w-5 text-primary" />
+            <span className="font-display font-bold tracking-tight" style={{ fontSize: "var(--step-3)" }}>Cartoonist</span>
+          </a>
+          <div className="hidden items-center gap-2 font-mono text-muted-foreground sm:flex" style={{ fontSize: "var(--step-0)" }}>
+            <StateChip on={index === 0}>LISTENING</StateChip>
+            <StateChip on={index === 1}>INTERPRETING</StateChip>
+            <StateChip on={index === 2}>DRAWING</StateChip>
+            <StateChip on={index === 3}>RESOLVING</StateChip>
+          </div>
+          <nav className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/examples" })} className="rounded-none">Examples</Button>
+            <Button size="sm" onClick={goTry} className="rounded-none">Open a session</Button>
+          </nav>
         </div>
       </header>
 
-      <section className="mx-auto max-w-6xl px-6 pt-16 pb-10">
-        <div className="grid items-center gap-10 md:grid-cols-[1.1fr_1fr]">
-          <div>
-            <span className="inline-block rounded-full bg-yellow-200 px-4 py-1.5 font-medium text-yellow-900" style={{ fontSize: "var(--step-1)" }}>
-              Hackathon 2026 ✦ AI mediator for teams
-            </span>
-            <h1 className="mt-6 font-serif font-medium" style={{ fontSize: "var(--step-6)", lineHeight: 0.95 }}>
-              Teams that draw it<br/>out, <span className="text-primary">together.</span>
+      {/* HERO — the surface itself */}
+      <section className="mx-auto max-w-[1240px] px-6 pb-16 pt-12">
+        <div className="grid gap-10 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)] lg:items-start">
+          <div className="lg:sticky lg:top-24">
+            <h1 className="statement max-w-[13ch]" style={{ fontSize: "var(--step-5)" }}>
+              Cartoonist is{"\u00a0"}<br className="hidden sm:inline" />drawing while{"\u00a0"}<br className="hidden sm:inline" />you talk.
             </h1>
-            <p className="mt-5 max-w-xl text-foreground/80" style={{ fontSize: "var(--step-2)", lineHeight: 1.55 }}>
-              Cartoonist quietly listens to your meetings — surfacing overlooked ideas, drawing the conversation live, and turning the messy back-and-forth into shippable plans.
+
+
+            <p className="mt-6 max-w-[46ch] text-muted-foreground" style={{ fontSize: "var(--step-2)", lineHeight: 1.6 }}>
+              It listens to the room, marks the phrases that carry weight, and builds the
+              structure underneath them — live, on a canvas everyone shares.
             </p>
-            <div className="mt-7 flex flex-wrap gap-3">
-              <Button onClick={goTry} className="rounded-full bg-primary px-6 py-6 text-base font-medium text-primary-foreground hover:bg-primary/90">
-                Try it free — no account needed
-              </Button>
-              <Button onClick={() => setShowJoin((v) => !v)} variant="outline" className="rounded-full border-2 border-foreground bg-card px-6 py-6 text-base font-medium hover:bg-secondary">
+            <div className="mt-7 flex flex-wrap items-center gap-2">
+              <Button onClick={goTry} size="lg" className="rounded-none">Start a session</Button>
+              <Button onClick={() => setShowJoin((v) => !v)} variant="outline" size="lg" className="rounded-none" aria-expanded={showJoin}>
                 Join with a code
               </Button>
             </div>
             {showJoin && (
-              <div className="mt-4 flex items-center gap-2 rounded-full border-2 border-foreground bg-card p-1.5 max-w-md">
+              <div className="fade-up-in mt-3 flex max-w-sm items-center gap-2 border border-foreground bg-card p-1.5">
                 <Input
                   autoFocus
                   value={code}
                   onChange={(e) => setCode(e.target.value.toUpperCase())}
                   placeholder="JOIN CODE"
+                  aria-label="Session join code"
                   onKeyDown={(e) => e.key === "Enter" && join()}
-                  className="h-10 border-0 bg-transparent font-mono tracking-widest shadow-none focus-visible:ring-0"
+                  className="h-10 rounded-none border-0 bg-transparent font-mono tracking-[0.3em] shadow-none focus-visible:ring-0"
                   maxLength={10}
                 />
-                <Button onClick={join} disabled={joining || !code} className="rounded-full bg-foreground px-5 text-background hover:bg-foreground/90">
-                  {joining ? "…" : "Join"}
-                </Button>
+                <Button onClick={join} disabled={joining || !code} className="rounded-none">{joining ? "…" : "Join"}</Button>
               </div>
             )}
+            <p className="mt-5 text-muted-foreground" style={{ fontSize: "var(--step-1)" }}>
+              No account needed. It runs in the browser.
+            </p>
           </div>
 
-          <div className="relative mx-auto h-[360px] w-full max-w-md">
-            <div className="absolute left-0 top-6 -rotate-6 rounded-2xl border-2 border-foreground bg-yellow-200 p-5 shadow-[6px_6px_0_0_#1a1a1a]" style={{ width: 180 }}>
-              <p className="font-medium text-yellow-950" style={{ fontFamily: "'Patrick Hand', cursive", fontSize: "var(--step-2)" }}>"Someone has an idea 💡"</p>
-            </div>
-            <div className="absolute inset-x-0 top-2 mx-auto flex h-64 w-64 items-center justify-center rounded-full border-2 border-foreground bg-primary text-[110px]">
-              🤖
-            </div>
-            <div className="absolute bottom-0 right-0 rotate-3 rounded-2xl border-2 border-foreground bg-teal-200 p-5 shadow-[6px_6px_0_0_#1a1a1a]" style={{ width: 200 }}>
-              <p className="font-medium text-teal-950" style={{ fontFamily: "'Patrick Hand', cursive", fontSize: "var(--step-2)" }}>Live whiteboard 🎨</p>
-            </div>
+          <div className="border border-foreground">
+            <WorkingSurface stage={stage} index={index} />
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-6 pb-16 grid gap-4 md:grid-cols-3">
-        <FeatureCard title="Hears everyone" body="Quiet, analytical, introverted — Cartoonist surfaces ideas loud voices missed." />
-        <FeatureCard title="Draws live" body="Watch the conversation become a living flow diagram on a shared whiteboard." />
-        <FeatureCard title="Ships docs" body="PRDs, user journeys, timelines, action items — generated and ready to edit." />
+      {/* MEETING: conversation flows across the full width */}
+      <section className="border-t border-foreground">
+        <div className="mx-auto max-w-[1240px] px-6 py-14">
+          <div className="flex flex-wrap items-baseline justify-between gap-4">
+            <h2 className="font-display max-w-[16ch]" style={{ fontSize: "var(--step-4)" }}>
+              Everyone talks at once
+            </h2>
+            <p className="max-w-[46ch] text-muted-foreground" style={{ fontSize: "var(--step-2)", lineHeight: 1.6 }}>
+              That's fine — Cartoonist is the one taking it down, and it keeps track of who said what.
+            </p>
+          </div>
+          <SpeechFlow />
+        </div>
       </section>
+
+      {/* LISTENING: horizontal, data-like, heading sits inline with the readout */}
+      <section className="border-t border-foreground">
+        <div className="mx-auto grid max-w-[1240px] items-center gap-8 px-6 py-14 lg:grid-cols-[300px_minmax(0,1fr)]">
+          <div>
+            <h2 className="font-display max-w-[12ch]" style={{ fontSize: "var(--step-4)" }}>
+              It hears the weight
+            </h2>
+            <p className="mt-3 max-w-[38ch] text-muted-foreground" style={{ fontSize: "var(--step-2)", lineHeight: 1.6 }}>
+              Speech is attributed per person, so the quiet voice in the corner keeps its authorship.
+            </p>
+          </div>
+          <ListenStrip />
+        </div>
+      </section>
+
+
+      {/* DRAWING: takes the whole viewport, the drafting sheet lifts off */}
+      <section className="border-t border-foreground bg-secondary/40">
+        <div className="mx-auto max-w-[1240px] px-6 py-16">
+          <div className="flex items-end justify-between gap-6">
+            <h2 className="statement max-w-[12ch]" style={{ fontSize: "var(--step-5)" }}>
+              Rough first. Then resolved.
+            </h2>
+            <p className="hidden max-w-[34ch] text-muted-foreground md:block" style={{ fontSize: "var(--step-2)", lineHeight: 1.6 }}>
+              Ask for a flow, a wireframe, a system map. Construction lines land on translucent
+              drafting paper — when the room agrees, the sheet lifts and the interface underneath commits.
+            </p>
+          </div>
+          <RoughToResolved />
+        </div>
+      </section>
+
+      {/* ORGANIZING: annotations scattered around a central artifact */}
+      <section className="border-t border-foreground">
+        <div className="mx-auto max-w-[1240px] px-6 py-14">
+          <h2 className="font-display max-w-[20ch]" style={{ fontSize: "var(--step-4)" }}>
+            Loose ends stay on the page
+          </h2>
+          <p className="mt-3 max-w-[52ch] text-muted-foreground" style={{ fontSize: "var(--step-2)", lineHeight: 1.6 }}>
+            Open threads, unresolved questions and inferred decisions stay pinned around the artifact
+            instead of evaporating when the call ends.
+          </p>
+          <MarginNotes />
+        </div>
+      </section>
+
+      {/* DELIVERABLES: overlapping sheets */}
+      <section className="border-t border-foreground">
+        <div className="mx-auto max-w-[1240px] px-6 py-14">
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-center">
+            <div>
+              <h2 className="font-display max-w-[16ch]" style={{ fontSize: "var(--step-4)" }}>
+                You leave with the work
+              </h2>
+              <p className="mt-3 max-w-[42ch] text-muted-foreground" style={{ fontSize: "var(--step-2)", lineHeight: 1.6 }}>
+                The artifact, not a recording nobody opens again.
+              </p>
+            </div>
+            <Deliverables />
+          </div>
+        </div>
+      </section>
+
+
+      <section className="border-t border-foreground">
+        <div className="mx-auto flex max-w-[1240px] flex-wrap items-end justify-between gap-6 px-6 py-14">
+          <h2 className="font-display max-w-[18ch]" style={{ fontSize: "var(--step-4)" }}>
+            Put it in front of your next meeting.
+          </h2>
+          <Button onClick={goTry} size="lg" className="rounded-none">Start a session</Button>
+        </div>
+      </section>
+
+      <footer className="border-t border-border">
+        <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-3 px-6 py-7 text-muted-foreground" style={{ fontSize: "var(--step-1)" }}>
+          <span className="font-mono uppercase tracking-[0.18em]" style={{ fontSize: "var(--step-0)" }}>Cartoonist</span>
+          <span>Built for teams who think out loud.</span>
+        </div>
+      </footer>
     </main>
   );
 }
 
-function FeatureCard({ title, body }: { title: string; body: string }) {
+function StateChip({ on, children }: { on: boolean; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border-2 border-foreground bg-card p-5">
-      <h3 className="font-serif font-medium" style={{ fontSize: "var(--step-3)" }}>{title}</h3>
-      <p className="mt-2 text-foreground/75" style={{ fontSize: "var(--step-2)", lineHeight: 1.55 }}>{body}</p>
+    <span
+      className="border px-2 py-0.5 uppercase tracking-[0.16em] transition-colors duration-200"
+      style={{
+        borderColor: on ? "var(--color-foreground)" : "var(--color-border)",
+        color: on ? "var(--color-foreground)" : "var(--color-muted-foreground)",
+        backgroundColor: on ? "var(--color-accent)" : "transparent",
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+/** Conversation running left-to-right across the page, overlapping as people cut in. */
+function SpeechFlow() {
+  const lines = [
+    { who: "MAYA", t: "00:04", text: "Onboarding drops people into an empty room.", drop: 0 },
+    { who: "DEV", t: "00:09", text: "Nobody knows what the first move is.", drop: 44 },
+    { who: "PRIYA", t: "00:13", text: "What if their first session is the tutorial?", drop: 14 },
+    { who: "SAM", t: "00:21", text: "Then we have to seed it with their data.", drop: 58 },
+  ];
+  return (
+    <div className="mt-10 md:overflow-x-auto md:pb-2">
+      <ul className="flex flex-col gap-6 md:min-w-[860px] md:flex-row md:items-start md:gap-0">
+        {lines.map((l, i) => (
+          <li
+            key={l.who}
+            className="relative border-l border-foreground pl-4 md:flex-1 md:pr-6 md:[margin-top:var(--drop)]"
+            style={{ "--drop": `${l.drop}px` } as React.CSSProperties}
+          >
+            <div className="flex items-baseline gap-2 font-mono text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
+              <span className="tnum">{l.t}</span>
+              <span className="uppercase tracking-[0.16em] text-foreground">{l.who}</span>
+            </div>
+            <p className="mt-2 max-w-[26ch]" style={{ fontSize: "var(--step-2)", lineHeight: 1.5 }}>
+              {i === 2 ? <span className="marker" data-on="true">{l.text}</span> : l.text}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+
+}
+
+function ListenStrip() {
+  const bars = [6, 14, 9, 22, 30, 18, 11, 26, 34, 16, 8, 20, 28, 12, 24, 9, 17, 31, 13, 7, 21, 15, 27, 10, 19, 25, 11, 30];
+  return (
+    <div className="border border-foreground bg-card p-4">
+      <div className="flex h-14 items-end gap-1" aria-hidden>
+        {bars.map((h, i) => (
+          <span key={i} className="flex-1" style={{ height: `${h * 1.6}px`, backgroundColor: i > 8 && i < 15 ? "var(--color-primary)" : "var(--color-secondary)" }} />
+        ))}
+      </div>
+      <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 font-mono text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
+        <span className="tnum">MAYA 41%</span><span className="tnum">DEV 28%</span>
+        <span className="tnum">PRIYA 24%</span><span className="tnum">SAM 7%</span>
+        <span className="text-primary">SAM SILENT 6:12 — INVITED</span>
+      </div>
     </div>
   );
 }
+
+/** The material argument: a translucent drafting sheet sitting over a committed interface. */
+function RoughToResolved() {
+  const [lifted, setLifted] = useState(false);
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return setLifted(true);
+    const t = setInterval(() => setLifted((v) => !v), 3400);
+    return () => clearInterval(t);
+  }, []);
+
+  return (
+    <div className="mt-10">
+      <div className="relative border border-foreground bg-card">
+        <svg viewBox="0 0 900 380" className="block w-full text-foreground" fill="none" role="img"
+             aria-label={lifted ? "Resolved interface" : "Rough construction over the resolved interface"}>
+          {/* committed interface */}
+          <g stroke="currentColor" strokeWidth="1.5" fill="var(--color-background)">
+            <rect x="40" y="34" width="820" height="44" />
+            <rect x="40" y="98" width="330" height="248" />
+            <rect x="392" y="98" width="468" height="120" />
+            <rect x="392" y="234" width="228" height="112" />
+            <rect x="642" y="234" width="218" height="112" />
+          </g>
+          <g stroke="currentColor" strokeWidth="1.5" opacity="0.3" strokeLinecap="round">
+            <path d="M60 140h250M60 168h190M60 196h226M60 224h150M412 140h300M412 168h250M412 276h160M662 276h150M662 304h96" />
+          </g>
+          <rect x="60" y="300" width="120" height="20" fill="var(--color-primary)" />
+          <rect x="60" y="52" width="88" height="10" fill="currentColor" opacity="0.5" />
+
+          {/* drafting sheet */}
+          <g className="drafting-sheet" data-lifted={lifted ? "true" : "false"}>
+            <rect x="16" y="14" width="868" height="352" fill="var(--color-primary)" opacity="0.06" />
+            <rect x="16" y="14" width="868" height="352" stroke="var(--color-primary)" strokeWidth="1" opacity="0.3" fill="none" />
+            <g stroke="var(--color-primary)" strokeWidth="1" className="rough" fill="none">
+              <rect x="40" y="34" width="820" height="44" />
+              <rect x="40" y="98" width="330" height="248" />
+              <rect x="392" y="98" width="468" height="120" />
+              <rect x="392" y="234" width="228" height="112" />
+              <rect x="642" y="234" width="218" height="112" />
+            </g>
+            <g stroke="var(--color-primary)" strokeWidth="1" opacity="0.6" strokeLinecap="round">
+              <path d="M40 26v-10M370 26v-10M392 26v-10M860 26v-10M30 98h-12M30 346h-12" />
+            </g>
+            <g fill="var(--color-primary)" opacity="0.7" fontSize="11" fontFamily="var(--font-mono)" letterSpacing="0.1em">
+              <text x="52" y="120">LIST?</text>
+              <text x="404" y="120">DETAIL</text>
+              <text x="404" y="256">RECAP?</text>
+            </g>
+          </g>
+        </svg>
+
+        <div className="flex items-center justify-between border-t border-foreground px-4 py-2 font-mono text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
+          <span className="uppercase tracking-[0.18em]">{lifted ? "COMMITTED" : "DRAFTING LAYER · PROVISIONAL"}</span>
+          <button
+            type="button"
+            onClick={() => setLifted((v) => !v)}
+            className="border border-foreground px-2 py-0.5 uppercase tracking-[0.18em] text-foreground press hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:translate-y-px"
+          >
+            {lifted ? "Lay draft back" : "Lift the sheet"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Annotations pinned around the artifact. Each one is tethered to the place in
+ * the artifact it refers to — the note is attached to the work, not floating.
+ */
+function MarginNotes() {
+  const left = [
+    { note: "3 unresolved questions", y: 26, anchor: { x: 40, y: 30 } },
+    { note: "2 participants disagreed here", y: 70, anchor: { x: 41, y: 72 } },
+  ];
+  const right = [
+    { note: "Decision inferred: ship guided session first", y: 22, anchor: { x: 60, y: 40 } },
+    { note: "Converted to action item — Dev", y: 76, anchor: { x: 59, y: 78 } },
+  ];
+
+  return (
+    <div className="relative mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)_minmax(0,1fr)] lg:items-stretch">
+      {/* tethers, desktop only — the artifact stays readable on its own */}
+      <svg
+        className="pointer-events-none absolute inset-0 z-10 hidden h-full w-full lg:block"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        aria-hidden
+      >
+        {[...left.map((l) => ({ ...l, from: 26 })), ...right.map((r) => ({ ...r, from: 74 }))].map((t, i) => (
+          <g key={i}>
+            <path
+              d={`M${t.from} ${t.y} L${t.anchor.x} ${t.y} L${t.anchor.x} ${t.anchor.y}`}
+              stroke="var(--color-primary)"
+              strokeWidth="1"
+              fill="none"
+              vectorEffect="non-scaling-stroke"
+              opacity="0.55"
+            />
+            <circle cx={t.anchor.x} cy={t.anchor.y} r="1" fill="var(--color-primary)" vectorEffect="non-scaling-stroke" />
+          </g>
+        ))}
+      </svg>
+
+      <ul className="relative flex flex-col justify-around gap-8 text-right lg:pr-8">
+        {left.map((l) => (
+          <li key={l.note} style={{ fontSize: "var(--step-1)", lineHeight: 1.5 }}>{l.note}</li>
+        ))}
+      </ul>
+
+      <div className="relative border border-foreground bg-card p-5">
+        <span className="eyebrow font-mono text-muted-foreground">Session artifact · v3</span>
+        <svg viewBox="0 0 300 160" className="mt-3 w-full text-foreground" fill="none" aria-hidden>
+          <g stroke="currentColor" strokeWidth="1.5">
+            <rect x="10" y="10" width="280" height="26" />
+            <rect x="10" y="48" width="130" height="100" />
+            <rect x="152" y="48" width="138" height="46" />
+            <rect x="152" y="104" width="138" height="44" />
+          </g>
+          <g stroke="currentColor" strokeWidth="1.5" opacity="0.3" strokeLinecap="round">
+            <path d="M22 74h100M22 96h70M164 70h96M164 126h60" />
+          </g>
+          <rect x="22" y="120" width="60" height="12" fill="var(--color-primary)" />
+        </svg>
+      </div>
+
+      <ul className="relative flex flex-col justify-around gap-8 lg:pl-8">
+        {right.map((r) => (
+          <li key={r.note} style={{ fontSize: "var(--step-1)", lineHeight: 1.5 }}>{r.note}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Documents sitting on a work surface — different shapes, same system. */
+function Deliverables() {
+  const items = [
+    { name: "PRD draft", meta: "MD · 6 SECTIONS", span: "col-span-7", rows: 5 },
+    { name: "Decision log", meta: "9 ENTRIES", span: "col-span-5", rows: 4 },
+    { name: "Action items", meta: "4 OWNERS", span: "col-span-5", rows: 3 },
+    { name: "Flow diagram", meta: "SVG · EDITABLE", span: "col-span-7", rows: 0 },
+  ];
+  return (
+    <ul className="grid grid-cols-12 gap-3">
+      {items.map((it) => (
+        <li
+          key={it.name}
+          tabIndex={0}
+          className={`sheet relative flex min-h-[148px] flex-col justify-between border border-foreground bg-card p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${it.span}`}
+        >
+          <div>
+            <p className="font-display font-bold" style={{ fontSize: "var(--step-3)" }}>{it.name}</p>
+            {it.rows > 0 ? (
+              <svg viewBox="0 0 200 40" className="mt-3 w-full text-foreground" aria-hidden preserveAspectRatio="none" height="34">
+                {Array.from({ length: it.rows }).map((_, r) => (
+                  <path
+                    key={r}
+                    d={`M0 ${r * 9 + 4}H${[172, 138, 186, 120, 158][r % 5]}`}
+                    stroke="currentColor"
+                    strokeWidth="1"
+                    opacity="0.28"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                ))}
+              </svg>
+            ) : (
+              <svg viewBox="0 0 200 40" className="mt-3 w-full text-foreground" aria-hidden preserveAspectRatio="none" height="34">
+                <g stroke="currentColor" strokeWidth="1" opacity="0.35" fill="none" vectorEffect="non-scaling-stroke">
+                  <rect x="2" y="6" width="46" height="26" />
+                  <rect x="78" y="6" width="46" height="26" />
+                  <rect x="152" y="6" width="46" height="26" />
+                  <path d="M48 19h30M124 19h28" />
+                </g>
+              </svg>
+            )}
+          </div>
+          <p className="font-mono uppercase tracking-[0.16em] text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>{it.meta}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function Glyph({ className }: { className?: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 32 32" fill="none" className={className}>
+      <rect x="2.5" y="4.5" width="27" height="20" rx="1.5" stroke="currentColor" strokeWidth="2" />
+      <path d="M7 19c4-9 8 4 11-3s5 1 7-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M12 24.5 10 29M20 24.5l2 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+

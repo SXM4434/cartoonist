@@ -77,7 +77,7 @@ Persona / MermaidNode / Chart deferred to P2.
 - New `ai_calls` table: `{room_id, stage, model, input_tokens, output_tokens, cost_usd, created_at}`. Every cartoonist call records usage.
 - HUD subscribes via Realtime, shows running `$0.34` for the session.
 - Settings drawer: "Soft cost cap" input (default off). When session sum exceeds cap, AI requests switch from `gemini-2.5-pro` → `gemini-2.5-flash` automatically with a "saving mode" indicator.
-- **Status:** partial shipped 2026-07-13. `ai_calls` table + realtime + public-read RLS live. `cartoonist-draw` logs `{input_tokens, output_tokens, cost_usd}` per call (Gemini 2.5 Pro: in $1.25/M, out $5/M). `CostMeter` HUD pill mounted bottom-right of canvas, sums cost live via Realtime INSERT. Soft-cap toggle + model degrade to `gemini-2.5-flash` still to ship.
+- **Status:** partial shipped 2026-07-13. `ai_calls` table + realtime + public-read RLS live. `cartoonist-draw` logs `{input_tokens, output_tokens, cost_usd}` per call (Gemini 2.5 Pro: in $1.25/M, out $5/M). `CostMeter` HUD pill mounted bottom-right of canvas, sums cost live via Realtime INSERT. Completed 2026-08-13: cost pill is now a popover with a soft cap (`src/lib/cost-cap.ts`, per-room localStorage, off by default). Client sends `costCapUsd` with every draw; server sums `ai_calls` for the room and forces `gemini-2.5-flash` once spend >= cap. HUD flips to a "Saving" state at the cap.
 
 ### 1.10 Legacy room migration
 - On first load of a pre-tldraw room: detect by absence of `rooms.meta.tldraw_schema_version`.
@@ -104,10 +104,12 @@ Persona / MermaidNode / Chart deferred to P2.
 - **Renderer** (`gemini-2.5-pro`, `max_output_tokens: 8192`): given intent + full transcript + canvas summary + shape-state list, returns up to 30 primitives or native records. Robust JSON extraction (markdown strip + trailing-comma repair).
 
 ### 2.2 Full-transcript memory
+- **Status:** shipped 2026-08-13. `session_summaries` (per room: summary, topics, decisions, open_questions, entities, chars_covered) written server-side by `/api/session-summary` using `google/gemini-2.5-flash-lite`, folding the previous memory with the newest transcript slice. `useSessionMemory` refreshes every 60s only when ≥300 new chars landed; `sessionMemoryBlock` is sent to `cartoonist-draw` as `memoryBlock`, so the mediator has whole-session context without paying for the whole transcript. Entity graph beyond a named-entity list stays scoped to P3.3.
 - New `session_summaries` table: rolling summary updated every 60s by `gemini-2.5-flash-lite`. Stores `topics[]`, `decisions[]`, `open_questions[]`, `entity_graph` (people, products, features mentioned).
 - Renderer prompt receives: full summary + last 90s verbatim + the specific utterance being reacted to. Solves "doesn't accurately contextualize the whole conversation."
 
 ### 2.3 Storyboard frames (default mode)
+- **Status:** shipped 2026-08-13. `src/lib/storyboard.ts` defines the 1200px frame grid (200px gutters), title strips (`Frame N · mm:ss · topic`), in-frame stacking, and x→frame mapping. `canvas-room` opens a new frame whenever the rolling session-memory topic changes, left-aligns each fresh batch in the active frame under existing content, files shape ids per frame, and pans the camera there via `cartoonist:focus`. A frame chip strip (top-left of the canvas) jumps to any past frame. Non-linear callbacks stay on the existing thread/relation system; entity-graph callbacks land with P3.3.
 - Canvas grows left-to-right in **frames** (1200px wide each). Each new topic starts a new frame with an auto title strip ("Frame 3 · 02:14 · User journey").
 - Viewport auto-pans to the active frame; click any past frame to jump there.
 - Non-linear callbacks auto-enabled after frame 5 — AI may add callouts back into earlier frames using the entity graph.
@@ -117,6 +119,8 @@ Persona / MermaidNode / Chart deferred to P2.
 - Each artifact shows a "drafting…" pulse and live word-count.
 
 ### 2.5 Fidelity ladder + visualization variety
+- **Status:** chart shipped 2026-08-14. New `chart` modality in `cartoonist-draw`: the renderer returns a compact `{kind: quadrant|bar, title, axis labels, items[]}` spec instead of hand-placing coordinates, and `src/lib/chart-shape.ts` lays out axes, quadrant gridlines, bars, value labels, and de-collided point labels deterministically. Verified live: "2x2 of cost vs power" and "rank by cost as a bar chart" both land clean. Reference lookup (Librarian) and illustration variety still open.
+
 Renderer picks the right tool per intent:
 - **Wireframe** → detailed `WireframeFrame` with device chrome, real labels from the conversation, real components, real copy.
 - **Chart** → new `Chart` custom shape: axes + plotted points. "Tools on a 2×2 cost-vs-power axis" becomes an actual quadrant chart with the tools placed.

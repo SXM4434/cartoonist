@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Brain, Loader2, Quote, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { supabase } from "@/integrations/supabase/client";
+import { rpc } from "@/lib/db-rpc";
 
 export type StoredInsight = {
   id: string;
@@ -22,24 +21,22 @@ type Props = {
   };
 };
 
-export function KnownAboutYou({ roomId, buildRequest }: Props) {
-  const [open, setOpen] = useState(false);
+/**
+ * Memory is reference material, not a task — it lives inside the right panel
+ * and never dims the canvas.
+ */
+export function MemoryPanel({ roomId, buildRequest }: Props) {
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<StoredInsight[]>([]);
 
   const load = useCallback(async () => {
-    const { data } = await supabase
-      .from("participant_insights")
-      .select("id,subject_name,kind,text,source_quote,confidence")
-      .eq("room_id", roomId)
-      .eq("dismissed", false)
-      .order("created_at", { ascending: false });
-    setItems((data ?? []) as StoredInsight[]);
+    const data = await rpc<StoredInsight[]>("insights_list", { p_room: roomId });
+    setItems(data ?? []);
   }, [roomId]);
 
   useEffect(() => {
-    if (open) void load();
-  }, [open, load]);
+    void load();
+  }, [load]);
 
   const learn = useCallback(async () => {
     setLoading(true);
@@ -48,7 +45,7 @@ export function KnownAboutYou({ roomId, buildRequest }: Props) {
       const res = await fetch("/api/infer-insights", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(req),
+        body: JSON.stringify({ roomId, ...req }),
       });
       const data = (await res.json().catch(() => ({}))) as {
         error?: string;
@@ -60,17 +57,14 @@ export function KnownAboutYou({ roomId, buildRequest }: Props) {
         toast.message("Nothing durable to learn yet — keep talking.");
         return;
       }
-      const byName = new Map(req.participants.map((p) => [p.name.toLowerCase(), p.id]));
       const rows = fresh.map((i) => ({
-        room_id: roomId,
-        participant_id: byName.get(i.subject.toLowerCase()) ?? null,
         subject_name: i.subject,
         kind: i.kind,
         text: i.text,
         source_quote: i.source_quote,
         confidence: i.confidence,
       }));
-      await supabase.from("participant_insights").insert(rows as never);
+      await rpc<null>("insights_add", { p_room: roomId, p_rows: rows });
       await load();
       toast.success(`Learned ${fresh.length} thing${fresh.length === 1 ? "" : "s"}`);
     } catch (error) {
@@ -82,71 +76,58 @@ export function KnownAboutYou({ roomId, buildRequest }: Props) {
 
   const forget = useCallback(async (id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
-    await supabase.from("participant_insights").update({ dismissed: true } as never).eq("id", id);
+    await rpc<null>("insights_dismiss", { p_room: roomId, p_id: id });
     toast.message("Forgotten");
-  }, []);
+  }, [roomId]);
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-none border-border" data-testid="memory-trigger">
-          <Brain className="h-3.5 w-3.5" /><span className="eyebrow">Memory</span>
+    <div className="px-2.5 py-2.5" data-testid="memory-panel">
+      <div className="flex items-center justify-between gap-2 border-b border-border pb-2">
+        <span className="eyebrow text-muted-foreground">{items.length} remembered</span>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={learn}
+          disabled={loading}
+          className="h-7 gap-1.5 rounded-none border-border"
+          data-testid="memory-learn"
+        >
+          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Brain className="h-3 w-3" />}
+          <span className="eyebrow">{loading ? "Reading…" : "Learn from session"}</span>
         </Button>
-      </SheetTrigger>
-      <SheetContent className="w-[90vw] overflow-y-auto sm:max-w-xl" data-testid="memory-sheet">
-        <SheetHeader>
-          <SheetTitle className="font-serif" style={{ fontSize: "var(--step-3)" }}>
-            What Cartoonist thinks it knows
-          </SheetTitle>
-        </SheetHeader>
+      </div>
 
-        <div className="mt-4 flex items-center justify-between border-y border-border py-2">
-          <span className="eyebrow text-muted-foreground">{items.length} remembered</span>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={learn}
-            disabled={loading}
-            className="h-8 gap-1.5 rounded-none border-border"
-            data-testid="memory-learn"
-          >
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Brain className="h-3.5 w-3.5" />}
-            <span className="eyebrow">{loading ? "Reading…" : "Learn from this session"}</span>
-          </Button>
-        </div>
-
-        <ul className="mt-4 space-y-4" data-testid="memory-list">
-          {items.map((i) => (
-            <li key={i.id} className="border-l-2 border-primary pl-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1">
-                  <div className="eyebrow text-muted-foreground">
-                    {i.subject_name} · {i.kind} · {Math.round(i.confidence * 100)}%
-                  </div>
-                  <p className="mt-1 text-foreground" style={{ fontSize: "var(--step-1)" }}>{i.text}</p>
-                  <p className="mt-1.5 flex gap-1.5 text-muted-foreground italic" style={{ fontSize: "var(--step-0)" }}>
-                    <Quote className="mt-0.5 h-3 w-3 shrink-0" />
-                    <span>“{i.source_quote}”</span>
-                  </p>
+      <ul className="mt-3 space-y-3.5" data-testid="memory-list">
+        {items.map((i) => (
+          <li key={i.id} className="border-l-2 border-primary pl-2.5">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="eyebrow text-muted-foreground">
+                  {i.subject_name} · {i.kind} · {Math.round(i.confidence * 100)}%
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void forget(i.id)}
-                  title="Forget this"
-                  className="mt-0.5 text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                <p className="mt-1 text-foreground" style={{ fontSize: "var(--step-0)" }}>{i.text}</p>
+                <p className="mt-1.5 flex gap-1.5 italic text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
+                  <Quote className="mt-0.5 h-3 w-3 shrink-0" />
+                  <span>“{i.source_quote}”</span>
+                </p>
               </div>
-            </li>
-          ))}
-          {!items.length && (
-            <li className="text-muted-foreground italic" style={{ fontSize: "var(--step-1)" }}>
-              Nothing remembered yet. Talk for a bit, then hit “Learn from this session”.
-            </li>
-          )}
-        </ul>
-      </SheetContent>
-    </Sheet>
+              <button
+                type="button"
+                onClick={() => void forget(i.id)}
+                title="Forget this"
+                className="mt-0.5 text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </li>
+        ))}
+        {!items.length && (
+          <li className="italic text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>
+            Nothing remembered yet. Talk for a bit, then hit “Learn from session”.
+          </li>
+        )}
+      </ul>
+    </div>
   );
 }

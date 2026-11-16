@@ -14,12 +14,12 @@ export function TranscriptPanel({
   return (
     <div className="rounded-xl border bg-card p-6">
       <div className="mb-4 flex items-center justify-between border-b border-border/60 pb-3">
-        <h3 className="font-serif text-lg font-semibold tracking-tight">Transcript</h3>
+        <h3 className="font-display text-lg font-semibold tracking-tight">Transcript</h3>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           {isLive ? (
             <>
               <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-primary opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
               </span>
               <Mic className="h-3.5 w-3.5" /> Listening
