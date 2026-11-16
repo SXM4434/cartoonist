@@ -1,6 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { guardExpensiveRoute } from "@/lib/room-guard.server";
-import { matchRecallDrawings } from "@/lib/recall-provenance";
+import {
+  citeTranscriptSpans,
+  matchRecallDrawings,
+  supportedCitations,
+  UNSUPPORTED_ANSWER,
+} from "@/lib/recall-provenance";
 
 /**
  * Phase 3.3 — Historian recall.
@@ -55,8 +60,20 @@ export const Route = createFileRoute("/api/historian")({
         if (blocked) return blocked;
 
         const question = (body.question ?? "").replace(/\s+/g, " ").trim().slice(0, 300);
-        const transcript = compact(body.transcript, 14000);
         if (!question) return json({ error: "Ask a question first." }, 400);
+
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { data: chunks } = await supabaseAdmin
+          .from("transcript_chunks")
+          .select("id,text")
+          .eq("room_id", body.roomId ?? "")
+          .order("created_at", { ascending: true })
+          .limit(500);
+        const spans = (chunks ?? [])
+          .filter((chunk): chunk is { id: string; text: string } => typeof chunk?.id === "string" && typeof chunk?.text === "string")
+          .map((chunk) => ({ id: chunk.id, text: chunk.text }));
+        const storedText = spans.map((span) => span.text).join("\n");
+        const transcript = compact(storedText.length >= 80 ? storedText : body.transcript, 14000);
         if (transcript.length < 80) return json({ answer: "Nothing has been said yet.", quotes: [] });
 
         const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -84,11 +101,11 @@ export const Route = createFileRoute("/api/historian")({
         try {
           parsed = JSON.parse(data.choices?.[0]?.message?.content ?? "{}");
         } catch {
-          return json({ answer: "That never came up.", quotes: [] });
+          return json({ answer: UNSUPPORTED_ANSWER, quotes: [] });
         }
 
         const haystack = norm(transcript);
-        const quotes = (parsed.quotes ?? [])
+        const rawQuotes = (parsed.quotes ?? [])
           .filter((q): q is RawQuote & { text: string } => typeof q?.text === "string")
           .filter((q) => {
             const n = norm(q.text);
@@ -100,12 +117,13 @@ export const Route = createFileRoute("/api/historian")({
             speaker: typeof q.speaker === "string" ? q.speaker.trim().slice(0, 40) : "",
           }));
 
+        const cited = citeTranscriptSpans(rawQuotes, spans);
+        const quotes = spans.length > 0 ? supportedCitations(cited) : cited;
         const answer =
           quotes.length === 0
-            ? "That never came up."
-            : (parsed.answer ?? "").replace(/\s+/g, " ").trim().slice(0, 400) || "That never came up.";
+            ? UNSUPPORTED_ANSWER
+            : (parsed.answer ?? "").replace(/\s+/g, " ").trim().slice(0, 400) || UNSUPPORTED_ANSWER;
 
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { data: events } = await supabaseAdmin.from("canvas_events")
           .select("thread_id,transcript_span,op").eq("room_id", body.roomId ?? "").order("created_at", { ascending: false }).limit(2000);
         const linkedQuotes = matchRecallDrawings(quotes, events ?? []);

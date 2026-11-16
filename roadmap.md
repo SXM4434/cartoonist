@@ -1,7 +1,7 @@
 # Remaining build
 
-- [ ] Persist Recall answers with transcript provenance and links to original drawings.
-- [ ] Add cited web references in the right panel, with pinning to canvas.
+- [x] Persist Recall answers with transcript provenance and links to original drawings.
+- [x] Add cited web references in the right panel, with pinning to canvas.
 - [x] Coordinate agents through durable, deduplicated meeting events.
 - [x] Add explicit voice wake queries and opt-in pause responses.
 - [x] Add team workspaces, invitations, and member-scoped session access.

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Brain, Check, Copy, Eraser, FileDown, Hand, History, Layers, Mic, MicOff, MessageSquare, MoreHorizontal, Search, Send, ShieldAlert, Smile, Sparkles, UserPlus, Users, Volume2, VolumeX } from "lucide-react";
+import { Brain, Check, Copy, Eraser, FileDown, Globe, Hand, History, Layers, Mic, MicOff, MessageSquare, MoreHorizontal, Search, Send, ShieldAlert, Smile, Sparkles, UserPlus, Users, Volume2, VolumeX } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,9 @@ import { useDevilsAdvocate, type Risk as DevilRisk } from "@/hooks/use-devils-ad
 import { RisksPanel } from "./room/risks-panel";
 import { useHistorian, type RecallEntry } from "@/hooks/use-historian";
 import { RecallPanel } from "./room/recall-panel";
+import { useWebReferences } from "@/hooks/use-web-references";
+import { ReferencesPanel } from "./room/references-panel";
+import { referenceCanvasEvent, referenceToShape, type WebReference } from "@/lib/web-reference";
 import { wakeFromStream, voiceAction, pauseNudge, interruptPlayback } from "@/lib/voice-intent";
 
 import { canvasEventsForRoom, roomGet, type CanvasEventRow } from "@/lib/db-rpc";
@@ -245,7 +248,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   }, [onGeneratedInteraction, onParticipantOps, selfPid]);
   const canvasStageRef = useRef<HTMLDivElement | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
-  const [panelTab, setPanelTab] = useState<"people" | "transcript" | "threads" | "memory" | "risks" | "recall" | "replay" | "artifacts">("transcript");
+  const [panelTab, setPanelTab] = useState<"people" | "transcript" | "threads" | "memory" | "risks" | "recall" | "refs" | "replay" | "artifacts">("transcript");
   const [mediatorMuted, setMediatorMuted] = useState(false);
   const inferredStatesRef = useRef<Record<string, InferredState>>({});
   const lastSpokenRef = useRef<string>("");
@@ -1287,6 +1290,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     transcript: speech.finals.join("\n"),
     memoryBlock: sessionMemoryBlock(sessionMemory),
   });
+  const webRefs = useWebReferences({
+    roomId,
+    transcript: speech.finals.join("\n"),
+  });
 
   voiceQueryRef.current = async (query) => {
     const action = voiceAction(query);
@@ -1345,6 +1352,34 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids: [note.id] } }));
     }
   }, [publishCanvasRows, roomId]);
+
+  const pinReference = useCallback((ref: WebReference) => {
+    const occupied = bboxOf(shapesRef.current);
+    const shape = referenceToShape(ref, {
+      x: occupied ? occupied.maxX + 80 : 80,
+      y: occupied ? occupied.minY + 80 : 80,
+    });
+    const event = referenceCanvasEvent(roomId, shape, ref, Date.now() - startedAtRef.current);
+    setShapes((current) => (current.some((s) => s.id === shape.id) ? current : [...current, shape]));
+    setThreads((prev) => {
+      if (prev.some((t) => t.id === event.thread_id || t.shapeIds.includes(shape.id))) return prev;
+      return [...prev.slice(-49), {
+        id: event.thread_id,
+        latest: ref.title,
+        modality: "reference",
+        shapeIds: [shape.id],
+        at: Date.now(),
+        source: "mediator",
+        relation: null,
+      }];
+    });
+    void supabase.from("canvas_events").insert(event as never);
+    void webRefs.save(ref, shape.id);
+    toast.success("Pinned to canvas");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids: [shape.id] } }));
+    }
+  }, [roomId, webRefs.save]);
 
   const pinRisk = useCallback((risk: DevilRisk) => {
     const occupied = bboxOf(shapesRef.current);
@@ -1982,6 +2017,23 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                   onAsk={historian.ask}
                   onPin={pinRecall}
                 /></>
+              ),
+            },
+            {
+              id: "refs",
+              label: "Refs",
+              icon: Globe,
+              count: webRefs.saved.length,
+              node: (
+                <ReferencesPanel
+                  results={webRefs.results}
+                  saved={webRefs.saved}
+                  looking={webRefs.looking}
+                  looked={webRefs.looked}
+                  error={webRefs.error}
+                  onLookup={webRefs.lookup}
+                  onPin={pinReference}
+                />
               ),
             },
             {
