@@ -1844,7 +1844,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           )}
 
           {/* One control zone: Cartoonist prompt with the meeting controls attached. */}
-          <div className="absolute bottom-4 left-1/2 z-20 w-[min(720px,calc(100%-2rem))] -translate-x-1/2">
+          <div data-canvas-bottom-bar className="absolute bottom-4 left-1/2 z-20 w-[min(720px,calc(100%-2rem))] -translate-x-1/2">
             {speech.listening && (
               <div className="mb-1.5 flex items-center gap-2 border border-border bg-background px-3 py-1.5">
                 <div className="flex h-4 items-end gap-[2px]">

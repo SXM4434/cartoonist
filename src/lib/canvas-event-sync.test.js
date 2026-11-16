@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { ParticipantBatch, applyCanvasEvent, shouldFitRoomOnPhone, shouldPublishChange, shouldSeedCanvas } from "./canvas-event-sync";
+import { ParticipantBatch, applyCanvasEvent, phoneRoomCamera, shouldFitRoomOnPhone, shouldPublishChange, shouldSeedCanvas } from "./canvas-event-sync";
 import { existingParticipantId } from "./participant-identity";
 
 test("remote changes and our own event echoes never publish", () => {
@@ -57,6 +57,21 @@ test("the initial room fit waits for loaded content and runs only once below 768
   expect(shouldFitRoomOnPhone(390, true, true, true)).toBe(false);
   expect(shouldFitRoomOnPhone(768, true, true, false)).toBe(false);
   expect(shouldFitRoomOnPhone(1440, true, true, false)).toBe(false);
+});
+
+test("phone camera fits and centers content inside the measured visible canvas", () => {
+  const camera = phoneRoomCamera({ x: 100, y: 200, w: 300, h: 200 }, { x: 0, y: 96, w: 390, h: 500 });
+  expect(camera).toEqual({ x: -55, y: 46, z: 1 });
+  expect((100 + camera.x) * camera.z).toBe(45);
+  expect((200 + camera.y) * camera.z).toBe(246);
+});
+
+test("phone camera anchors oversized content at the readable floor", () => {
+  const camera = phoneRoomCamera({ x: 100, y: 200, w: 1000, h: 700 }, { x: 0, y: 96, w: 390, h: 500 });
+  expect(camera.z).toBe(0.65);
+  expect((100 + camera.x) * camera.z).toBeCloseTo(16);
+  expect((200 + camera.y) * camera.z).toBeCloseTo(112);
+  expect((1100 + camera.x) * camera.z).toBeGreaterThan(390);
 });
 
 test("a returning person reuses their room row", () => {

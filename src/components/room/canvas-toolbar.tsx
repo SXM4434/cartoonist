@@ -22,7 +22,7 @@ export function CanvasToolbar({
     }`;
 
   return (
-    <div className="absolute left-4 top-4 z-20 flex items-center gap-px border border-border bg-background">
+    <div data-canvas-toolbar className="absolute left-4 top-4 z-20 flex items-center gap-px border border-border bg-background">
       <button type="button" onClick={() => drawing && onToggleDraw()} className={cell(!drawing)} title="Select (Esc)" aria-label="Select">
         <MousePointer2 className="h-3.5 w-3.5" />
         <span className="eyebrow max-[479px]:hidden">Select</span>

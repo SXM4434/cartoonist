@@ -14,6 +14,21 @@ export function shouldFitRoomOnPhone(viewportWidth: number, eventsLoaded: boolea
   return viewportWidth < 768 && eventsLoaded && hasContent && !alreadyFitted;
 }
 
+type Rect = { x: number; y: number; w: number; h: number };
+
+export function phoneRoomCamera(bounds: Rect, visible: Rect, padding = 16, readableFloor = 0.65): { x: number; y: number; z: number } {
+  const fitZoom = Math.min(1, (visible.w - padding * 2) / bounds.w, (visible.h - padding * 2) / bounds.h);
+  const z = Math.max(readableFloor, fitZoom);
+  if (fitZoom < readableFloor) {
+    return { x: (visible.x + padding) / z - bounds.x, y: (visible.y + padding) / z - bounds.y, z };
+  }
+  return {
+    x: (visible.x + (visible.w - bounds.w * z) / 2) / z - bounds.x,
+    y: (visible.y + (visible.h - bounds.h * z) / 2) / z - bounds.y,
+    z,
+  };
+}
+
 // The last version of a shape wins while the pen is moving. A completed stroke
 // or drag therefore sends one record rather than every pointer sample.
 export class ParticipantBatch {

@@ -4,7 +4,7 @@ import "tldraw/tldraw.css";
 import { useCanvas } from "./canvas-context";
 import type { SketchPrimitive } from "@/lib/sketch-types";
 import { useRenderStyle, type Fidelity, type RenderStyle } from "@/lib/render-style";
-import { ParticipantBatch, shouldFitRoomOnPhone, shouldPublishChange, type ParticipantOp } from "@/lib/canvas-event-sync";
+import { ParticipantBatch, phoneRoomCamera, shouldFitRoomOnPhone, shouldPublishChange, type ParticipantOp } from "@/lib/canvas-event-sync";
 import { toast } from "sonner";
 
 import "@/styles/tldraw.css";
@@ -366,6 +366,7 @@ export function Canvas({
   const renderStyle = useRenderStyle();
 
   const editorRef = useRef<Editor | null>(null);
+  const canvasHostRef = useRef<HTMLDivElement | null>(null);
   const fittedRoomRef = useRef<string | null>(null);
   const createdShapeIdsRef = useRef(new Set<string>());
   // id → serialized shape, so incremental batches only touch what changed.
@@ -762,16 +763,16 @@ export function Canvas({
     const editor = editorRef.current;
     if (!mounted || !editor || !roomId || typeof window === "undefined") return;
     const bounds = editor.getCurrentPageBounds();
-    const viewport = editor.getViewportScreenBounds();
-    if (!shouldFitRoomOnPhone(window.innerWidth, initialMobileFitReady, Boolean(bounds), fittedRoomRef.current === roomId)) return;
-    if (!bounds || !viewport || bounds.w <= 0 || bounds.h <= 0 || viewport.w <= 0 || viewport.h <= 0) return;
-    const padding = 24;
-    const zoom = Math.max(0.65, Math.min(1, (viewport.w - padding * 2) / bounds.w, (viewport.h - padding * 2) / bounds.h));
-    editor.setCamera({
-      x: -bounds.x + (viewport.w / zoom - bounds.w) / 2,
-      y: -bounds.y + (viewport.h / zoom - bounds.h) / 2,
-      z: zoom,
-    });
+    const stage = canvasHostRef.current?.parentElement;
+    const stageRect = stage?.getBoundingClientRect();
+    const toolbarRect = stage?.querySelector("[data-canvas-toolbar]")?.getBoundingClientRect();
+    const bottomBarRect = stage?.querySelector("[data-canvas-bottom-bar]")?.getBoundingClientRect();
+    if (!stageRect || !toolbarRect || !bottomBarRect) return;
+    if (!window.matchMedia("(max-width: 767px)").matches || !shouldFitRoomOnPhone(stageRect.width, initialMobileFitReady, Boolean(bounds), fittedRoomRef.current === roomId)) return;
+    if (!bounds || bounds.w <= 0 || bounds.h <= 0) return;
+    const visible = { x: 0, y: toolbarRect.bottom - stageRect.top, w: stageRect.width, h: bottomBarRect.top - toolbarRect.bottom };
+    if (visible.w <= 32 || visible.h <= 32) return;
+    editor.setCamera(phoneRoomCamera(bounds, visible));
     fittedRoomRef.current = roomId;
   }, [mounted, roomId, initialMobileFitReady, shapes, participantRecords]);
 
@@ -797,7 +798,7 @@ export function Canvas({
   }, [mounted]);
 
   return (
-    <div className="absolute inset-0 bg-background">
+    <div ref={canvasHostRef} className="absolute inset-0 bg-background">
       <Tldraw hideUi onMount={handleMount} />
       {glow.length > 0 && (
         <div className="pointer-events-none absolute inset-0 z-10">
