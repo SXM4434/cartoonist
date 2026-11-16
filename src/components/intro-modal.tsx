@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { uploadVoiceSample } from "@/lib/voice-upload.functions";
 import { ChevronDown, ChevronUp, Loader2, Mic, Square, Check, RotateCcw } from "lucide-react";
 
 const COLORS = ["#E07A3E", "#3E7AE0", "#5BB07A", "#B05BA0", "#B0A05B", "#A0B05B"];
@@ -29,6 +31,7 @@ export function IntroModal({
   mode?: "self" | "add";
   roomId: string;
 }) {
+  const saveVoice = useServerFn(uploadVoiceSample);
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [personality, setPersonality] = useState("");
@@ -152,15 +155,10 @@ export function IntroModal({
     if (!name.trim()) { toast.error("Add a name (we tried to pick it up from your intro)"); return; }
     setSubmitting(true);
     try {
-      const path = `${roomId}/${crypto.randomUUID()}.webm`;
-      const { error: upErr } = await supabase.storage
-        .from("voice-samples")
-        .upload(path, sampleBlob, { contentType: sampleBlob.type || "audio/webm", upsert: false });
-      if (upErr) {
-        toast.error("Couldn't save voice sample — try again");
-        setSubmitting(false);
-        return;
-      }
+      const form = new FormData();
+      form.append("file", sampleBlob);
+      form.append("roomId", roomId);
+      const { path } = await saveVoice({ data: form });
       await onSubmit({
         name: name.trim(),
         role: role.trim(),
@@ -168,6 +166,8 @@ export function IntroModal({
         color,
         voiceSamplePath: path,
       });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn't save voice sample — try again");
     } finally {
       setSubmitting(false);
     }
