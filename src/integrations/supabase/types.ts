@@ -349,6 +349,50 @@ export type Database = {
           },
         ]
       }
+      room_references: {
+        Row: {
+          created_at: string
+          id: string
+          query: string
+          room_id: string
+          shape_id: string | null
+          snippet: string
+          source: string
+          title: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          query: string
+          room_id: string
+          shape_id?: string | null
+          snippet?: string
+          source?: string
+          title: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          query?: string
+          room_id?: string
+          shape_id?: string | null
+          snippet?: string
+          source?: string
+          title?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_references_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rooms: {
         Row: {
           created_at: string
@@ -683,6 +727,54 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "room_recall"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      reference_list: {
+        Args: { p_room: string }
+        Returns: {
+          created_at: string
+          id: string
+          query: string
+          room_id: string
+          shape_id: string | null
+          snippet: string
+          source: string
+          title: string
+          url: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "room_references"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      reference_save: {
+        Args: {
+          p_query: string
+          p_room: string
+          p_shape_id: string
+          p_snippet: string
+          p_source: string
+          p_title: string
+          p_url: string
+        }
+        Returns: {
+          created_at: string
+          id: string
+          query: string
+          room_id: string
+          shape_id: string | null
+          snippet: string
+          source: string
+          title: string
+          url: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "room_references"
           isOneToOne: false
           isSetofReturn: true
         }
