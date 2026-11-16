@@ -21,6 +21,14 @@ type Participant = {
 
 export const Route = createFileRoute("/sessions/$sessionId")({
   ssr: false,
+  head: () => ({ meta: [
+    { title: "Session lobby — Cartoonist" },
+    { name: "description", content: "Meet your participants and join your Cartoonist session by voice or chat." },
+    { property: "og:title", content: "Session lobby — Cartoonist" },
+    { property: "og:description", content: "Meet your participants and join your Cartoonist session by voice or chat." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: Lobby,
 });
 
