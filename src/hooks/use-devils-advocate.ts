@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { eventKey, runAgentEvent } from "@/lib/agent-events";
 import { listAgentEvents, meetingEventStore } from "@/lib/agent-event-store";
+import { loadOptionalAgentEvents } from "@/lib/optional-agent-event-load";
 
 /**
  * Phase 3.1 — Devil's Advocate agent (client side).
@@ -41,8 +42,7 @@ export function useDevilsAdvocate(opts: {
 
   useEffect(() => {
     let active = true;
-    void listAgentEvents(roomId).then(rows => {
-      if (!active) return;
+    void loadOptionalAgentEvents(() => listAgentEvents(roomId), rows => {
       const saved = rows.filter(row => row.agent === "advocate");
       const risks = saved.filter(row => row.status === "completed").flatMap(row => {
         const result = row.result as { risks?: Risk[] } | null;
@@ -50,7 +50,7 @@ export function useDevilsAdvocate(opts: {
       });
       setRisks(risks.slice(-24));
       setError(saved.find(row => row.status === "failed")?.error ?? null);
-    }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : "Could not load agent events."); });
+    }, () => active, "advocate");
     return () => { active = false; };
   }, [roomId]);
 

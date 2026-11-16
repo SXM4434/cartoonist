@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Brain, Check, Copy, Eraser, FileDown, Globe, Hand, History, Layers, Mic, MicOff, MessageSquare, MoreHorizontal, Search, Send, ShieldAlert, Smile, Sparkles, UserPlus, Users, Volume2, VolumeX } from "lucide-react";
+import { Brain, Check, Copy, Eraser, FileDown, Globe, Hand, History, Layers, Mic, MicOff, MessageSquare, MoreHorizontal, PanelRightClose, PanelRightOpen, Search, Send, ShieldAlert, Smile, Sparkles, UserPlus, Users, Volume2, VolumeX } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,7 @@ import { RisksPanel } from "./room/risks-panel";
 import { useHistorian, type RecallEntry } from "@/hooks/use-historian";
 import { RecallPanel } from "./room/recall-panel";
 import { useWebReferences } from "@/hooks/use-web-references";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { ReferencesPanel } from "./room/references-panel";
 import { referenceCanvasEvent, referenceToShape, type WebReference } from "@/lib/web-reference";
 import { wakeFromStream, voiceAction, pauseNudge, interruptPlayback } from "@/lib/voice-intent";
@@ -247,7 +248,11 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     for (const item of feedback) onGeneratedInteraction(item.shapeId, item.outcome, item.resultRecord, item.actionId);
   }, [onGeneratedInteraction, onParticipantOps, selfPid]);
   const canvasStageRef = useRef<HTMLDivElement | null>(null);
+  const isMobile = useIsMobile();
   const [panelOpen, setPanelOpen] = useState(true);
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+  const sessionPanelOpen = isMobile ? mobilePanelOpen : panelOpen;
+  const setSessionPanelOpen = isMobile ? setMobilePanelOpen : setPanelOpen;
   const [panelTab, setPanelTab] = useState<"people" | "transcript" | "threads" | "memory" | "risks" | "recall" | "refs" | "replay" | "artifacts">("transcript");
   const [mediatorMuted, setMediatorMuted] = useState(false);
   const inferredStatesRef = useRef<Record<string, InferredState>>({});
@@ -1072,8 +1077,8 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const sourceThreadId = lastThreadIdRef.current;
       void runAgentEvent(meetingEventStore(roomId, "librarian"), eventKey("librarian", roomId, cleanLatest), () => memoryRef.current.recall(cleanLatest)).then(event => {
         if (event.status === "completed" && event.result && sourceThreadId) void memoryRef.current.record(event.result, sourceThreadId);
-        if (event.status === "failed") setDrawError(event.error ?? "Could not check earlier sessions.");
-      }).catch(cause => setDrawError(cause instanceof Error ? cause.message : "Could not save memory event."));
+        if (event.status === "failed") console.error("[canvas] memory event failed", event.error);
+      }).catch(cause => console.error("[canvas] memory event failed", cause));
       // Progressive fidelity: the structural pass is already on screen; ask
       // for additive detail so the wireframe thickens live instead of the
       // room staring at a blank canvas for minutes.
@@ -1230,7 +1235,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
   const generateArtifacts = useCallback(async (requestedUpdate?: string): Promise<boolean> => {
     setPanelTab("artifacts");
-    setPanelOpen(true);
+    setSessionPanelOpen(true);
     const transcript = speech.finals.length ? speech.finals.join("\n") : "(no transcript yet — start the mic or type to Cartoonist)";
     setGenerating(true);
     setArtifacts({});
@@ -1258,7 +1263,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     } finally {
       setGenerating(false);
     }
-  }, [speech.finals, participants]);
+  }, [speech.finals, participants, setSessionPanelOpen]);
 
   // v1 P2.4 — partial artifacts while listening. Background drafts keep the
   // Artifacts tab warm so it is never an empty "click to generate" surface.
@@ -1303,7 +1308,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       return;
     }
     setPanelTab("recall");
-    setPanelOpen(true);
+    setSessionPanelOpen(true);
     const entry = await historian.ask(query);
     if (entry) playMediatorLine(entry.answer);
   };
@@ -1313,7 +1318,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       voiceSeenRef.current = speech.finals.length;
       lastHumanAtRef.current = Date.now();
       const utterance = speech.finals.at(-1);
-      if (utterance) void runAgentEvent(meetingEventStore(roomId, "scribe"), eventKey("scribe", roomId, `${voiceSeenRef.current}:${utterance}`), () => ({ text: utterance })).catch(cause => setDrawError(cause instanceof Error ? cause.message : "Could not save speech event."));
+      if (utterance) void runAgentEvent(meetingEventStore(roomId, "scribe"), eventKey("scribe", roomId, `${voiceSeenRef.current}:${utterance}`), () => ({ text: utterance })).catch(cause => console.error("[canvas] speech event failed", cause));
     }
     if (!pausePrompts || !speech.listening || mediatorMuted || thinking) return;
     const timer = window.setInterval(() => {
@@ -1323,8 +1328,8 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         nudgeAtRef.current = voiceSeenRef.current;
         void runAgentEvent(meetingEventStore(roomId, "facilitator"), eventKey("facilitator", roomId, `${voiceSeenRef.current}:${speech.finals.at(-1)}`), () => ({ line })).then(event => {
           if (event.claimed && event.status === "completed") playMediatorLine(line);
-          if (event.status === "failed") setDrawError(event.error ?? "Could not save pause prompt.");
-        }).catch(cause => setDrawError(cause instanceof Error ? cause.message : "Could not save pause prompt."));
+          if (event.status === "failed") console.error("[canvas] pause prompt event failed", event.error);
+        }).catch(cause => console.error("[canvas] pause prompt event failed", cause));
       }
     }, 1000);
     return () => window.clearInterval(timer);
@@ -1623,7 +1628,16 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
-            onClick={() => { setPanelTab("people"); setPanelOpen(true); }}
+            onClick={() => setMobilePanelOpen((open) => !open)}
+            aria-label={mobilePanelOpen ? "Close session panel" : "Open session panel"}
+            aria-expanded={mobilePanelOpen}
+            className="flex h-8 w-8 items-center justify-center border border-border text-muted-foreground md:hidden"
+          >
+            {mobilePanelOpen ? <PanelRightClose className="h-3.5 w-3.5" /> : <PanelRightOpen className="h-3.5 w-3.5" />}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setPanelTab("people"); setSessionPanelOpen(true); }}
             title="People in this room"
             className="flex items-center gap-1"
           >
@@ -1654,14 +1668,14 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               <Button size="sm" variant="ghost" onClick={openAddPerson} className="h-8 gap-2 rounded-none">
                 <UserPlus className="h-3.5 w-3.5" /><span className="eyebrow">Add someone here</span>
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => { setPanelTab("artifacts"); setPanelOpen(true); void generateArtifacts(); }} className="h-8 gap-2 rounded-none">
+              <Button size="sm" variant="ghost" onClick={() => { setPanelTab("artifacts"); setSessionPanelOpen(true); void generateArtifacts(); }} className="h-8 gap-2 rounded-none">
                 <FileDown className="h-3.5 w-3.5" /><span className="eyebrow">Export artifacts</span>
               </Button>
               <Button
                 size="sm"
                 variant="ghost"
                 data-testid="memory-trigger"
-                onClick={() => { setPanelTab("memory"); setPanelOpen(true); }}
+                onClick={() => { setPanelTab("memory"); setSessionPanelOpen(true); }}
                 className="h-8 gap-2 rounded-none"
               >
                 <Brain className="h-3.5 w-3.5" /><span className="eyebrow">Memory</span>
@@ -1693,10 +1707,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         </div>
       )}
 
-      {(drawError || devil.error || liveArtifacts.error) && (
+      {drawError && (
         <div className="border-b border-border bg-background px-5 py-1.5">
           <span className="eyebrow text-primary">Room error</span>{" "}
-          <span className="text-foreground/80" style={{ fontSize: "var(--step-0)" }}>{drawError || devil.error || liveArtifacts.error}</span>
+          <span className="text-foreground/80" style={{ fontSize: "var(--step-0)" }}>{drawError}</span>
         </div>
       )}
 
@@ -1726,8 +1740,8 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         </div>
       )}
 
-      <div className="flex flex-1 overflow-hidden">
-        <div ref={canvasStageRef} className="relative flex-1 overflow-hidden">
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
+        <div ref={canvasStageRef} className="relative min-w-0 flex-1 overflow-hidden">
           <CanvasProvider>
             <Canvas
               shapes={replayShapes ?? shapes}
@@ -1857,10 +1871,11 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                   void speech.start();
                 }}
                 title={speech.listening ? "Stop listening to the room" : "Let Cartoonist hear the room"}
-                className={`flex h-10 items-center gap-1.5 px-3 transition active:scale-[0.98] ${speech.listening ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
+                aria-label={speech.listening ? "Stop" : "Hear room"}
+                className={`flex h-10 shrink-0 items-center gap-1.5 px-3 max-[479px]:w-10 max-[479px]:justify-center max-[479px]:px-0 transition active:scale-[0.98] ${speech.listening ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}
               >
                 {speech.listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                <span className="eyebrow">{speech.listening ? "Stop" : "Hear room"}</span>
+                <span className="eyebrow max-[479px]:hidden">{speech.listening ? "Stop" : "Hear room"}</span>
               </button>
               <span className="h-6 w-px bg-border" aria-hidden />
               <form onSubmit={(e) => { e.preventDefault(); void askDraw(); }} className="flex min-w-0 flex-1 items-center gap-2 px-3">
@@ -1932,8 +1947,9 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         </div>
 
         <RoomPanel
-          open={panelOpen}
-          onOpen={setPanelOpen}
+          open={sessionPanelOpen}
+          onOpen={setSessionPanelOpen}
+          mobileOpen={mobilePanelOpen}
           active={panelTab}
           onActive={(id) => setPanelTab(id as typeof panelTab)}
           tabs={[
