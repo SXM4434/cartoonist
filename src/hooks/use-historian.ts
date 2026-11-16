@@ -8,7 +8,7 @@ import { rpc } from "@/lib/db-rpc";
  * empty quote list means "nobody said that".
  */
 
-export type RecallQuote = { text: string; speaker: string; threadId?: string; shapeIds?: string[] };
+export type RecallQuote = { text: string; speaker: string; threadId?: string; shapeIds?: string[]; chunkId?: string };
 
 export type RecallEntry = {
   id: string;
