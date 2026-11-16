@@ -53,9 +53,9 @@ import { ReferencesPanel } from "./room/references-panel";
 import { referenceCanvasEvent, referenceToShape, type WebReference } from "@/lib/web-reference";
 import { wakeFromStream, voiceAction, pauseNudge, interruptPlayback } from "@/lib/voice-intent";
 
-import { canvasEventsForRoom, roomGet, type CanvasEventRow } from "@/lib/db-rpc";
-import { applyCanvasEvent, shouldSeedCanvas, type ParticipantOp } from "@/lib/canvas-event-sync";
-import { existingParticipantId } from "@/lib/participant-identity";
+import { canvasEventsForRoom, roomGet, rpc, type CanvasEventRow } from "@/lib/db-rpc";
+import { applyCanvasEvent, CanvasEventWriter, mergeHydrated, mergeReplayRows, ParticipantBatch, shouldSeedCanvas, type ParticipantOp } from "@/lib/canvas-event-sync";
+import { joinParticipant } from "@/lib/participant-identity";
 import { FeedbackDeduper, type DrawingOutcome } from "@/lib/drawing-feedback";
 import { eventKey, runAgentEvent } from "@/lib/agent-events";
 import { meetingEventStore } from "@/lib/agent-event-store";
@@ -159,6 +159,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [shapes, setShapes] = useState<SketchPrimitive[]>([]);
   const [participantRecords, setParticipantRecords] = useState<Map<string, TLRecord | null>>(new Map());
   const [eventsLoaded, setEventsLoaded] = useState(false);
+  const [eventsReady] = useState(() => {
+    let resolve!: () => void;
+    const promise = new Promise<void>((done) => { resolve = done; });
+    return { promise, resolve };
+  });
+  const [canvasSubscribed, setCanvasSubscribed] = useState(false);
   const hasCanvasHistoryRef = useRef(false);
   const hydratingEventsRef = useRef(true);
   const pendingCanvasRowsRef = useRef<CanvasEventRow[]>([]);
@@ -183,16 +189,26 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [sessionCtx, setSessionCtx] = useState<SessionContext | null>(null);
   const [inputMode, setInputMode] = useState<"voice" | "chat">("voice");
   const [selfPid, setSelfPid] = useState<string | null>(null);
-  const canvasWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const publishCanvasRows = useCallback((rows: Array<Record<string, unknown>>) => {
-    canvasWriteQueueRef.current = canvasWriteQueueRef.current.then(async () => {
-      for (let i = 0; i < rows.length; i += 100) {
-        const { error } = await supabase.from("canvas_events").insert(rows.slice(i, i + 100) as never);
-        if (error) console.error("[canvas] event insert failed", error);
-      }
-    }).catch((error) => console.error("[canvas] event insert failed", error));
-  }, []);
-  const waitingOpsRef = useRef<ParticipantOp[]>([]);
+  const [canvasWriter] = useState(() => new CanvasEventWriter<Record<string, unknown>>(
+    async (rows, expectedClear, seed) => {
+      const result = await rpc<boolean>("canvas_events_append", {
+        p_room: roomId, p_rows: rows, p_expected_clear: expectedClear, p_seed: seed,
+      });
+      if (result === null) throw new Error("Canvas write failed");
+      return result;
+    },
+    async (row) => {
+      const clear = await rpc<{ id: string; created_at: string }>("canvas_events_clear", { p_room: roomId, p_row: row });
+      if (!clear) throw new Error("Canvas clear failed");
+      return clear;
+    },
+  ));
+  const publishCanvasRows = useCallback((rows: Array<Record<string, unknown>>, seed = false) => {
+    for (let i = 0; i < rows.length; i += 100) {
+      void canvasWriter.enqueue(rows.slice(i, i + 100), seed).catch((error) => console.error("[canvas] event insert failed", error));
+    }
+  }, [canvasWriter]);
+  const waitingOpsRef = useRef(new ParticipantBatch());
   const waitingFeedbackRef = useRef(new Map<string, { shapeId: string; outcome: DrawingOutcome; resultRecord?: TLShape; actionId?: string }>());
   const onParticipantOps = useCallback((ops: ParticipantOp[]) => {
     if (!ops.length) return;
@@ -202,7 +218,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       return next;
     });
     if (!selfPid) {
-      waitingOpsRef.current.push(...ops);
+      for (const op of ops) waitingOpsRef.current.add(op);
       return;
     }
     const stamp = Date.now() - startedAtRef.current;
@@ -224,11 +240,11 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       feedbackDeduperRef.current.release(roomId, shapeId, outcome, actionId);
       return;
     }
-    void supabase.from("drawing_feedback" as never).insert({
+    void canvasWriter.idle().then(() => supabase.from("drawing_feedback" as never).insert({
       room_id: roomId, participant_id: selfPid, shape_id: shapeId,
       outcome, original_thread_id: origin.threadId, original_span: origin.span,
       original_op: origin.op, result_record: resultRecord ?? null, action_id: actionId ?? crypto.randomUUID(),
-    } as never).then(({ error }) => {
+    } as never)).then(({ error }) => {
       if (error && error.code !== "23505") {
         feedbackDeduperRef.current.release(roomId, shapeId, outcome, actionId);
         console.error("[canvas] drawing feedback failed", error);
@@ -236,16 +252,25 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       } else if (!error && outcome === "kept") {
         toast.success("Drawing kept.");
       }
+    }).catch((error) => {
+      feedbackDeduperRef.current.release(roomId, shapeId, outcome, actionId);
+      console.error("[canvas] drawing feedback failed", error);
     });
-  }, [roomId, selfPid]);
+  }, [canvasWriter, roomId, selfPid]);
   useEffect(() => {
     if (!selfPid) return;
-    const ops = waitingOpsRef.current.splice(0);
-    if (ops.length) onParticipantOps(ops);
+    const ops = waitingOpsRef.current.drain();
+    if (ops.length) {
+      const stamp = Date.now() - startedAtRef.current;
+      publishCanvasRows(ops.map((op) => ({
+        room_id: roomId, op, t_offset_ms: stamp, source: "participant",
+        transcript_span: { participant_id: selfPid, client_id: clientIdRef.current }, confidence: 1,
+      })));
+    }
     const feedback = [...waitingFeedbackRef.current.values()];
     waitingFeedbackRef.current.clear();
     for (const item of feedback) onGeneratedInteraction(item.shapeId, item.outcome, item.resultRecord, item.actionId);
-  }, [onGeneratedInteraction, onParticipantOps, selfPid]);
+  }, [onGeneratedInteraction, publishCanvasRows, roomId, selfPid]);
   const canvasStageRef = useRef<HTMLDivElement | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
   const [panelTab, setPanelTab] = useState<"people" | "transcript" | "threads" | "memory" | "risks" | "recall" | "refs" | "replay" | "artifacts">("transcript");
@@ -481,7 +506,6 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     const storedMode = window.localStorage.getItem(`cartoonist_input_mode_${roomId}`) as "voice" | "chat" | null;
     const storedPid = window.localStorage.getItem(`cartoonist_participant_${roomId}`);
     if (storedMode) setInputMode(storedMode);
-    if (storedPid) setSelfPid(storedPid);
     if (name) {
       // Auto-join with the profile they set up during onboarding.
       // No popup — they already introduced themselves.
@@ -491,17 +515,26 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       if (!cached) {
         window.localStorage.setItem(`cartoonist_joined_${roomId}`, "1");
       }
-      if (!storedPid) {
-        void (async () => {
-          const { data: existing, error: lookupError } = await supabase.from("participants")
-            .select("id,display_name").eq("room_id", roomId);
-          if (lookupError) throw lookupError;
-          const existingId = existingParticipantId((existing ?? []) as Array<{ id: string; display_name: string }>, null, name);
-          if (existingId) return existingId;
-          const { data, error } = await supabase.from("participants")
-            .insert({ room_id: roomId, display_name: name, color } as never).select("id").maybeSingle();
-          if (error) throw error;
-          return data?.id ?? null;
+      void (async () => {
+          const id = await joinParticipant(roomId, window.localStorage,
+            async (id) => {
+              const { error } = await supabase.from("participants")
+                .insert({ id, room_id: roomId, display_name: name, color } as never);
+              if (error) throw error;
+            },
+            async (id) => {
+              const { data, error } = await supabase.from("participants")
+                .select("id").eq("room_id", roomId).eq("id", id).maybeSingle();
+              if (error) throw error;
+              return Boolean(data);
+            }, crypto.randomUUID.bind(crypto), navigator.locks,
+          );
+          if (storedPid) {
+            const { error } = await supabase.from("participants").update({ display_name: name, color } as never)
+              .eq("room_id", roomId).eq("id", id);
+            if (error) throw error;
+          }
+          return id;
         })().then((id) => {
             if (!id) {
               console.error("[canvas] participant join returned no id");
@@ -521,7 +554,6 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           setIntroOpen(true);
           toast.error("Could not join the meeting.");
         });
-      }
     }
 
     (async () => {
@@ -567,15 +599,20 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   // Replays creates/edits/removes in insert order; groups by thread_id to
   // rebuild the Threads rail. Skips seed effect if anything hydrates.
   useEffect(() => {
+    if (!canvasSubscribed) return;
     let cancelled = false;
     (async () => {
       const data = await canvasEventsForRoom(roomId);
       if (cancelled) return;
       if (data === null) return;
-      const rows = [...new Map([...(data ?? []), ...pendingCanvasRowsRef.current].map((row) => [row.id, row])).values()]
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime() || a.id.localeCompare(b.id));
+      const rows = mergeReplayRows(data, pendingCanvasRowsRef.current);
       pendingCanvasRowsRef.current = [];
       hydratingEventsRef.current = false;
+      const lastClear = [...rows].reverse().find((row) => (row.op as { kind?: string } | null)?.kind === "clear");
+      canvasWriter.setLastClear(lastClear ? { id: lastClear.id, created_at: lastClear.created_at } : null);
+      const cleared = Boolean(lastClear);
+      const touchedIds = new Set(rows.map((row) => (row.op as { id?: string } | null)?.id).filter((id): id is string => typeof id === "string"));
+      const touchedThreads = new Set(rows.map((row) => row.thread_id).filter((id): id is string => Boolean(id)));
 
       const byId = new Map<string, SketchPrimitive>();
       const participantById = new Map<string, TLRecord | null>();
@@ -650,16 +687,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       hasCanvasHistoryRef.current = rows.some((row) => row.source !== "participant");
       if (hasCanvasHistoryRef.current || participantById.size > 0) {
         if (hasCanvasHistoryRef.current) seededRef.current = true;
-        setShapes((current) => {
-          const merged = new Map(byId);
-          for (const shape of current) merged.set(shape.id, shape);
-          return [...merged.values()];
-        });
-        setParticipantRecords((current) => new Map([...participantById, ...current]));
-        generatedOriginsRef.current = new Map([...origins, ...generatedOriginsRef.current]);
+        setShapes((current) => mergeHydrated(byId, current, touchedIds, cleared));
+        setParticipantRecords((current) => new Map([...participantById, ...(!cleared ? [...current].filter(([id]) => !touchedIds.has(id)) : [])]));
+        generatedOriginsRef.current = new Map([...origins, ...(!cleared ? [...generatedOriginsRef.current].filter(([id]) => !touchedIds.has(id)) : [])]);
         setThreads((current) => {
           const merged = new Map(rebuiltThreads.map((thread) => [thread.id, thread]));
-          for (const thread of current) merged.set(thread.id, thread);
+          if (!cleared) for (const thread of current) if (!touchedThreads.has(thread.id)) merged.set(thread.id, thread);
           return [...merged.values()].sort((a, b) => a.at - b.at);
         });
         framesRef.current = rebuiltFrames;
@@ -667,9 +700,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         setActiveFrame(rebuiltFrames.at(-1)?.index ?? 0);
       }
       setEventsLoaded(true);
+      eventsReady.resolve();
     })();
     return () => { cancelled = true; };
-  }, [roomId]);
+  }, [canvasSubscribed, canvasWriter, eventsReady, roomId]);
 
   // v2.P6 — realtime canvas sync. Any device inserting into canvas_events
   // publishes to the room channel; every other device applies the op to
@@ -689,16 +723,17 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         const span = (row.transcript_span ?? {}) as { latest?: string; modality?: string | null; relation?: string | null; goal?: string | null; origin?: string; client_id?: string; frame?: StoryFrame; thread_ref?: string | null };
         if (span.client_id === clientIdRef.current) return;
         if (op.kind === "clear") {
+          canvasWriter.remoteClear({ id: row.id, created_at: row.created_at });
           seededRef.current = true;
           hasCanvasHistoryRef.current = true;
-          waitingOpsRef.current = [];
+          waitingOpsRef.current.drain();
           generatedOriginsRef.current.clear();
           lastThreadIdRef.current = null;
           shapesRef.current = [];
           activeFrameRef.current = 0;
           window.dispatchEvent(new CustomEvent("cartoonist:clear"));
           setShapes([]);
-          setParticipantRecords((current) => new Map([...current.keys()].map((id) => [id, null])));
+          setParticipantRecords(new Map());
           setThreads([]);
           framesRef.current = [];
           setFrames([]);
@@ -711,6 +746,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           setActiveFrame(span.frame.index);
         }
         if (row.source === "participant") {
+          if (typeof op.id === "string") {
+            waitingOpsRef.current.remove(op.id);
+            window.dispatchEvent(new CustomEvent("cartoonist:remote-participant", { detail: { id: op.id } }));
+          }
           setParticipantRecords((current) => {
             const next = new Map(current);
             applyCanvasEvent(new Map<string, SketchPrimitive>(), next, row);
@@ -776,9 +815,9 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           });
         }
       })
-      .subscribe();
+      .subscribe((status) => { if (status === "SUBSCRIBED") setCanvasSubscribed(true); });
     return () => { void supabase.removeChannel(ch); };
-  }, [roomId]);
+  }, [canvasWriter, roomId]);
 
 
 
@@ -819,7 +858,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         transcript_span: { origin: "session_brief", goal: sessionCtx.goal ?? null, client_id: clientIdRef.current },
         confidence: 1,
         thread_id: seedThread,
-    })));
+    })), true);
     setThreads((prev) => [
       ...prev,
       {
@@ -869,7 +908,9 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
   const requestDraw = useCallback(async (latest: string, enrichPass = 0, maxFidelity = false): Promise<boolean> => {
     const cleanLatest = latest.trim();
-    if (!cleanLatest || NON_SPEECH_TRANSCRIPT.test(cleanLatest) || drawInFlightRef.current) return false;
+    if (!cleanLatest || NON_SPEECH_TRANSCRIPT.test(cleanLatest)) return false;
+    await eventsReady.promise;
+    if (drawInFlightRef.current) return false;
     const requestsUi = /\b(high[-\s]?fi(?:delity)?|wireframes?|mockups?|ui screens?|interface|dashboard|editor|app (?:screen|page)|website (?:screen|page)|production[-\s]?ready)\b/i.test(cleanLatest);
     // Wait for a content-specific plan; never seed an unrelated demo dashboard.
     drawInFlightRef.current = true;
@@ -1091,7 +1132,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       drawInFlightRef.current = false;
       setThinking(false);
     }
-  }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, handQueue, threads, playMediatorLine, ensureFrame, publishCanvasRows]);
+  }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, handQueue, threads, playMediatorLine, ensureFrame, publishCanvasRows, eventsReady]);
 
   // Self-reference so a completed pass can chain the next enrichment pass.
   const requestDrawRef = useRef<typeof requestDraw | null>(null);
@@ -1193,29 +1234,28 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   }, [askText, requestDraw]);
 
   const clearCanvas = useCallback(() => {
-    const participantIds = [...participantRecords.keys()];
-    publishCanvasRows([{
+    void canvasWriter.clear({
       room_id: roomId, op: { kind: "clear" }, t_offset_ms: Date.now() - startedAtRef.current,
       source: "clear", transcript_span: { origin: "clear", client_id: clientIdRef.current, participant_id: selfPid },
       confidence: 1,
-    }]);
+    }).catch((error) => console.error("[canvas] clear failed", error));
     seededRef.current = true;
     hasCanvasHistoryRef.current = true;
-    waitingOpsRef.current = [];
+    waitingOpsRef.current.drain();
     generatedOriginsRef.current.clear();
     lastThreadIdRef.current = null;
     shapesRef.current = [];
     activeFrameRef.current = 0;
     window.dispatchEvent(new CustomEvent("cartoonist:clear"));
     setShapes([]);
-    setParticipantRecords(new Map(participantIds.map((id) => [id, null])));
+    setParticipantRecords(new Map());
     setThreads([]);
     framesRef.current = [];
     setFrames([]);
     setActiveFrame(0);
     setFreehand([]);
     lastSentLenRef.current = speech.finals.join(" ").length;
-  }, [participantRecords, publishCanvasRows, roomId, selfPid, speech.finals]);
+  }, [canvasWriter, participantRecords, roomId, selfPid, speech.finals]);
 
   const toggleDraw = useCallback(() => {
     setDrawing((d) => !d);
@@ -1373,13 +1413,13 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         relation: null,
       }];
     });
-    void supabase.from("canvas_events").insert(event as never);
+    publishCanvasRows([event as unknown as Record<string, unknown>]);
     void webRefs.save(ref, shape.id);
     toast.success("Pinned to canvas");
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids: [shape.id] } }));
     }
-  }, [roomId, webRefs.save]);
+  }, [publishCanvasRows, roomId, webRefs.save]);
 
   const pinRisk = useCallback((risk: DevilRisk) => {
     const occupied = bboxOf(shapesRef.current);
@@ -1421,17 +1461,32 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     }
     let pid: string | null = null;
     if (!isAdd) {
-      const { data: existing, error } = await supabase.from("participants").select("id,display_name").eq("room_id", roomId);
-      if (error) {
-        console.error("[canvas] participant lookup failed", error);
+      try {
+        pid = await joinParticipant(roomId, window.localStorage,
+          async (id) => {
+            const { error } = await supabase.from("participants").insert({
+              id, room_id: roomId, display_name: data.name, role: data.role,
+              personality: data.personality, color: data.color, input_mode: inputMode,
+              voice_sample_path: data.voiceSamplePath,
+            } as never);
+            if (error) throw error;
+          },
+          async (id) => {
+            const { data: found, error } = await supabase.from("participants")
+              .select("id").eq("room_id", roomId).eq("id", id).maybeSingle();
+            if (error) throw error;
+            return Boolean(found);
+          }, crypto.randomUUID.bind(crypto), navigator.locks,
+        );
+      } catch (error) {
+        console.error("[canvas] participant join failed", error);
         setJoined(false);
         setIntroOpen(true);
         toast.error("Could not join the meeting.");
         return;
       }
-      pid = existingParticipantId((existing ?? []) as Array<{ id: string; display_name: string }>, window.localStorage.getItem(`cartoonist_participant_${roomId}`), data.name);
     }
-    if (!pid) {
+    if (isAdd) {
       const { data: ins, error } = await supabase.from("participants").insert({
         room_id: roomId, display_name: data.name, role: data.role,
         personality: data.personality, color: data.color, input_mode: inputMode,
@@ -1439,6 +1494,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       } as never).select("id").maybeSingle();
       if (error) console.error("[canvas] participant join failed", error);
       pid = ins?.id ?? null;
+    } else if (pid) {
+      const { error } = await supabase.from("participants").update({
+        display_name: data.name, role: data.role, personality: data.personality,
+        color: data.color, input_mode: inputMode, voice_sample_path: data.voiceSamplePath,
+      } as never).eq("room_id", roomId).eq("id", pid);
+      if (error) console.error("[canvas] participant update failed", error);
     }
     if (!pid) {
       if (!isAdd) {
@@ -1728,7 +1789,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
       <div className="flex flex-1 overflow-hidden">
         <div ref={canvasStageRef} className="relative flex-1 overflow-hidden">
-          <CanvasProvider>
+          {eventsLoaded && <CanvasProvider>
             <Canvas
               shapes={replayShapes ?? shapes}
               drawingEnabled={drawing && replayShapes === null}
@@ -1736,11 +1797,11 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               onParticipantOps={onParticipantOps}
               onGeneratedInteraction={onGeneratedInteraction}
             />
-          </CanvasProvider>
+          </CanvasProvider>}
           <CursorsOverlay cursors={remoteCursors} />
           <ReactionsOverlay reactions={reactions} />
 
-          <CanvasToolbar drawing={drawing} onToggleDraw={toggleDraw} onKeepDrawing={() => window.dispatchEvent(new Event("cartoonist:keep-selected"))} />
+          {eventsLoaded && <CanvasToolbar drawing={drawing} onToggleDraw={toggleDraw} onKeepDrawing={() => window.dispatchEvent(new Event("cartoonist:keep-selected"))} />}
 
           {replayShapes === null && frames.length > 0 && (
             <div className="absolute left-4 top-16 z-30 flex max-w-[60%] items-center gap-1 overflow-x-auto border border-border bg-background/90 px-2 py-1.5">

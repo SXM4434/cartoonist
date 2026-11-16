@@ -10,6 +10,23 @@ export function shouldSeedCanvas(eventsLoaded: boolean, seeded: boolean, shapeCo
   return eventsLoaded && !seeded && !hasCanvasHistory && shapeCount === 0 && hasGoal;
 }
 
+export function canvasPageCursor(after: { id: string; created_at: string } | undefined) {
+  return { p_after_at: after?.created_at ?? null, p_after_id: after?.id ?? null };
+}
+
+export function mergeReplayRows<T extends { id: string; created_at: string }>(page: T[], received: T[]): T[] {
+  return [...new Map([...page, ...received].map((row) => [row.id, row])).values()]
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime() || a.id.localeCompare(b.id));
+}
+
+export function mergeHydrated<T extends { id: string }>(
+  replayed: ReadonlyMap<string, T>, current: readonly T[], touched: ReadonlySet<string>, cleared: boolean,
+): T[] {
+  const merged = new Map(replayed);
+  if (!cleared) for (const item of current) if (!touched.has(item.id)) merged.set(item.id, item);
+  return [...merged.values()];
+}
+
 // The last version of a shape wins while the pen is moving. A completed stroke
 // or drag therefore sends one record rather than every pointer sample.
 export class ParticipantBatch {
@@ -24,6 +41,79 @@ export class ParticipantBatch {
     this.pending.clear();
     return rows;
   }
+
+  remove(id: string): void { this.pending.delete(id); }
+}
+
+export function shouldApplyParticipantRecord<T>(previous: T | undefined, incoming: T, localOwned: boolean): boolean {
+  return previous !== incoming && !localOwned;
+}
+
+export function isOverridden<T>(records: ReadonlyMap<string, T | null>, localIds: ReadonlySet<string>, id: string): boolean {
+  return records.has(id) || localIds.has(id);
+}
+
+/** Serializes local writes and rejects batches made before a later clear. */
+export type ClearCursor = { id: string; created_at: string };
+
+function newerClear(a: ClearCursor, b: ClearCursor | null): boolean {
+  if (!b) return true;
+  const delta = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  return delta > 0 || (delta === 0 && a.id > b.id);
+}
+
+export class CanvasEventWriter<Row> {
+  private tail: Promise<void> = Promise.resolve();
+  private generation = 0;
+  private lastClear: ClearCursor | null = null;
+  private localClearPending = false;
+  private remoteDuringLocal: ClearCursor | null = null;
+
+  constructor(
+    private append: (rows: Row[], clearId: string | null, seed: boolean) => Promise<boolean>,
+    private insertClear: (row: Row) => Promise<ClearCursor>,
+  ) {}
+
+  setLastClear(clear: ClearCursor | null): void { this.lastClear = clear; }
+  remoteClear(clear: ClearCursor): void {
+    if (this.localClearPending) {
+      if (newerClear(clear, this.remoteDuringLocal)) this.remoteDuringLocal = clear;
+    } else if (newerClear(clear, this.lastClear)) {
+      this.generation++;
+      this.lastClear = clear;
+    }
+  }
+  idle(): Promise<void> { return this.tail; }
+
+  enqueue(rows: Row[], seed = false): Promise<boolean> {
+    const generation = this.generation;
+    const task = this.tail.then(() => generation === this.generation
+      ? this.append(rows, this.lastClear?.id ?? null, seed) : false);
+    this.tail = task.then(() => {}, () => {});
+    return task;
+  }
+
+  clear(row: Row): Promise<string> {
+    this.generation++;
+    this.localClearPending = true;
+    const task = this.tail.then(async () => {
+      const clear = await this.insertClear(row);
+      if (newerClear(clear, this.lastClear)) this.lastClear = clear;
+      this.localClearPending = false;
+      if (this.remoteDuringLocal && newerClear(this.remoteDuringLocal, clear)) {
+        this.generation++;
+        this.lastClear = this.remoteDuringLocal;
+      }
+      this.remoteDuringLocal = null;
+      return clear.id;
+    }).catch((error) => {
+      this.localClearPending = false;
+      this.remoteDuringLocal = null;
+      throw error;
+    });
+    this.tail = task.then(() => {}, () => {});
+    return task;
+  }
 }
 
 export function applyCanvasEvent<A extends { id: string; type: string }, P extends { id: string; typeName: string }>(
@@ -35,7 +125,7 @@ export function applyCanvasEvent<A extends { id: string; type: string }, P exten
   const op = row.op as Record<string, unknown>;
   if (op.kind === "clear") {
     ai.clear();
-    for (const id of participant.keys()) participant.set(id, null);
+    participant.clear();
     return;
   }
   if (typeof op.id !== "string") return;

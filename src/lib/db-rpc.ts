@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { canvasPageCursor } from "@/lib/canvas-event-sync";
 
 /**
  * Room RPCs. A live room link permits guest participation. Historical team
@@ -62,16 +63,9 @@ export async function canvasEventsForRoom(roomId: string, limit = Number.MAX_SAF
   const rows: CanvasEventRow[] = [];
   while (rows.length < limit) {
     const pageSize = Math.min(500, limit - rows.length);
-    const { data: page, error } = await supabase.from("canvas_events")
-      .select("id,op,source,transcript_span,thread_id,t_offset_ms,created_at")
-      .eq("room_id", roomId)
-      .order("created_at", { ascending: true })
-      .order("id", { ascending: true })
-      .range(rows.length, rows.length + pageSize - 1);
-    if (error) {
-      console.error("[canvas] event replay failed", error);
-      return null;
-    }
+    const page = await rpc<CanvasEventRow[]>("canvas_events_page", {
+      p_room: roomId, ...canvasPageCursor(rows.at(-1)), p_limit: pageSize,
+    });
     if (!page) return null;
     rows.push(...page);
     if (page.length < pageSize) break;

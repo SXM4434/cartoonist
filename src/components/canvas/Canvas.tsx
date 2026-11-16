@@ -4,7 +4,7 @@ import "tldraw/tldraw.css";
 import { useCanvas } from "./canvas-context";
 import type { SketchPrimitive } from "@/lib/sketch-types";
 import { useRenderStyle, type Fidelity, type RenderStyle } from "@/lib/render-style";
-import { ParticipantBatch, shouldPublishChange, type ParticipantOp } from "@/lib/canvas-event-sync";
+import { isOverridden, ParticipantBatch, shouldApplyParticipantRecord, shouldPublishChange, type ParticipantOp } from "@/lib/canvas-event-sync";
 import { toast } from "sonner";
 
 import "@/styles/tldraw.css";
@@ -367,6 +367,15 @@ export function Canvas({
   const shapeSigRef = useRef(new Map<string, string>());
   const generatedByRecordRef = useRef(new Map<string, string>());
   const localOverrideIdsRef = useRef(new Set<string>());
+  const localParticipantRecordsRef = useRef(new Map<string, TLRecord | null>());
+  useEffect(() => {
+    const remote = (event: Event) => {
+      const id = (event as CustomEvent<{ id?: string }>).detail?.id;
+      if (id) localParticipantRecordsRef.current.delete(id);
+    };
+    window.addEventListener("cartoonist:remote-participant", remote);
+    return () => window.removeEventListener("cartoonist:remote-participant", remote);
+  }, []);
   const appliedParticipantRecordsRef = useRef<ReadonlyMap<string, TLRecord | null>>(new Map());
   const participantBatchRef = useRef(new ParticipantBatch());
   const pendingGeneratedRef = useRef(new Map<string, { outcome: "edited" | "deleted"; record?: TLShape }>());
@@ -434,10 +443,12 @@ export function Canvas({
         if (!shouldPublishChange(entry.source, applyingRef.current)) return;
         for (const record of Object.values(entry.changes.added)) {
           if (!["shape", "asset", "binding"].includes(record.typeName)) continue;
+          localParticipantRecordsRef.current.set(String(record.id), record);
           participantBatchRef.current.add({ kind: "participant_upsert", id: String(record.id), record });
         }
         for (const [, record] of Object.values(entry.changes.updated)) {
           if (!["shape", "asset", "binding"].includes(record.typeName)) continue;
+          localParticipantRecordsRef.current.set(String(record.id), record);
           const original = generatedByRecordRef.current.get(String(record.id));
           if (original) {
             localOverrideIdsRef.current.add(String(record.id));
@@ -447,6 +458,7 @@ export function Canvas({
         }
         for (const record of Object.values(entry.changes.removed)) {
           if (!["shape", "asset", "binding"].includes(record.typeName)) continue;
+          localParticipantRecordsRef.current.set(String(record.id), null);
           const original = generatedByRecordRef.current.get(String(record.id));
           if (original) {
             localOverrideIdsRef.current.add(String(record.id));
@@ -649,7 +661,7 @@ export function Canvas({
       return records;
     }).filter(isSane);
     generatedByRecordRef.current = generated;
-    const overridden = (id: string) => participantRecords?.has(id) || localOverrideIdsRef.current.has(id);
+    const overridden = (id: string) => isOverridden(participantRecords ?? new Map(), localOverrideIdsRef.current, id);
     const desiredById = new Map(desired.filter((s) => !overridden(String(s.id))).map((s) => [String(s.id), s]));
     // Current AI-authored shapes on the page (anything we created before).
     const currentAiIds = new Set<string>();
@@ -736,7 +748,10 @@ export function Canvas({
     const previous = appliedParticipantRecordsRef.current;
     appliedParticipantRecordsRef.current = participantRecords;
     for (const [id, record] of participantRecords) {
-      if (previous.get(id) === record) continue;
+      if (!shouldApplyParticipantRecord(previous.get(id), record, localParticipantRecordsRef.current.has(id))) {
+        if (localParticipantRecordsRef.current.get(id) === record) localParticipantRecordsRef.current.delete(id);
+        continue;
+      }
       try {
         editor.store.mergeRemoteChanges(() => {
           if (record === null) {
@@ -758,6 +773,8 @@ export function Canvas({
       if (batchTimerRef.current) clearTimeout(batchTimerRef.current);
       batchTimerRef.current = null;
       participantBatchRef.current.drain();
+      localOverrideIdsRef.current.clear();
+      localParticipantRecordsRef.current.clear();
       pendingGeneratedRef.current.clear();
       const ids = [...editor.getCurrentPageShapeIds()];
       if (!ids.length) return;

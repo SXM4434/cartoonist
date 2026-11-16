@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { addSession, loadProfile } from "@/lib/profile";
 import { CartoonistHeader } from "./onboarding";
 import { roomGet } from "@/lib/db-rpc";
-import { existingParticipantId } from "@/lib/participant-identity";
+import { existingParticipantId, joinParticipant } from "@/lib/participant-identity";
 
 type Room = {
   id: string; name: string; join_code: string | null;
@@ -116,29 +116,35 @@ function Lobby() {
     let pid = selfPid;
 
     if (!pid) {
-      const { data: existing, error: lookupError } = await supabase.from("participants")
-        .select("id,display_name").eq("room_id", sessionId);
-      if (lookupError) { console.error("[lobby] participant lookup failed", lookupError); toast.error("Could not join"); return; }
-      pid = existingParticipantId((existing ?? []) as Array<{ id: string; display_name: string }>, localStorage.getItem(`cartoonist_participant_${sessionId}`), p.displayName);
-    }
-    if (!pid) {
-      const { data: inserted, error } = await supabase.from("participants").insert({
-        room_id: sessionId,
-        display_name: p.displayName,
-        role: p.role || null,
-        personality: room.host_role ?? null,
-        color: p.color,
-        input_mode: chosenMode,
-        linked_participant_id: opts?.linkTo ?? null,
-      } as never).select("id").single();
-      if (error || !inserted) { toast.error("Could not join"); return; }
-      pid = (inserted as { id: string }).id;
-      // If linking, bump the canonical row to "both"
-      if (opts?.linkTo) {
-        await supabase.from("participants").update({ input_mode: "both" } as never).eq("id", opts.linkTo);
+      try {
+        pid = await joinParticipant(sessionId, localStorage,
+          async (id) => {
+            const { error } = await supabase.from("participants").insert({
+              id, room_id: sessionId, display_name: p.displayName, role: p.role || null,
+              personality: room.host_role ?? null, color: p.color, input_mode: chosenMode,
+              linked_participant_id: opts?.linkTo ?? null,
+            } as never);
+            if (error) throw error;
+          },
+          async (id) => {
+            const { data, error } = await supabase.from("participants")
+              .select("id").eq("room_id", sessionId).eq("id", id).maybeSingle();
+            if (error) throw error;
+            return Boolean(data);
+          }, crypto.randomUUID.bind(crypto), navigator.locks,
+        );
+      } catch (error) {
+        console.error("[lobby] participant join failed", error);
+        toast.error("Could not join");
+        return;
       }
-    } else {
-      await supabase.from("participants").update({ input_mode: chosenMode } as never).eq("id", pid);
+    }
+    const { error: updateError } = await supabase.from("participants").update({
+      display_name: p.displayName, role: p.role || null, color: p.color, input_mode: chosenMode,
+    } as never).eq("room_id", sessionId).eq("id", pid);
+    if (updateError) { toast.error("Could not join"); return; }
+    if (opts?.linkTo) {
+      await supabase.from("participants").update({ input_mode: "both" } as never).eq("id", opts.linkTo);
     }
 
     setSelfPid(pid);
