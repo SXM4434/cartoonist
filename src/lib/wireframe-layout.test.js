@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { buildWireframeScreens, parseWireframePlan } from './wireframe-layout';
+import { buildWireframeScreens, parseWireframePlan } from './wireframe-layout.ts';
 
 describe('wireframe screen layout', () => {
   test('keeps travel-calendar content and screen boundaries', () => {
