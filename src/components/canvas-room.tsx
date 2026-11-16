@@ -831,7 +831,11 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         );
         setFrames(framesRef.current);
         if (enrichPass === 0 && typeof window !== "undefined") {
-          window.setTimeout(() => window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids } })), 180);
+          const bounds = bboxOf(incoming);
+          const focusIds = data?.modality === "ui_wireframe" && bounds
+            ? incoming.filter(s => "x" in s ? s.x < bounds.minX + 1000 : s.type === "line" ? s.x1 < bounds.minX + 1000 : false).map(s => s.id)
+            : ids;
+          window.setTimeout(() => window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids: focusIds, clearSelection: true } })), 180);
         }
       }
       // v2.P6 — cross-session recall: if this utterance echoes a thread from an

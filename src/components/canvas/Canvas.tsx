@@ -424,7 +424,7 @@ export function Canvas({
     const handler = (ev: Event) => {
       const editor = editorRef.current;
       if (!editor) return;
-      const detail = (ev as CustomEvent<{ ids?: string[] }>).detail;
+      const detail = (ev as CustomEvent<{ ids?: string[]; clearSelection?: boolean }>).detail;
       const rawIds = Array.isArray(detail?.ids) ? detail!.ids : [];
       if (!rawIds.length) return;
       const wanted = new Set(rawIds.map((id) => String(shapeId(id))));
@@ -436,6 +436,7 @@ export function Canvas({
       editor.setCurrentTool("select");
       editor.select(...(present as unknown as Parameters<Editor["select"]>));
       try { editor.zoomToSelection({ animation: { duration: 320 } }); } catch { /* noop */ }
+      if (detail?.clearSelection) editor.selectNone();
     };
     window.addEventListener("cartoonist:focus", handler as EventListener);
     return () => window.removeEventListener("cartoonist:focus", handler as EventListener);
