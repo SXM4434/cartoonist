@@ -272,7 +272,7 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
       y: shape.y,
       // Text tagged "surface" means "sits on a filled chip". Our fills are
       // pale tints, so render it as ink rather than invisible white.
-      props: { color: color === "white" ? "black" : color, size: textSize(shape.size), font, textAlign: shape.align === "center" ? "middle" : shape.align === "right" ? "end" : "start", w: shape.w ?? 360, scale: shape.style === "ui" ? (shape.size ?? 13) / 18 : isUi ? 0.72 : 0.58, richText: toRichText(shape.text), autoSize: shape.w === undefined },
+      props: { color: color === "white" ? "black" : color, size: textSize(shape.size), font, textAlign: shape.align === "center" ? "middle" : shape.align === "right" ? "end" : "start", w: shape.w === undefined ? 360 : shape.w / (shape.style === "ui" ? (shape.size ?? 13) / 18 : isUi ? 0.72 : 0.58), scale: shape.style === "ui" ? (shape.size ?? 13) / 18 : isUi ? 0.72 : 0.58, richText: toRichText(shape.text), autoSize: shape.w === undefined },
     }];
   }
   if (shape.type === "arrow") {

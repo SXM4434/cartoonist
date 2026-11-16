@@ -831,7 +831,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         );
         setFrames(framesRef.current);
         if (enrichPass === 0 && typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids } }));
+          window.setTimeout(() => window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids } })), 180);
         }
       }
       // v2.P6 — cross-session recall: if this utterance echoes a thread from an
