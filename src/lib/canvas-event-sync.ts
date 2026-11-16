@@ -10,6 +10,10 @@ export function shouldSeedCanvas(eventsLoaded: boolean, seeded: boolean, shapeCo
   return eventsLoaded && !seeded && !hasCanvasHistory && shapeCount === 0 && hasGoal;
 }
 
+export function shouldFitRoomOnPhone(viewportWidth: number, eventsLoaded: boolean, hasContent: boolean, alreadyFitted: boolean): boolean {
+  return viewportWidth < 768 && eventsLoaded && hasContent && !alreadyFitted;
+}
+
 // The last version of a shape wins while the pen is moving. A completed stroke
 // or drag therefore sends one record rather than every pointer sample.
 export class ParticipantBatch {

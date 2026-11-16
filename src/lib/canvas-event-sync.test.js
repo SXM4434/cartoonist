@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { ParticipantBatch, applyCanvasEvent, shouldPublishChange, shouldSeedCanvas } from "./canvas-event-sync";
+import { ParticipantBatch, applyCanvasEvent, shouldFitRoomOnPhone, shouldPublishChange, shouldSeedCanvas } from "./canvas-event-sync";
 import { existingParticipantId } from "./participant-identity";
 
 test("remote changes and our own event echoes never publish", () => {
@@ -48,6 +48,15 @@ test("a brand-new room seeds after an empty event replay", () => {
   const participant = new Map();
   for (const row of events) applyCanvasEvent(ai, participant, row);
   expect(shouldSeedCanvas(true, false, ai.size, true, events.length > 0)).toBe(true);
+});
+
+test("the initial room fit waits for loaded content and runs only once below 768 px", () => {
+  expect(shouldFitRoomOnPhone(390, false, true, false)).toBe(false);
+  expect(shouldFitRoomOnPhone(390, true, false, false)).toBe(false);
+  expect(shouldFitRoomOnPhone(390, true, true, false)).toBe(true);
+  expect(shouldFitRoomOnPhone(390, true, true, true)).toBe(false);
+  expect(shouldFitRoomOnPhone(768, true, true, false)).toBe(false);
+  expect(shouldFitRoomOnPhone(1440, true, true, false)).toBe(false);
 });
 
 test("a returning person reuses their room row", () => {

@@ -4,7 +4,7 @@ import "tldraw/tldraw.css";
 import { useCanvas } from "./canvas-context";
 import type { SketchPrimitive } from "@/lib/sketch-types";
 import { useRenderStyle, type Fidelity, type RenderStyle } from "@/lib/render-style";
-import { ParticipantBatch, shouldPublishChange, type ParticipantOp } from "@/lib/canvas-event-sync";
+import { ParticipantBatch, shouldFitRoomOnPhone, shouldPublishChange, type ParticipantOp } from "@/lib/canvas-event-sync";
 import { toast } from "sonner";
 
 import "@/styles/tldraw.css";
@@ -345,6 +345,8 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
 
 export function Canvas({
   shapes = [],
+  roomId,
+  initialMobileFitReady = false,
   drawingEnabled,
   onHasContentChange,
   participantRecords,
@@ -352,6 +354,8 @@ export function Canvas({
   onGeneratedInteraction,
 }: {
   shapes?: readonly SketchPrimitive[];
+  roomId?: string;
+  initialMobileFitReady?: boolean;
   drawingEnabled: boolean;
   onHasContentChange?: (hasContent: boolean) => void;
   participantRecords?: ReadonlyMap<string, TLRecord | null>;
@@ -362,6 +366,7 @@ export function Canvas({
   const renderStyle = useRenderStyle();
 
   const editorRef = useRef<Editor | null>(null);
+  const fittedRoomRef = useRef<string | null>(null);
   const createdShapeIdsRef = useRef(new Set<string>());
   // id → serialized shape, so incremental batches only touch what changed.
   const shapeSigRef = useRef(new Map<string, string>());
@@ -750,6 +755,25 @@ export function Canvas({
       }
     }
   }, [mounted, participantRecords]);
+
+  // Both generated and participant shapes have reached the editor by this
+  // effect. Frame the loaded room once, then leave the camera to the person.
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!mounted || !editor || !roomId || typeof window === "undefined") return;
+    const bounds = editor.getCurrentPageBounds();
+    const viewport = editor.getViewportScreenBounds();
+    if (!shouldFitRoomOnPhone(window.innerWidth, initialMobileFitReady, Boolean(bounds), fittedRoomRef.current === roomId)) return;
+    if (!bounds || !viewport || bounds.w <= 0 || bounds.h <= 0 || viewport.w <= 0 || viewport.h <= 0) return;
+    const padding = 24;
+    const zoom = Math.max(0.65, Math.min(1, (viewport.w - padding * 2) / bounds.w, (viewport.h - padding * 2) / bounds.h));
+    editor.setCamera({
+      x: -bounds.x + (viewport.w / zoom - bounds.w) / 2,
+      y: -bounds.y + (viewport.h / zoom - bounds.h) / 2,
+      z: zoom,
+    });
+    fittedRoomRef.current = roomId;
+  }, [mounted, roomId, initialMobileFitReady, shapes, participantRecords]);
 
   useEffect(() => {
     const editor = editorRef.current;

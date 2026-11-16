@@ -1745,6 +1745,8 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           <CanvasProvider>
             <Canvas
               shapes={replayShapes ?? shapes}
+              roomId={roomId}
+              initialMobileFitReady={eventsLoaded && (shapes.length > 0 || [...participantRecords.values()].some((record) => record?.typeName === "shape"))}
               drawingEnabled={drawing && replayShapes === null}
               participantRecords={participantRecords}
               onParticipantOps={onParticipantOps}
