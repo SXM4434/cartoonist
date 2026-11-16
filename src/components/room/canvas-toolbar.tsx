@@ -1,4 +1,4 @@
-import { Pencil, MousePointer2, SlidersHorizontal } from "lucide-react";
+import { Check, Pencil, MousePointer2, SlidersHorizontal } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { StyleSwitch } from "@/components/canvas/style-switch";
 
@@ -10,9 +10,11 @@ import { StyleSwitch } from "@/components/canvas/style-switch";
 export function CanvasToolbar({
   drawing,
   onToggleDraw,
+  onKeepDrawing,
 }: {
   drawing: boolean;
   onToggleDraw: () => void;
+  onKeepDrawing: () => void;
 }) {
   const cell = (active: boolean) =>
     `flex h-8 items-center gap-1.5 px-2.5 transition active:scale-[0.98] ${
@@ -29,6 +31,11 @@ export function CanvasToolbar({
       <button type="button" onClick={() => !drawing && onToggleDraw()} className={cell(drawing)} title="Draw on the canvas">
         <Pencil className="h-3.5 w-3.5" />
         <span className="eyebrow">Draw</span>
+      </button>
+      <span className="h-8 w-px bg-border" aria-hidden />
+      <button type="button" onClick={onKeepDrawing} className={cell(false)} title="Keep the selected Cartoonist drawing">
+        <Check className="h-3.5 w-3.5" />
+        <span className="eyebrow">Keep selected</span>
       </button>
       <span className="h-8 w-px bg-border" aria-hidden />
       <Popover>

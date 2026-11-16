@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { compressLegacySegments, getIndices, Tldraw, type Editor, type TLShapePartial } from "tldraw";
+import { compressLegacySegments, getIndices, Tldraw, type Editor, type TLRecord, type TLShape, type TLShapePartial } from "tldraw";
 import "tldraw/tldraw.css";
 import { useCanvas } from "./canvas-context";
 import type { SketchPrimitive } from "@/lib/sketch-types";
 import { useRenderStyle, type Fidelity, type RenderStyle } from "@/lib/render-style";
+import { ParticipantBatch, shouldPublishChange, type ParticipantOp } from "@/lib/canvas-event-sync";
+import { toast } from "sonner";
 
 import "@/styles/tldraw.css";
 
@@ -345,10 +347,16 @@ export function Canvas({
   shapes = [],
   drawingEnabled,
   onHasContentChange,
+  participantRecords,
+  onParticipantOps,
+  onGeneratedInteraction,
 }: {
   shapes?: readonly SketchPrimitive[];
   drawingEnabled: boolean;
   onHasContentChange?: (hasContent: boolean) => void;
+  participantRecords?: ReadonlyMap<string, TLRecord | null>;
+  onParticipantOps?: (ops: ParticipantOp[]) => void;
+  onGeneratedInteraction?: (shapeId: string, outcome: "kept" | "edited" | "deleted", resultRecord?: TLShape, actionId?: string) => void;
 }) {
   const { setEditor } = useCanvas();
   const renderStyle = useRenderStyle();
@@ -357,6 +365,26 @@ export function Canvas({
   const createdShapeIdsRef = useRef(new Set<string>());
   // id → serialized shape, so incremental batches only touch what changed.
   const shapeSigRef = useRef(new Map<string, string>());
+  const generatedByRecordRef = useRef(new Map<string, string>());
+  const localOverrideIdsRef = useRef(new Set<string>());
+  const appliedParticipantRecordsRef = useRef<ReadonlyMap<string, TLRecord | null>>(new Map());
+  const participantBatchRef = useRef(new ParticipantBatch());
+  const pendingGeneratedRef = useRef(new Map<string, { outcome: "edited" | "deleted"; record?: TLShape }>());
+  const batchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const applyingRef = useRef(false);
+  const onParticipantOpsRef = useRef(onParticipantOps);
+  const onGeneratedInteractionRef = useRef(onGeneratedInteraction);
+  onParticipantOpsRef.current = onParticipantOps;
+  onGeneratedInteractionRef.current = onGeneratedInteraction;
+  const flushParticipantOps = useCallback(() => {
+    if (batchTimerRef.current) clearTimeout(batchTimerRef.current);
+    batchTimerRef.current = null;
+    const ops = participantBatchRef.current.drain();
+    if (ops.length) onParticipantOpsRef.current?.(ops);
+    const actionId = crypto.randomUUID();
+    for (const [id, change] of pendingGeneratedRef.current) onGeneratedInteractionRef.current?.(id, change.outcome, change.record, actionId);
+    pendingGeneratedRef.current.clear();
+  }, []);
   const [mounted, setMounted] = useState(false);
   // v2.P6 — glow overlay: rects positioned over the shape bounds of a
   // reopened thread, pulse for ~3s so people can see the mediator returning
@@ -401,13 +429,54 @@ export function Canvas({
         /* nothing to sweep */
       }
       editor.setCurrentTool(drawingEnabled ? "draw" : "select");
-      const off = editor.store.listen(() => {
+      const off = editor.store.listen((entry) => {
         onHasContentChange?.(editor.getCurrentPageShapeIds().size > 0);
+        if (!shouldPublishChange(entry.source, applyingRef.current)) return;
+        for (const record of Object.values(entry.changes.added)) {
+          if (!["shape", "asset", "binding"].includes(record.typeName)) continue;
+          participantBatchRef.current.add({ kind: "participant_upsert", id: String(record.id), record });
+        }
+        for (const [, record] of Object.values(entry.changes.updated)) {
+          if (!["shape", "asset", "binding"].includes(record.typeName)) continue;
+          const original = generatedByRecordRef.current.get(String(record.id));
+          if (original) {
+            localOverrideIdsRef.current.add(String(record.id));
+            pendingGeneratedRef.current.set(original, { outcome: "edited", record: record as TLShape });
+          }
+          participantBatchRef.current.add({ kind: "participant_upsert", id: String(record.id), record });
+        }
+        for (const record of Object.values(entry.changes.removed)) {
+          if (!["shape", "asset", "binding"].includes(record.typeName)) continue;
+          const original = generatedByRecordRef.current.get(String(record.id));
+          if (original) {
+            localOverrideIdsRef.current.add(String(record.id));
+            pendingGeneratedRef.current.set(original, { outcome: "deleted" });
+          }
+          participantBatchRef.current.add({ kind: "participant_remove", id: String(record.id) });
+        }
+        if (batchTimerRef.current) clearTimeout(batchTimerRef.current);
+        batchTimerRef.current = setTimeout(flushParticipantOps, 220);
       }, { source: "user", scope: "document" });
-      return () => off();
+      return () => { off(); flushParticipantOps(); };
     },
-    [drawingEnabled, onHasContentChange, setEditor],
+    [drawingEnabled, flushParticipantOps, onHasContentChange, setEditor],
   );
+
+  useEffect(() => {
+    const keep = () => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      const originals = new Set([...editor.getSelectedShapeIds()].map((id) => generatedByRecordRef.current.get(String(id))).filter((id): id is string => Boolean(id)));
+      if (!originals.size) {
+        toast.info("Select a Cartoonist drawing first.");
+        return;
+      }
+      const actionId = crypto.randomUUID();
+      for (const id of originals) onGeneratedInteractionRef.current?.(id, "kept", undefined, actionId);
+    };
+    window.addEventListener("cartoonist:keep-selected", keep);
+    return () => window.removeEventListener("cartoonist:keep-selected", keep);
+  }, []);
 
 
   useEffect(() => {
@@ -573,12 +642,19 @@ export function Canvas({
       const props = (s.props ?? {}) as Record<string, unknown>;
       return Object.values(props).every((v) => finite(v));
     };
-    const desired = shapes.flatMap((s) => toTldrawShapes(s, renderStyle)).filter(isSane);
-    const desiredById = new Map(desired.map((s) => [String(s.id), s]));
+    const generated = new Map<string, string>();
+    const desired = shapes.flatMap((s) => {
+      const records = toTldrawShapes(s, renderStyle);
+      for (const record of records) generated.set(String(record.id), s.id);
+      return records;
+    }).filter(isSane);
+    generatedByRecordRef.current = generated;
+    const overridden = (id: string) => participantRecords?.has(id) || localOverrideIdsRef.current.has(id);
+    const desiredById = new Map(desired.filter((s) => !overridden(String(s.id))).map((s) => [String(s.id), s]));
     // Current AI-authored shapes on the page (anything we created before).
     const currentAiIds = new Set<string>();
     for (const id of editor.getCurrentPageShapeIds()) {
-      if (String(id).startsWith("shape:cartoonist-")) currentAiIds.add(String(id));
+      if (String(id).startsWith("shape:cartoonist-") && !overridden(String(id))) currentAiIds.add(String(id));
     }
     const toCreate: TLShapePartial[] = [];
     const toUpdate: TLShapePartial[] = [];
@@ -612,14 +688,16 @@ export function Canvas({
     shapeSigRef.current = nextSig;
     if (!toCreate.length && !toUpdate.length && !toDelete.length && !toRecreate.length) return;
     try {
-      editor.run(() => {
-        if (toDelete.length) editor.deleteShapes(toDelete as unknown as Parameters<Editor["deleteShapes"]>[0]);
-        if (toUpdate.length) editor.updateShapes(toUpdate);
-        if (toCreate.length) editor.createShapes(toCreate);
-        toCreate.forEach((s) => createdShapeIdsRef.current.add(String(s.id)));
-        // AI batches don't belong in the user's undo stack — recording 170
-        // shape creations made every subsequent interaction sluggish.
-      }, { history: "ignore" });
+      applyingRef.current = true;
+      editor.store.mergeRemoteChanges(() => {
+        editor.run(() => {
+          if (toDelete.length) editor.deleteShapes(toDelete as unknown as Parameters<Editor["deleteShapes"]>[0]);
+          if (toUpdate.length) editor.updateShapes(toUpdate);
+          if (toCreate.length) editor.createShapes(toCreate);
+          toCreate.forEach((s) => createdShapeIdsRef.current.add(String(s.id)));
+          // AI batches don't belong in the user's undo stack.
+        }, { history: "ignore" });
+      });
       // Type-flipped shapes are recreated on the next frame. Deleting and
       // recreating the same shape id in one transaction makes React reuse the
       // shape component across two different shape utils, which throws
@@ -629,21 +707,49 @@ export function Canvas({
           const ed = editorRef.current;
           if (!ed) return;
           try {
-            ed.run(() => {
-              ed.createShapes(toRecreate);
-              toRecreate.forEach((s) => createdShapeIdsRef.current.add(String(s.id)));
-            }, { history: "ignore" });
+            applyingRef.current = true;
+            ed.store.mergeRemoteChanges(() => {
+              ed.run(() => {
+                ed.createShapes(toRecreate);
+                toRecreate.forEach((s) => createdShapeIdsRef.current.add(String(s.id)));
+              }, { history: "ignore" });
+            });
           } catch (err) {
             console.warn("[canvas] skipped a recreate batch", err);
+          } finally {
+            applyingRef.current = false;
           }
         });
       }
     } catch (err) {
       console.warn("[canvas] skipped a bad shape batch", err);
+    } finally {
+      applyingRef.current = false;
     }
 
     onHasContentChange?.(editor.getCurrentPageShapeIds().size > 0);
-  }, [mounted, onHasContentChange, shapes, renderStyle]);
+  }, [mounted, onHasContentChange, participantRecords, shapes, renderStyle]);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!mounted || !editor || !participantRecords) return;
+    const previous = appliedParticipantRecordsRef.current;
+    appliedParticipantRecordsRef.current = participantRecords;
+    for (const [id, record] of participantRecords) {
+      if (previous.get(id) === record) continue;
+      try {
+        editor.store.mergeRemoteChanges(() => {
+          if (record === null) {
+            if (editor.store.get(id as TLRecord["id"])) editor.store.remove([id as TLRecord["id"]]);
+          } else if (JSON.stringify(editor.store.get(record.id)) !== JSON.stringify(record)) {
+            editor.store.put([record]);
+          }
+        });
+      } catch (error) {
+        console.warn("[canvas] rejected a bad participant record", id, error);
+      }
+    }
+  }, [mounted, participantRecords]);
 
   return (
     <div className="absolute inset-0 bg-background">

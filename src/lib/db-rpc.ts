@@ -54,6 +54,7 @@ export const sessionStats = (ids: string[]) =>
   );
 
 export type CanvasEventRow = {
+  id: string;
   op: unknown;
   source: string | null;
   transcript_span: unknown;
@@ -62,5 +63,21 @@ export type CanvasEventRow = {
   created_at: string;
 };
 
-export const canvasEventsForRoom = (roomId: string, limit = 2000) =>
-  rpc<CanvasEventRow[]>("canvas_events_for_room", { p_room: roomId, p_limit: limit });
+export async function canvasEventsForRoom(roomId: string, limit = Number.MAX_SAFE_INTEGER): Promise<CanvasEventRow[] | null> {
+  const rows: CanvasEventRow[] = [];
+  let afterAt: string | null = null;
+  let afterId: string | null = null;
+  while (rows.length < limit) {
+    const pageSize = Math.min(500, limit - rows.length);
+    const page: CanvasEventRow[] | null = await rpc<CanvasEventRow[]>("canvas_events_page", {
+      p_room: roomId, p_after_at: afterAt, p_after_id: afterId, p_limit: pageSize,
+    });
+    if (!page) return null;
+    rows.push(...page);
+    if (page.length < pageSize) break;
+    const last: CanvasEventRow = page[page.length - 1];
+    afterAt = last.created_at;
+    afterId = last.id;
+  }
+  return rows;
+}

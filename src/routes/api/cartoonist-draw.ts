@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { guardExpensiveRoute } from "@/lib/room-guard.server";
 import { buildChart, isChartSpec } from "@/lib/chart-shape";
 import { buildWireframeScreens, parseWireframePlan } from "@/lib/wireframe-layout";
+import { authorizedDrawingExamples } from "@/lib/drawing-feedback.server";
 
 const SCREEN_PLAN_PROMPT = `You design product wireframes from a meeting transcript. Return ONLY JSON:
 {"screens":[{"title":"Screen title","layout":"calendar|list|detail|form","navigation":["label"],"primaryAction":"verb","sections":[{"title":"section","items":["short relevant label"]}]}]}
@@ -251,6 +252,8 @@ export const Route = createFileRoute("/api/cartoonist-draw")({
         });
         if (blocked) return blocked;
 
+        const drawingExamples = body.roomId ? await authorizedDrawingExamples(request, body.roomId) : "";
+
         const transcript = compactText(body.transcript, 3200);
         const latest = compactText(body.latest, 1200);
         if (NON_SPEECH_TRANSCRIPT.test(latest)) {
@@ -410,7 +413,7 @@ Every NEW primitive this turn must start at x >= ${Math.round(occ.maxX) + 280}. 
         const memoryRaw = typeof (body as { memoryBlock?: unknown }).memoryBlock === "string" ? (body as { memoryBlock?: string }).memoryBlock!.trim() : "";
         const memoryBlock = memoryRaw ? `${compactText(memoryRaw, 2400)}\n\n` : "";
 
-        const userMsg = `${intentOverride}${placementBlock}${fidelityBlock}\n\n${ctxBlock}${memoryBlock}${participantsBlock}${liveStatesBlock}${voiceBlock}${openThreadsBlock}${handsBlock}${canvasHeader}
+        const userMsg = `${intentOverride}${placementBlock}${fidelityBlock}\n\n${ctxBlock}${drawingExamples}${memoryBlock}${participantsBlock}${liveStatesBlock}${voiceBlock}${openThreadsBlock}${handsBlock}${canvasHeader}
 ${existingBlock}
 
 
@@ -483,7 +486,7 @@ ${latest || transcript}`;
         // ~2.5k tokens of prompt that only matters when drawing screens.
         const baseMessages = [
           { role: "system", content: uiWireframeIntent ? SCREEN_PLAN_PROMPT : SYSTEM_PROMPT },
-          { role: "user", content: uiWireframeIntent ? `${ctxBlock}\nConversation: ${transcript}\nLatest request: ${latest}` : userMsg },
+          { role: "user", content: uiWireframeIntent ? `${ctxBlock}${drawingExamples}\nConversation: ${transcript}\nLatest request: ${latest}` : userMsg },
         ];
 
 

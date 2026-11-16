@@ -4,6 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import type { TLRecord, TLShape } from "tldraw";
 import type { ParticipantWithHumanLayer } from "@/lib/canvas-types";
 import type { FreehandStroke, SketchPrimitive } from "@/lib/sketch-types";
 import { bboxOf, placeBatchClear } from "@/lib/sketch-layout";
@@ -49,7 +50,9 @@ import { useHistorian, type RecallEntry } from "@/hooks/use-historian";
 import { RecallPanel } from "./room/recall-panel";
 import { wakeQuery, voiceAction, pauseNudge } from "@/lib/voice-intent";
 
-import { canvasEventsForRoom, roomGet } from "@/lib/db-rpc";
+import { canvasEventsForRoom, roomGet, type CanvasEventRow } from "@/lib/db-rpc";
+import { applyCanvasEvent, shouldSeedCanvas, type ParticipantOp } from "@/lib/canvas-event-sync";
+import { FeedbackDeduper, type DrawingOutcome } from "@/lib/drawing-feedback";
 
 type SessionContext = {
   name: string;
@@ -148,6 +151,13 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [kioskQueue, setKioskQueue] = useState<string[]>([]);
   const [kioskMode, setKioskMode] = useState(false);
   const [shapes, setShapes] = useState<SketchPrimitive[]>([]);
+  const [participantRecords, setParticipantRecords] = useState<Map<string, TLRecord | null>>(new Map());
+  const [eventsLoaded, setEventsLoaded] = useState(false);
+  const hydratingEventsRef = useRef(true);
+  const pendingCanvasRowsRef = useRef<CanvasEventRow[]>([]);
+  const generatedOriginsRef = useRef(new Map<string, { threadId: string; span: Record<string, unknown>; op: SketchPrimitive }>());
+  const feedbackDeduperRef = useRef(new FeedbackDeduper());
+  const clientIdRef = useRef(crypto.randomUUID());
   const shapesRef = useRef<SketchPrimitive[]>([]);
   useEffect(() => {
     shapesRef.current = shapes;
@@ -166,6 +176,62 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [sessionCtx, setSessionCtx] = useState<SessionContext | null>(null);
   const [inputMode, setInputMode] = useState<"voice" | "chat">("voice");
   const [selfPid, setSelfPid] = useState<string | null>(null);
+  const waitingOpsRef = useRef<ParticipantOp[]>([]);
+  const waitingFeedbackRef = useRef(new Map<string, { shapeId: string; outcome: DrawingOutcome; resultRecord?: TLShape; actionId?: string }>());
+  const onParticipantOps = useCallback((ops: ParticipantOp[]) => {
+    if (!ops.length) return;
+    setParticipantRecords((current) => {
+      const next = new Map(current);
+      for (const op of ops) next.set(op.id, op.kind === "participant_upsert" ? op.record as unknown as TLRecord : null);
+      return next;
+    });
+    if (!selfPid) {
+      waitingOpsRef.current.push(...ops);
+      return;
+    }
+    const stamp = Date.now() - startedAtRef.current;
+    const rows = ops.map((op) => ({
+      room_id: roomId, op, t_offset_ms: stamp, source: "participant",
+      transcript_span: { participant_id: selfPid, client_id: clientIdRef.current },
+      confidence: 1,
+    }));
+    void supabase.from("canvas_events").insert(rows as never).then(({ error }) => {
+      if (error) console.error("[canvas] participant sync failed", error);
+    });
+  }, [roomId, selfPid]);
+  const onGeneratedInteraction = useCallback((shapeId: string, outcome: DrawingOutcome, resultRecord?: TLShape, actionId?: string) => {
+    if (!selfPid) {
+      waitingFeedbackRef.current.set(`${shapeId}:${outcome}:${actionId ?? ""}`, { shapeId, outcome, resultRecord, actionId });
+      return;
+    }
+    if (!feedbackDeduperRef.current.accept(roomId, shapeId, outcome, actionId)) return;
+    const origin = generatedOriginsRef.current.get(shapeId);
+    if (!origin) {
+      feedbackDeduperRef.current.release(roomId, shapeId, outcome, actionId);
+      return;
+    }
+    void supabase.from("drawing_feedback" as never).insert({
+      room_id: roomId, participant_id: selfPid, shape_id: shapeId,
+      outcome, original_thread_id: origin.threadId, original_span: origin.span,
+      original_op: origin.op, result_record: resultRecord ?? null, action_id: actionId ?? crypto.randomUUID(),
+    } as never).then(({ error }) => {
+      if (error && error.code !== "23505") {
+        feedbackDeduperRef.current.release(roomId, shapeId, outcome, actionId);
+        console.error("[canvas] drawing feedback failed", error);
+        if (outcome === "kept") toast.error("Could not save drawing feedback.");
+      } else if (!error && outcome === "kept") {
+        toast.success("Drawing kept.");
+      }
+    });
+  }, [roomId, selfPid]);
+  useEffect(() => {
+    if (!selfPid) return;
+    const ops = waitingOpsRef.current.splice(0);
+    if (ops.length) onParticipantOps(ops);
+    const feedback = [...waitingFeedbackRef.current.values()];
+    waitingFeedbackRef.current.clear();
+    for (const item of feedback) onGeneratedInteraction(item.shapeId, item.outcome, item.resultRecord, item.actionId);
+  }, [onGeneratedInteraction, onParticipantOps, selfPid]);
   const canvasStageRef = useRef<HTMLDivElement | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
   const [panelTab, setPanelTab] = useState<"people" | "transcript" | "threads" | "memory" | "risks" | "recall" | "replay" | "artifacts">("transcript");
@@ -398,6 +464,23 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       if (!cached) {
         window.localStorage.setItem(`cartoonist_joined_${roomId}`, "1");
       }
+      if (!storedPid) {
+        void supabase.from("participants").insert({ room_id: roomId, display_name: name, color } as never)
+          .select("id").maybeSingle().then(({ data, error }) => {
+            if (error || !data?.id) {
+              console.error("[canvas] participant join failed", error);
+              setJoined(false);
+              setIntroOpen(true);
+              toast.error("Could not join the meeting.");
+              return;
+            }
+            window.localStorage.setItem(`cartoonist_participant_${roomId}`, data.id);
+            setSelfPid(data.id);
+            setParticipants((current) => current.some((person) => person.id === "local")
+              ? current.map((person) => person.id === "local" ? { ...person, id: data.id } : person)
+              : current.some((person) => person.id === data.id) ? current : [...current, { id: data.id, name, color }]);
+          });
+      }
     }
 
     (async () => {
@@ -427,15 +510,20 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const data = await canvasEventsForRoom(roomId, 2000);
-      if (cancelled || !data || data.length === 0) return;
-      if (seededRef.current) return;
+      const data = await canvasEventsForRoom(roomId);
+      if (cancelled) return;
+      const rows = [...new Map([...(data ?? []), ...pendingCanvasRowsRef.current].map((row) => [row.id, row])).values()]
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime() || a.id.localeCompare(b.id));
+      pendingCanvasRowsRef.current = [];
+      hydratingEventsRef.current = false;
 
       const byId = new Map<string, SketchPrimitive>();
+      const participantById = new Map<string, TLRecord | null>();
+      const origins = new Map<string, { threadId: string; span: Record<string, unknown>; op: SketchPrimitive }>();
       type ThreadAcc = { latest: string; modality: string | null; shapeIds: string[]; at: number; source: "seed" | "mediator"; relation: CanvasThread["relation"] };
       const threadMap = new Map<string, ThreadAcc>();
 
-      for (const row of data as Array<{ op: unknown; source: string | null; transcript_span: unknown; thread_id: string | null; created_at: string }>) {
+      for (const row of rows) {
         const op = row.op as { id?: string; type?: string; kind?: string; patch?: Record<string, unknown> } | null;
         if (!op || typeof op !== "object") continue;
         const tid = row.thread_id ?? null;
@@ -443,17 +531,13 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         const at = new Date(row.created_at).getTime();
 
         // Apply op to shape map.
-        if (op.kind === "remove" && typeof op.id === "string") {
-          byId.delete(op.id);
-        } else if (op.kind === "edit" && typeof op.id === "string" && op.patch) {
-          const prev = byId.get(op.id);
-          if (prev) byId.set(op.id, { ...prev, ...op.patch, id: prev.id, type: prev.type } as SketchPrimitive);
-        } else if (typeof op.id === "string" && typeof op.type === "string") {
-          byId.set(op.id, op as unknown as SketchPrimitive);
+        applyCanvasEvent(byId, participantById, row);
+        if (row.source === "mediator" && typeof op.id === "string" && typeof op.type === "string" && tid) {
+          origins.set(op.id, { threadId: tid, span: span as Record<string, unknown>, op: op as unknown as SketchPrimitive });
         }
 
         // Group into threads.
-        if (tid) {
+        if (tid && row.source !== "participant") {
           const src: "seed" | "mediator" = row.source === "seed" ? "seed" : "mediator";
           const latest = span.latest ?? (span.origin === "session_brief" ? `Session brief: ${span.goal ?? "opening"}` : "");
           const existing = threadMap.get(tid);
@@ -493,11 +577,22 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         .filter((t) => t.shapeIds.length > 0)
         .sort((a, b) => a.at - b.at);
 
-      if (byId.size > 0) {
+      if (byId.size > 0 || participantById.size > 0) {
         seededRef.current = true;
-        setShapes(Array.from(byId.values()));
-        setThreads(rebuiltThreads);
+        setShapes((current) => {
+          const merged = new Map(byId);
+          for (const shape of current) merged.set(shape.id, shape);
+          return [...merged.values()];
+        });
+        setParticipantRecords((current) => new Map([...participantById, ...current]));
+        generatedOriginsRef.current = new Map([...origins, ...generatedOriginsRef.current]);
+        setThreads((current) => {
+          const merged = new Map(rebuiltThreads.map((thread) => [thread.id, thread]));
+          for (const thread of current) merged.set(thread.id, thread);
+          return [...merged.values()].sort((a, b) => a.at - b.at);
+        });
       }
+      if (data) setEventsLoaded(true);
     })();
     return () => { cancelled = true; };
   }, [roomId]);
@@ -511,26 +606,31 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       .channel(`canvas_events:${roomId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "canvas_events", filter: `room_id=eq.${roomId}` }, (payload) => {
         const row = payload.new as { op: unknown; source: string | null; transcript_span: unknown; thread_id: string | null; created_at: string };
+        if (hydratingEventsRef.current) {
+          pendingCanvasRowsRef.current.push(row as CanvasEventRow);
+          return;
+        }
         const op = row.op as { id?: string; type?: string; kind?: string; patch?: Record<string, unknown> } | null;
         if (!op || typeof op !== "object") return;
         const span = (row.transcript_span ?? {}) as { latest?: string; modality?: string | null; relation?: string | null; goal?: string | null; origin?: string };
+        if (row.source === "participant") {
+          if ((span as { client_id?: string }).client_id === clientIdRef.current) return;
+          setParticipantRecords((current) => {
+            const next = new Map(current);
+            applyCanvasEvent(new Map<string, SketchPrimitive>(), next, row);
+            return next;
+          });
+          return;
+        }
         const tid = row.thread_id ?? null;
+        if (row.source === "mediator" && typeof op.id === "string" && typeof op.type === "string" && tid) {
+          generatedOriginsRef.current.set(op.id, { threadId: tid, span: span as Record<string, unknown>, op: op as unknown as SketchPrimitive });
+        }
 
         setShapes((current) => {
           const byId = new Map(current.map((s) => [s.id, s]));
-          if (op.kind === "remove" && typeof op.id === "string") {
-            if (!byId.has(op.id)) return current;
-            byId.delete(op.id);
-          } else if (op.kind === "edit" && typeof op.id === "string" && op.patch) {
-            const prev = byId.get(op.id);
-            if (!prev) return current;
-            byId.set(op.id, { ...prev, ...op.patch, id: prev.id, type: prev.type } as SketchPrimitive);
-          } else if (typeof op.id === "string" && typeof op.type === "string") {
-            if (byId.has(op.id)) return current; // already local
-            byId.set(op.id, op as unknown as SketchPrimitive);
-          } else {
-            return current;
-          }
+          if (typeof op.id !== "string" || (typeof op.type === "string" && byId.has(op.id))) return current;
+          applyCanvasEvent(byId, new Map<string, TLRecord | null>(), row);
           return Array.from(byId.values());
         });
 
@@ -577,8 +677,8 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
   // Seed initial shapes from session setup the first time we have context + empty canvas
   useEffect(() => {
-    if (seededRef.current) return;
-    if (!sessionCtx || !sessionCtx.goal) return;
+    if (!shouldSeedCanvas(eventsLoaded, seededRef.current, shapes.length, Boolean(sessionCtx?.goal))) return;
+    if (!sessionCtx) return;
     if (shapes.length > 0) { seededRef.current = true; return; }
     seededRef.current = true;
     const seeded: SketchPrimitive[] = [];
@@ -624,7 +724,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         source: "seed",
       },
     ]);
-  }, [sessionCtx, shapes.length, roomId]);
+  }, [eventsLoaded, sessionCtx, shapes.length, roomId]);
 
 
   const summarizeCanvas = useCallback(() => {
@@ -695,10 +795,11 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const openThreads = threads.slice(-8).map((t) => ({ id: t.id, latest: t.latest, modality: t.modality }));
       // Raise-hand queue → mediator surfaces the next hand at natural pauses.
       const handsUp = handQueue.map((h) => h.name);
+      const { data: auth } = await supabase.auth.getSession();
       // Let the model finish rather than discarding a paid generation on a timer.
       const res = await fetch("/api/cartoonist-draw", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(auth.session?.access_token ? { Authorization: `Bearer ${auth.session.access_token}` } : {}) },
         body: JSON.stringify({ roomId, transcript: fullContext, latest: cleanLatest, existing: summarizeCanvas(), occupied: bboxOf(shapesRef.current), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads, handsUp, enrichPass, maxFidelity: maxFidelity || requestsUi, fidelity: getRenderStyle().fidelity, ink: getRenderStyle().ink, costCapUsd: getCostCap(roomId), memoryBlock: sessionMemoryBlock(sessionMemoryRef.current) }),
       });
       const data = await res.json().catch(() => ({}));
@@ -773,6 +874,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
           thread_ref: threadRef,
           relation,
         };
+        for (const shape of fresh) generatedOriginsRef.current.set(shape.id, { threadId, span, op: shape });
         // Perf: one batched insert instead of a request per primitive — a
         // dense wireframe used to fire ~170 individual POSTs and stall the tab.
         const rows = [
@@ -1130,15 +1232,22 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       window.localStorage.setItem(`cartoonist_input_mode_${roomId}`, inputMode);
       setJoined(true);
     }
-    toast.success(isAdd ? `${data.name} added` : `Welcome, ${data.name}`);
-
     const { data: ins } = await supabase.from("participants").insert({
       room_id: roomId, display_name: data.name, role: data.role,
       personality: data.personality, color: data.color, input_mode: inputMode,
       voice_sample_path: data.voiceSamplePath,
     } as never).select("id").maybeSingle();
 
-    const pid = ins?.id ?? `local-${Date.now()}`;
+    if (!ins?.id) {
+      if (!isAdd) {
+        setJoined(false);
+        setIntroOpen(true);
+      }
+      toast.error("Could not join the meeting.");
+      return;
+    }
+    const pid = ins.id;
+    toast.success(isAdd ? `${data.name} added` : `Welcome, ${data.name}`);
 
     if (isAdd) {
       setParticipants((prev) => [...prev, { id: pid, name: data.name, role: data.role, color: data.color }]);
@@ -1418,12 +1527,18 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       <div className="flex flex-1 overflow-hidden">
         <div ref={canvasStageRef} className="relative flex-1 overflow-hidden">
           <CanvasProvider>
-            <Canvas shapes={replayShapes ?? shapes} drawingEnabled={drawing && replayShapes === null} />
+            <Canvas
+              shapes={replayShapes ?? shapes}
+              drawingEnabled={drawing && replayShapes === null}
+              participantRecords={participantRecords}
+              onParticipantOps={onParticipantOps}
+              onGeneratedInteraction={onGeneratedInteraction}
+            />
           </CanvasProvider>
           <CursorsOverlay cursors={remoteCursors} />
           <ReactionsOverlay reactions={reactions} />
 
-          <CanvasToolbar drawing={drawing} onToggleDraw={toggleDraw} />
+          <CanvasToolbar drawing={drawing} onToggleDraw={toggleDraw} onKeepDrawing={() => window.dispatchEvent(new Event("cartoonist:keep-selected"))} />
 
           {replayShapes === null && frames.length > 0 && (
             <div className="absolute left-4 top-16 z-30 flex max-w-[60%] items-center gap-1 overflow-x-auto border border-border bg-background/90 px-2 py-1.5">
