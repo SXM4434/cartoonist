@@ -97,7 +97,7 @@ export async function guardExpensiveRoute(
   }
 
   const requireRoom = opts.requireRoom ?? true;
-  if (!requireRoom && !isUuid(opts.roomId)) return null;
+  if (!requireRoom && (opts.roomId == null || opts.roomId === "")) return null;
 
   if (!isUuid(opts.roomId)) {
     return json({ error: "A valid roomId is required" }, 400);

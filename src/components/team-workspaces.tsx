@@ -22,6 +22,7 @@ export function TeamWorkspaces() {
     const { data } = await supabase.auth.getUser();
     setSignedIn(Boolean(data.user));
     if (data.user) setOverview(await getTeams());
+    else setOverview(null);
   };
   useEffect(() => { void refresh().catch(e => toast.error(e.message)); }, []);
   const run = async (action: Parameters<typeof teamAction>[0]["data"]) => {
@@ -30,7 +31,7 @@ export function TeamWorkspaces() {
       const result = await act({ data: action });
       if (action.action === "invite") {
         await navigator.clipboard.writeText(`${window.location.origin}/teams?invite=${result}`);
-        toast.success("Invitation copied — valid for seven days");
+        toast.success("Invitation copied. Valid for seven days.");
       }
       await refresh();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Could not update the team."); }
@@ -38,7 +39,7 @@ export function TeamWorkspaces() {
   };
   useEffect(() => { setToken(new URLSearchParams(window.location.search).get("invite") ?? ""); }, []);
   const signIn = async (provider: "google" | "lovable") => {
-    const result = await lovable.auth.signInWithOAuth(provider, { redirect_uri: `${window.location.origin}/teams` });
+    const result = await lovable.auth.signInWithOAuth(provider, { redirect_uri: window.location.href });
     if (result.error) toast.error(result.error.message);
     else if (!result.redirected) await refresh();
   };

@@ -117,7 +117,9 @@ function NewSession() {
     if (!goal.trim()) { toast.error("Add a goal — what are we trying to do?"); return; }
     setCreating(true);
     try {
-      const created = await rpc<Array<{ id: string; join_code: string | null; name: string }>>("room_create", {
+      const workspace = sessionStorage.getItem("cartoonist_workspace");
+      const created = await rpc<Array<{ id: string; join_code: string | null; name: string }>>(workspace ? "workspace_create_room" : "room_create", {
+        ...(workspace ? { p_workspace: workspace } : {}),
         p_name: name.trim() || goal.slice(0, 60),
         p_goal: goal.trim(),
         p_outputs: outputs,
@@ -128,12 +130,7 @@ function NewSession() {
       });
       const data = created?.[0];
       if (!data) throw new Error("Could not create session");
-      const workspace = sessionStorage.getItem("cartoonist_workspace");
-      if (workspace) {
-        const { error } = await supabase.rpc("workspace_attach_room", { p_workspace: workspace, p_room: data.id });
-        if (error) toast.error("Meeting created, but it could not be added to the team studio.");
-        sessionStorage.removeItem("cartoonist_workspace");
-      }
+      if (workspace) sessionStorage.removeItem("cartoonist_workspace");
       addSession({
         roomId: data.id,
         joinCode: data.join_code ?? "",

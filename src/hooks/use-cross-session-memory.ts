@@ -7,7 +7,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { rpc } from "@/lib/db-rpc";
-import { loadSessions } from "@/lib/profile";
 
 export type MemoryEntry = {
   roomId: string;
@@ -70,9 +69,10 @@ export function useCrossSessionMemory(roomId: string) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      // Only rooms this device already knows about (its own workspace) are
-      // indexed — there is no way to list other people's sessions.
-      const knownIds = loadSessions().map((s) => s.roomId).filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) return;
+      const rooms = await rpc<Array<{ id: string }>>("workspace_rooms");
+      const knownIds = (rooms ?? []).map((r) => r.id);
       if (knownIds.length === 0) return;
       const events = await rpc<Array<{ room_id: string; room_name: string | null; thread_id: string | null; transcript_span: unknown; created_at: string }>>(
         "memory_index",
