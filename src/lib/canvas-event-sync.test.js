@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { ParticipantBatch, applyCanvasEvent, shouldPublishChange, shouldSeedCanvas } from "./canvas-event-sync";
+import { existingParticipantId } from "./participant-identity";
 
 test("remote changes and our own event echoes never publish", () => {
   expect(shouldPublishChange("remote", false)).toBe(false);
@@ -38,6 +39,34 @@ test("the session brief waits for event replay before seeding", () => {
   expect(shouldSeedCanvas(false, false, 0, true)).toBe(false);
   expect(shouldSeedCanvas(true, false, 1, true)).toBe(false);
   expect(shouldSeedCanvas(true, false, 0, true)).toBe(true);
+  expect(shouldSeedCanvas(true, false, 0, true, true)).toBe(false);
+});
+
+test("a brand-new room seeds after an empty event replay", () => {
+  const events = [];
+  const ai = new Map();
+  const participant = new Map();
+  for (const row of events) applyCanvasEvent(ai, participant, row);
+  expect(shouldSeedCanvas(true, false, ai.size, true, events.length > 0)).toBe(true);
+});
+
+test("a returning person reuses their room row", () => {
+  const rows = [{ id: "ana", display_name: "SyncTest Ana" }, { id: "ben", display_name: "SyncTest Ben" }];
+  expect(existingParticipantId(rows, "ana", "SyncTest Ana")).toBe("ana");
+  expect(existingParticipantId(rows, null, " synctest ana ")).toBe("ana");
+  expect(existingParticipantId(rows, null, "New Guest")).toBeNull();
+});
+
+test("clear removes AI and participant drawings during replay", () => {
+  const ai = new Map();
+  const participant = new Map();
+  applyCanvasEvent(ai, participant, { source: "seed", op: { id: "seed_goal", type: "note" } });
+  applyCanvasEvent(ai, participant, { source: "participant", op: { kind: "participant_upsert", id: "shape:stroke", record: { id: "shape:stroke", typeName: "shape" } } });
+  applyCanvasEvent(ai, participant, { source: "clear", op: { kind: "clear" } });
+  expect(ai.size).toBe(0);
+  expect(participant.get("shape:stroke")).toBeNull();
+  applyCanvasEvent(ai, participant, { source: "risk", op: { id: "risk-1", type: "note" } });
+  expect([...ai.keys()]).toEqual(["risk-1"]);
 });
 
 test("related tldraw assets and bindings replay with shapes", () => {

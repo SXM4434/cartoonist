@@ -6,8 +6,8 @@ export function shouldPublishChange(source: string, applyingRemote: boolean): bo
   return source === "user" && !applyingRemote;
 }
 
-export function shouldSeedCanvas(eventsLoaded: boolean, seeded: boolean, shapeCount: number, hasGoal: boolean): boolean {
-  return eventsLoaded && !seeded && shapeCount === 0 && hasGoal;
+export function shouldSeedCanvas(eventsLoaded: boolean, seeded: boolean, shapeCount: number, hasGoal: boolean, hasCanvasHistory = false): boolean {
+  return eventsLoaded && !seeded && !hasCanvasHistory && shapeCount === 0 && hasGoal;
 }
 
 // The last version of a shape wins while the pen is moving. A completed stroke
@@ -33,6 +33,11 @@ export function applyCanvasEvent<A extends { id: string; type: string }, P exten
 ): void {
   if (!row.op || typeof row.op !== "object") return;
   const op = row.op as Record<string, unknown>;
+  if (op.kind === "clear") {
+    ai.clear();
+    for (const id of participant.keys()) participant.set(id, null);
+    return;
+  }
   if (typeof op.id !== "string") return;
   if (row.source === "participant") {
     if (op.kind === "participant_remove") participant.set(op.id, null);

@@ -117,7 +117,6 @@ function NewSession() {
     if (!goal.trim()) { toast.error("Add a goal — what are we trying to do?"); return; }
     setCreating(true);
     try {
-      const profile = loadProfile();
       const created = await rpc<Array<{ id: string; join_code: string | null; name: string }>>("room_create", {
         p_name: name.trim() || goal.slice(0, 60),
         p_goal: goal.trim(),
@@ -143,20 +142,6 @@ function NewSession() {
         outputs,
         createdAt: Date.now(),
       });
-      // Pre-register host as participant so they show up in lobby + canvas
-      if (profile) {
-        const { data: pp } = await supabase.from("participants").insert({
-          room_id: data.id,
-          display_name: profile.displayName,
-          role: profile.role || null,
-          personality: hostRole,
-          color: profile.color,
-          input_mode: "voice",
-        } as never).select("id").maybeSingle();
-        if (pp?.id) localStorage.setItem(`cartoonist_participant_${data.id}`, pp.id);
-        localStorage.setItem(`cartoonist_joined_${data.id}`, "1");
-        localStorage.setItem(`cartoonist_input_mode_${data.id}`, "voice");
-      }
       navigate({ to: "/sessions/$sessionId", params: { sessionId: data.id } });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not create session");

@@ -65,19 +65,21 @@ export type CanvasEventRow = {
 
 export async function canvasEventsForRoom(roomId: string, limit = Number.MAX_SAFE_INTEGER): Promise<CanvasEventRow[] | null> {
   const rows: CanvasEventRow[] = [];
-  let afterAt: string | null = null;
-  let afterId: string | null = null;
   while (rows.length < limit) {
     const pageSize = Math.min(500, limit - rows.length);
-    const page: CanvasEventRow[] | null = await rpc<CanvasEventRow[]>("canvas_events_page", {
-      p_room: roomId, p_after_at: afterAt, p_after_id: afterId, p_limit: pageSize,
-    });
+    const { data: page, error } = await supabase.from("canvas_events")
+      .select("id,op,source,transcript_span,thread_id,t_offset_ms,created_at")
+      .eq("room_id", roomId)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(rows.length, rows.length + pageSize - 1);
+    if (error) {
+      console.error("[canvas] event replay failed", error);
+      return null;
+    }
     if (!page) return null;
     rows.push(...page);
     if (page.length < pageSize) break;
-    const last: CanvasEventRow = page[page.length - 1];
-    afterAt = last.created_at;
-    afterId = last.id;
   }
   return rows;
 }

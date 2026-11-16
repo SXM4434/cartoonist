@@ -751,6 +751,27 @@ export function Canvas({
     }
   }, [mounted, participantRecords]);
 
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!mounted || !editor) return;
+    const clear = () => {
+      if (batchTimerRef.current) clearTimeout(batchTimerRef.current);
+      batchTimerRef.current = null;
+      participantBatchRef.current.drain();
+      pendingGeneratedRef.current.clear();
+      const ids = [...editor.getCurrentPageShapeIds()];
+      if (!ids.length) return;
+      applyingRef.current = true;
+      try {
+        editor.store.mergeRemoteChanges(() => editor.deleteShapes(ids));
+      } finally {
+        applyingRef.current = false;
+      }
+    };
+    window.addEventListener("cartoonist:clear", clear);
+    return () => window.removeEventListener("cartoonist:clear", clear);
+  }, [mounted]);
+
   return (
     <div className="absolute inset-0 bg-background">
       <Tldraw hideUi onMount={handleMount} />

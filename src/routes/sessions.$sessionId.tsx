@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { addSession, loadProfile } from "@/lib/profile";
 import { CartoonistHeader } from "./onboarding";
 import { roomGet } from "@/lib/db-rpc";
+import { existingParticipantId } from "@/lib/participant-identity";
 
 type Room = {
   id: string; name: string; join_code: string | null;
@@ -65,7 +66,9 @@ function Lobby() {
       const list = (parts ?? []) as Participant[];
       setParticipants(list);
 
-      const match = list.find((x) => norm(x.display_name) === norm(p.displayName));
+      const storedId = localStorage.getItem(`cartoonist_participant_${sessionId}`);
+      const matchId = existingParticipantId(list, storedId, p.displayName);
+      const match = list.find((x) => x.id === matchId);
       if (match) {
         // already in this room (probably the host or a prior tab) — reuse identity
         setSelfPid(match.id);
@@ -112,6 +115,12 @@ function Lobby() {
     if (!p) return;
     let pid = selfPid;
 
+    if (!pid) {
+      const { data: existing, error: lookupError } = await supabase.from("participants")
+        .select("id,display_name").eq("room_id", sessionId);
+      if (lookupError) { console.error("[lobby] participant lookup failed", lookupError); toast.error("Could not join"); return; }
+      pid = existingParticipantId((existing ?? []) as Array<{ id: string; display_name: string }>, localStorage.getItem(`cartoonist_participant_${sessionId}`), p.displayName);
+    }
     if (!pid) {
       const { data: inserted, error } = await supabase.from("participants").insert({
         room_id: sessionId,
