@@ -8,6 +8,13 @@
       "when": 1794845150133,
       "tag": "0000_persist_room_recall",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794845290482,
+      "tag": "0001_bind_voice_storage_owners",
+      "breakpoints": true
     }
   ]
 }
