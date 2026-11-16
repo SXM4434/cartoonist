@@ -462,10 +462,9 @@ ${latest || transcript}`;
         const callGateway = async (messages: Array<{ role: string; content: string }>) =>
           fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
-            // Generation duration depends on the model and context. Do not
-            // discard paid work with an artificial deadline; cancel only
-            // when the caller disconnects or explicitly cancels.
-            signal: request.signal,
+            // A page disconnect is not an explicit generation cancellation.
+            // Finish paid work instead of passing the transport's abort signal
+            // into the provider (which the server adapter surfaces as a 500).
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
               model,
@@ -484,25 +483,26 @@ ${latest || transcript}`;
 
 
         let res: Response;
-        try {
-          res = await callGateway(baseMessages);
-        } catch (error) {
-          console.error("AI draw request failed", error);
-          const timedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
-          if (request.signal.aborted) return new Response(null, { status: 499 });
-          return json({ error: timedOut ? "The drawing service timed out. Your canvas is safe — try again when ready." : "AI draw is temporarily unavailable — try again in a moment.", shapes: [], edits: [], removes: [] });
-        }
-
-        if (!res.ok) {
-          const text = await res.text();
-          console.error("AI draw gateway error", res.status, text);
-          return json({ error: aiDrawErrorMessage(res.status, text), shapes: [], edits: [], removes: [] });
-        }
-
-        const data = (await res.json()) as {
+        let data: {
           choices?: Array<{ message?: { content?: string } }>;
           usage?: Usage;
         };
+        try {
+          res = await callGateway(baseMessages);
+          if (!res.ok) {
+            const text = await res.text();
+            console.error("AI draw gateway error", res.status, text);
+            return json({ error: aiDrawErrorMessage(res.status, text), shapes: [], edits: [], removes: [] });
+          }
+          // Body consumption can also abort after response headers arrive.
+          data = await res.json();
+        } catch (error) {
+          const aborted = error instanceof Error && error.name === "AbortError";
+          if (request.signal.aborted || aborted) return new Response(null, { status: 499 });
+          console.error("AI draw request failed", error);
+          const timedOut = error instanceof Error && error.name === "TimeoutError";
+          return json({ error: timedOut ? "The drawing service timed out. Your canvas is safe — try again when ready." : "AI draw is temporarily unavailable — try again in a moment.", shapes: [], edits: [], removes: [] });
+        }
         const content = data.choices?.[0]?.message?.content ?? "{}";
         let parsed: { shapes?: unknown; edits?: unknown; removes?: unknown; rationale?: unknown; modality?: unknown; speak?: unknown; thread_ref?: unknown; relation?: unknown; chart?: unknown } = {};
         try {
