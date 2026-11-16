@@ -314,6 +314,41 @@ export type Database = {
           },
         ]
       }
+      room_recall: {
+        Row: {
+          answer: string
+          created_at: string
+          id: string
+          question: string
+          quotes: Json
+          room_id: string
+        }
+        Insert: {
+          answer: string
+          created_at?: string
+          id?: string
+          question: string
+          quotes?: Json
+          room_id: string
+        }
+        Update: {
+          answer?: string
+          created_at?: string
+          id?: string
+          question?: string
+          quotes?: Json
+          room_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_recall_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rooms: {
         Row: {
           created_at: string
@@ -518,6 +553,23 @@ export type Database = {
           thread_id: string
           transcript_span: Json
         }[]
+      }
+      recall_list: {
+        Args: { p_room: string }
+        Returns: {
+          answer: string
+          created_at: string
+          id: string
+          question: string
+          quotes: Json
+          room_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "room_recall"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       relation_add: {
         Args: {
