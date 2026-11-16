@@ -693,18 +693,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const openThreads = threads.slice(-8).map((t) => ({ id: t.id, latest: t.latest, modality: t.modality }));
       // Raise-hand queue → mediator surfaces the next hand at natural pauses.
       const handsUp = handQueue.map((h) => h.name);
-      const controller = new AbortController();
-      // Stay beyond the server's dense-wireframe allowance. A shorter client
-      // timer previously aborted the response while the detail model was still
-      // producing valid structured geometry.
-      const timeout = window.setTimeout(() => controller.abort(), 225000);
+      // Let the model finish rather than discarding a paid generation on a timer.
       const res = await fetch("/api/cartoonist-draw", {
         method: "POST",
-        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ roomId, transcript: fullContext, latest: cleanLatest, existing: summarizeCanvas(), occupied: bboxOf(shapesRef.current), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads, handsUp, enrichPass, maxFidelity, fidelity: getRenderStyle().fidelity, ink: getRenderStyle().ink, costCapUsd: getCostCap(roomId), memoryBlock: sessionMemoryBlock(sessionMemoryRef.current) }),
       });
-      window.clearTimeout(timeout);
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.error) {
         setDrawError(data?.error ?? "AI draw failed");
