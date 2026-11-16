@@ -462,10 +462,9 @@ ${latest || transcript}`;
         const callGateway = async (messages: Array<{ role: string; content: string }>) =>
           fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
-            // Generation duration depends on the model and context. Do not
-            // discard paid work with an artificial deadline; cancel only
-            // when the caller disconnects or explicitly cancels.
-            signal: request.signal,
+            // A page disconnect is not an explicit generation cancellation.
+            // Finish paid work instead of passing the transport's abort signal
+            // into the provider (which the server adapter surfaces as a 500).
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
               model,
