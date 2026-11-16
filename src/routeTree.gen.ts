@@ -14,6 +14,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DirectionsRouteImport } from './routes/directions'
 import { Route as ExamplesRouteImport } from './routes/examples'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as TeamsRouteImport } from './routes/teams'
 import { Route as ApiCanvasOpsRouteImport } from './routes/api/canvas-ops'
 import { Route as ApiCartoonistDrawRouteImport } from './routes/api/cartoonist-draw'
 import { Route as ApiDevilsAdvocateRouteImport } from './routes/api/devils-advocate'
@@ -55,6 +56,11 @@ const ExamplesRoute = ExamplesRouteImport.update({
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeamsRoute = TeamsRouteImport.update({
+  id: '/teams',
+  path: '/teams',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiCanvasOpsRoute = ApiCanvasOpsRouteImport.update({
@@ -150,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/directions': typeof DirectionsRoute
   '/examples': typeof ExamplesRoute
   '/onboarding': typeof OnboardingRoute
+  '/teams': typeof TeamsRoute
   '/api/canvas-ops': typeof ApiCanvasOpsRoute
   '/api/cartoonist-draw': typeof ApiCartoonistDrawRoute
   '/api/devils-advocate': typeof ApiDevilsAdvocateRoute
@@ -174,6 +181,7 @@ export interface FileRoutesByTo {
   '/directions': typeof DirectionsRoute
   '/examples': typeof ExamplesRoute
   '/onboarding': typeof OnboardingRoute
+  '/teams': typeof TeamsRoute
   '/api/canvas-ops': typeof ApiCanvasOpsRoute
   '/api/cartoonist-draw': typeof ApiCartoonistDrawRoute
   '/api/devils-advocate': typeof ApiDevilsAdvocateRoute
@@ -199,6 +207,7 @@ export interface FileRoutesById {
   '/directions': typeof DirectionsRoute
   '/examples': typeof ExamplesRoute
   '/onboarding': typeof OnboardingRoute
+  '/teams': typeof TeamsRoute
   '/api/canvas-ops': typeof ApiCanvasOpsRoute
   '/api/cartoonist-draw': typeof ApiCartoonistDrawRoute
   '/api/devils-advocate': typeof ApiDevilsAdvocateRoute
@@ -225,6 +234,7 @@ export interface FileRouteTypes {
     | '/directions'
     | '/examples'
     | '/onboarding'
+    | '/teams'
     | '/api/canvas-ops'
     | '/api/cartoonist-draw'
     | '/api/devils-advocate'
@@ -249,6 +259,7 @@ export interface FileRouteTypes {
     | '/directions'
     | '/examples'
     | '/onboarding'
+    | '/teams'
     | '/api/canvas-ops'
     | '/api/cartoonist-draw'
     | '/api/devils-advocate'
@@ -273,6 +284,7 @@ export interface FileRouteTypes {
     | '/directions'
     | '/examples'
     | '/onboarding'
+    | '/teams'
     | '/api/canvas-ops'
     | '/api/cartoonist-draw'
     | '/api/devils-advocate'
@@ -298,6 +310,7 @@ export interface RootRouteChildren {
   DirectionsRoute: typeof DirectionsRoute
   ExamplesRoute: typeof ExamplesRoute
   OnboardingRoute: typeof OnboardingRoute
+  TeamsRoute: typeof TeamsRoute
   ApiCanvasOpsRoute: typeof ApiCanvasOpsRoute
   ApiCartoonistDrawRoute: typeof ApiCartoonistDrawRoute
   ApiDevilsAdvocateRoute: typeof ApiDevilsAdvocateRoute
@@ -352,6 +365,13 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/teams': {
+      id: '/teams'
+      path: '/teams'
+      fullPath: '/teams'
+      preLoaderRoute: typeof TeamsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/canvas-ops': {
@@ -482,6 +502,7 @@ const rootRouteChildren: RootRouteChildren = {
   DirectionsRoute: DirectionsRoute,
   ExamplesRoute: ExamplesRoute,
   OnboardingRoute: OnboardingRoute,
+  TeamsRoute: TeamsRoute,
   ApiCanvasOpsRoute: ApiCanvasOpsRoute,
   ApiCartoonistDrawRoute: ApiCartoonistDrawRoute,
   ApiDevilsAdvocateRoute: ApiDevilsAdvocateRoute,

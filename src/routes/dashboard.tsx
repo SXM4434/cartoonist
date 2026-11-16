@@ -92,6 +92,7 @@ function Dashboard() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => navigate({ to: "/teams" })}>Team studios</Button>
             <div className="flex items-center border border-foreground bg-card">
               <Input
                 value={joinCode}

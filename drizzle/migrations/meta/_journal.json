@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1794845150133,
+      "tag": "0000_persist_room_recall",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794845290482,
+      "tag": "0001_bind_voice_storage_owners",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794845354483,
+      "tag": "0002_team_workspaces",
+      "breakpoints": true
+    }
+  ]
+}

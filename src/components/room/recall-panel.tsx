@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pin, Search } from "lucide-react";
 import type { RecallEntry } from "@/hooks/use-historian";
+import { Button } from "@/components/ui/button";
 
 /**
  * Phase 3.3 — Historian surface.
@@ -12,11 +13,15 @@ export function RecallPanel({
   asking,
   onAsk,
   onPin,
+  error,
+  onFocus,
 }: {
   entries: RecallEntry[];
   asking: boolean;
   onAsk: (question: string) => void;
   onPin: (entry: RecallEntry) => void;
+  error?: string | null;
+  onFocus?: (threadId: string, shapeIds: string[]) => void;
 }) {
   const [q, setQ] = useState("");
 
@@ -36,7 +41,7 @@ export function RecallPanel({
           placeholder="What did we say about pricing?"
           className="h-7 min-w-0 flex-1 border border-border bg-background px-2 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
         />
-        <button
+        <Button variant="outline" size="sm"
           type="button"
           onClick={submit}
           disabled={asking || !q.trim()}
@@ -45,9 +50,10 @@ export function RecallPanel({
         >
           <Search className={`h-3 w-3 ${asking ? "animate-pulse" : ""}`} />
           <span className="eyebrow">Recall</span>
-        </button>
+        </Button>
       </div>
 
+      {error && <p role="alert" className="px-2.5 py-2 text-[13px] text-destructive">{error}</p>}
       {entries.length === 0 ? (
         <p className="px-2.5 py-4 text-[13px] leading-[1.5] text-muted-foreground">
           Ask about anything already said in this session. Answers only come back with the exact words behind them.
@@ -58,7 +64,7 @@ export function RecallPanel({
             <li key={e.id} className="border-b border-border px-2.5 py-2.5">
               <div className="flex items-start justify-between gap-2">
                 <span className="eyebrow text-muted-foreground">{e.question}</span>
-                <button
+                <Button variant="ghost" size="icon"
                   type="button"
                   onClick={() => onPin(e)}
                   disabled={e.quotes.length === 0}
@@ -66,13 +72,14 @@ export function RecallPanel({
                   className="flex h-6 w-6 shrink-0 items-center justify-center border border-border text-muted-foreground transition hover:bg-foreground hover:text-background active:scale-[0.98] disabled:opacity-40"
                 >
                   <Pin className="h-3 w-3" />
-                </button>
+                </Button>
               </div>
               <p className="mt-1 text-[15px] leading-[1.5] text-foreground">{e.answer}</p>
               {e.quotes.map((quote, i) => (
                 <p key={i} className="mt-1 border-l-2 border-border pl-2 text-[13px] leading-[1.5] text-muted-foreground">
                   {quote.speaker ? <span className="text-foreground">{quote.speaker}: </span> : null}
                   “{quote.text}”
+                  {quote.threadId && onFocus && <Button variant="link" size="sm" className="h-7 px-0 text-[13px]" onClick={() => onFocus(quote.threadId ?? "", quote.shapeIds ?? [])}>Original drawing ↗</Button>}
                 </p>
               ))}
             </li>
