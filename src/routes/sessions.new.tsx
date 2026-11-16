@@ -26,6 +26,14 @@ const FACILITATION = [
 
 export const Route = createFileRoute("/sessions/new")({
   ssr: false,
+  head: () => ({ meta: [
+    { title: "Start a session — Cartoonist" },
+    { name: "description", content: "Set your meeting goal and choose the work Cartoonist will capture." },
+    { property: "og:title", content: "Start a session — Cartoonist" },
+    { property: "og:description", content: "Set your meeting goal and choose the work Cartoonist will capture." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: NewSession,
 });
 

@@ -10,6 +10,14 @@ import { Glyph } from "@/components/design/glyph";
 
 export const Route = createFileRoute("/onboarding")({
   ssr: false,
+  head: () => ({ meta: [
+    { title: "Your voice intro — Cartoonist" },
+    { name: "description", content: "Introduce yourself before joining a Cartoonist session." },
+    { property: "og:title", content: "Your voice intro — Cartoonist" },
+    { property: "og:description", content: "Introduce yourself before joining a Cartoonist session." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: Onboarding,
 });
 
