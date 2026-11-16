@@ -12,8 +12,8 @@ export function matchRecallDrawings(quotes: Citation[], events: Array<{ thread_i
     });
     if (!match?.thread_id) return quote;
     const ids = events.filter(e => e.thread_id === match.thread_id).flatMap(e => {
-      const op = e.op as { shapes?: Array<{ id?: string }>; shape?: { id?: string } } | null;
-      return [...(op?.shapes ?? []), ...(op?.shape ? [op.shape] : [])].flatMap(s => s.id ? [s.id] : []);
+      const op = e.op as { id?: string; type?: string; shapes?: Array<{ id?: string }>; shape?: { id?: string } } | null;
+      return [...(op?.shapes ?? []), ...(op?.shape ? [op.shape] : []), ...(op?.type && op.id ? [op] : [])].flatMap(s => s.id ? [s.id] : []);
     });
     return { ...quote, threadId: match.thread_id, shapeIds: [...new Set(ids)] };
   });
