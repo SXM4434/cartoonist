@@ -462,10 +462,10 @@ ${latest || transcript}`;
         const callGateway = async (messages: Array<{ role: string; content: string }>) =>
           fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
-            // Dense structured JSON can legitimately take longer than a chat
-            // turn. The old 75s server abort killed valid wireframes before
-            // the gateway could deliver them, producing a blank canvas.
-            signal: AbortSignal.timeout(uiWireframeIntent ? 210000 : 16000),
+            // Generation duration depends on the model and context. Do not
+            // discard paid work with an artificial deadline; cancel only
+            // when the caller disconnects or explicitly cancels.
+            signal: request.signal,
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
               model,
@@ -489,7 +489,8 @@ ${latest || transcript}`;
         } catch (error) {
           console.error("AI draw request failed", error);
           const timedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
-          return json({ error: timedOut ? "The drawing took too long. Your request was kept — pause and it will retry." : "AI draw is temporarily unavailable — try again in a moment.", shapes: [], edits: [], removes: [] }, timedOut ? 504 : 502);
+          if (request.signal.aborted) return new Response(null, { status: 499 });
+          return json({ error: timedOut ? "The drawing service timed out. Your canvas is safe — try again when ready." : "AI draw is temporarily unavailable — try again in a moment.", shapes: [], edits: [], removes: [] });
         }
 
         if (!res.ok) {
