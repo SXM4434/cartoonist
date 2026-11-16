@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { eventKey, runAgentEvent } from "@/lib/agent-events";
+import { listAgentEvents, meetingEventStore } from "@/lib/agent-event-store";
 
 /**
  * v1 P2.4 — partial artifacts while listening.
@@ -38,6 +40,7 @@ export function useLiveArtifacts({
   const [drafting, setDrafting] = useState(false);
   const [draftedAt, setDraftedAt] = useState<number | null>(null);
   const [draftCount, setDraftCount] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   const transcriptRef = useRef(transcript);
   transcriptRef.current = transcript;
@@ -49,6 +52,18 @@ export function useLiveArtifacts({
   const buildRef = useRef(buildParticipantsBlock);
   buildRef.current = buildParticipantsBlock;
 
+  useEffect(() => {
+    let active = true;
+    void listAgentEvents(roomId).then(rows => {
+      if (!active) return;
+      const saved = rows.filter(row => row.agent === "drafter" && row.event_key.includes(":documents:"));
+      const latest = saved.find(row => row.status === "completed" && row.result);
+      if (latest) onDraftRef.current(latest.result);
+      setError(saved.find(row => row.status === "failed")?.error ?? null);
+    }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : "Could not load drafts."); });
+    return () => { active = false; };
+  }, [roomId]);
+
   const draftNow = useCallback(async () => {
     const text = transcriptRef.current.trim();
     if (busyRef.current || text.length < 120) return;
@@ -57,20 +72,27 @@ export function useLiveArtifacts({
     setDrafting(true);
     try {
       const participantsBlock = await buildRef.current();
-      const res = await fetch("/api/generate-artifacts", {
+      const event = await runAgentEvent(meetingEventStore(roomId, "drafter"), eventKey("drafter", roomId, text, "documents"), async () => {
+        const res = await fetch("/api/generate-artifacts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ roomId, transcript: text.slice(-20_000), participantsBlock }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data && typeof data === "object") {
-        coveredRef.current = text.length;
-        onDraftRef.current(data);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error ?? "Could not draft documents.");
+        return data;
+      });
+      coveredRef.current = text.length;
+      if (event.status === "failed") { setError(event.error ?? "Could not draft documents."); return; }
+      if (event.status === "completed" && event.result && typeof event.result === "object") {
+        setError(null);
+        onDraftRef.current(event.result);
         setDraftedAt(Date.now());
         setDraftCount((n) => n + 1);
       }
-    } catch {
-      /* silent — this is a background nicety, not a user action */
+    } catch (cause) {
+      coveredRef.current = text.length;
+      setError(cause instanceof Error ? cause.message : "Could not save draft event.");
     } finally {
       busyRef.current = false;
       setDrafting(false);
@@ -92,5 +114,5 @@ export function useLiveArtifacts({
     return () => window.clearInterval(id);
   }, [enabled, draftNow, minNewChars, minIntervalMs]);
 
-  return { drafting, draftedAt, draftCount, draftNow };
+  return { drafting, draftedAt, draftCount, error, draftNow };
 }

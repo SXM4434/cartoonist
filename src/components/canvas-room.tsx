@@ -34,7 +34,7 @@ import { CanvasToolbar } from "./room/canvas-toolbar";
 import { RoomPanel, type RoomPanelTab } from "./room/room-panel";
 import type { InferredState } from "./team-desk/use-inferred-state";
 import { buildUserAgents, userAgentsPromptBlock } from "@/lib/user-agents";
-import { playStreamingTTS } from "@/lib/tts-stream";
+import { playStreamingTTS, stopStreamingTTS } from "@/lib/tts-stream";
 import { useLiveCursors } from "@/hooks/use-live-cursors";
 import { useSharedFocus } from "@/hooks/use-shared-focus";
 import { CursorsOverlay } from "./team-desk/CursorsOverlay";
@@ -48,12 +48,14 @@ import { useDevilsAdvocate, type Risk as DevilRisk } from "@/hooks/use-devils-ad
 import { RisksPanel } from "./room/risks-panel";
 import { useHistorian, type RecallEntry } from "@/hooks/use-historian";
 import { RecallPanel } from "./room/recall-panel";
-import { wakeQuery, voiceAction, pauseNudge } from "@/lib/voice-intent";
+import { wakeFromStream, voiceAction, pauseNudge, interruptPlayback } from "@/lib/voice-intent";
 
 import { canvasEventsForRoom, roomGet, type CanvasEventRow } from "@/lib/db-rpc";
 import { applyCanvasEvent, shouldSeedCanvas, type ParticipantOp } from "@/lib/canvas-event-sync";
 import { existingParticipantId } from "@/lib/participant-identity";
 import { FeedbackDeduper, type DrawingOutcome } from "@/lib/drawing-feedback";
+import { eventKey, runAgentEvent } from "@/lib/agent-events";
+import { meetingEventStore } from "@/lib/agent-event-store";
 
 type SessionContext = {
   name: string;
@@ -271,12 +273,17 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const voiceSeenRef = useRef(0);
   const nudgeAtRef = useRef(0);
   const lastHumanAtRef = useRef(Date.now());
+  const playbackEpochRef = useRef(0);
+
+  useEffect(() => {
+    setPausePrompts(window.localStorage.getItem(`cartoonist_pause_prompts_${roomId}`) === "true");
+  }, [roomId]);
 
   useEffect(() => {
     if (speech.partial || speech.level > 0.08) {
       lastHumanAtRef.current = Date.now();
-      if (ttsAudioRef.current) ttsAudioRef.current.pause();
-      if (window.speechSynthesis?.speaking) window.speechSynthesis.cancel();
+      playbackEpochRef.current++;
+      if (interruptPlayback(true, ttsAudioRef.current, () => window.speechSynthesis?.cancel())) stopStreamingTTS();
     }
   }, [speech.partial, speech.level]);
   // v1 P2.2 — rolling full-session memory folded from the transcript.
@@ -401,12 +408,13 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       }
     };
     if (opts?.localFirst && playBrowserVoice()) return;
+    const epoch = playbackEpochRef.current;
     void (async () => {
       try {
         const audio = await playStreamingTTS({ roomId, text: speak, volume: 0.95, onEnd: onDone });
-        if (audio) ttsAudioRef.current = audio;
+        if (audio && epoch === playbackEpochRef.current) ttsAudioRef.current = audio;
       } catch {
-        playBrowserVoice();
+        if (epoch === playbackEpochRef.current) playBrowserVoice();
       }
     })();
   }, [mediatorMuted, speech.finals]);
@@ -893,16 +901,20 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const handsUp = handQueue.map((h) => h.name);
       const { data: auth } = await supabase.auth.getSession();
       // Let the model finish rather than discarding a paid generation on a timer.
-      const res = await fetch("/api/cartoonist-draw", {
+      const event = await runAgentEvent(meetingEventStore(roomId, "drafter"), eventKey("drafter", roomId, `${fullContext}:${enrichPass}`, "drawing"), async () => {
+        const res = await fetch("/api/cartoonist-draw", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(auth.session?.access_token ? { Authorization: `Bearer ${auth.session.access_token}` } : {}) },
         body: JSON.stringify({ roomId, transcript: fullContext, latest: cleanLatest, existing: summarizeCanvas(), occupied: bboxOf(shapesRef.current), sessionContext: sessionCtx, participants: participants.map(participantForPrompt), liveStates, agentsBlock, voiceAllowedNames, openThreads, handsUp, enrichPass, maxFidelity: maxFidelity || requestsUi, fidelity: getRenderStyle().fidelity, ink: getRenderStyle().ink, costCapUsd: getCostCap(roomId), memoryBlock: sessionMemoryBlock(sessionMemoryRef.current) }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data?.error) {
-        setDrawError(data?.error ?? "AI draw failed");
-        return false;
-      }
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data?.error) throw new Error(data?.error ?? "AI draw failed");
+        return data;
+      });
+      if (event.status === "failed") { setDrawError(event.error ?? "AI draw failed"); return true; }
+      if (event.status === "running") return true;
+      if (!event.claimed) return true;
+      const data = event.result as Record<string, unknown>;
       // v2.P4 — mediator speaks. Prefer ElevenLabs (warm, natural) via
       // /api/mediator-tts; fall back to Web Speech if that fails. Gated by
       // the per-user mute toggle. Deduped so re-renders don't repeat.
@@ -1054,10 +1066,11 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       }
       // v2.P6 — cross-session recall: if this utterance echoes a thread from an
       // earlier session, persist the edge and ghost-surface it in the room.
-      try {
-        const hit = memoryRef.current.recall(cleanLatest);
-        if (hit && lastThreadIdRef.current) void memoryRef.current.record(hit, lastThreadIdRef.current);
-      } catch { /* memory is best-effort */ }
+      const sourceThreadId = lastThreadIdRef.current;
+      void runAgentEvent(meetingEventStore(roomId, "librarian"), eventKey("librarian", roomId, cleanLatest), () => memoryRef.current.recall(cleanLatest)).then(event => {
+        if (event.status === "completed" && event.result && sourceThreadId) void memoryRef.current.record(event.result, sourceThreadId);
+        if (event.status === "failed") setDrawError(event.error ?? "Could not check earlier sessions.");
+      }).catch(cause => setDrawError(cause instanceof Error ? cause.message : "Could not save memory event."));
       // Progressive fidelity: the structural pass is already on screen; ask
       // for additive detail so the wireframe thickens live instead of the
       // room staring at a blank canvas for minutes.
@@ -1093,7 +1106,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     const timer = setTimeout(() => {
       const newText = text.slice(lastSentLenRef.current);
       const endLength = text.length;
-      const query = wakeQuery(newText);
+      const query = wakeFromStream(text.slice(0, lastSentLenRef.current), newText);
       if (query !== null) {
         lastSentLenRef.current = endLength;
         if (query) void voiceQueryRef.current(query);
@@ -1212,7 +1225,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     toast.success("Room link copied");
   }, []);
 
-  const generateArtifacts = useCallback(async () => {
+  const generateArtifacts = useCallback(async (requestedUpdate?: string): Promise<boolean> => {
     setPanelTab("artifacts");
     setPanelOpen(true);
     const transcript = speech.finals.length ? speech.finals.join("\n") : "(no transcript yet — start the mic or type to Cartoonist)";
@@ -1222,16 +1235,23 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       const { buildUserAgents, userAgentsPromptBlock } = await import("@/lib/user-agents");
       const agents = buildUserAgents(participants, inferredStatesRef.current);
       const participantsBlock = userAgentsPromptBlock(agents);
-      const res = await fetch("/api/generate-artifacts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId, transcript, participantsBlock }),
+      const event = await runAgentEvent(meetingEventStore(roomId, "drafter"), eventKey("drafter", roomId, requestedUpdate ? `${transcript}:${requestedUpdate}` : transcript, "documents"), async () => {
+        const res = await fetch("/api/generate-artifacts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ roomId, transcript, participantsBlock, requestedUpdate }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error || "Could not update documents.");
+        return data as Artifacts;
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || "Failed");
-      setArtifacts(data as Artifacts);
+      if (event.status === "failed") throw new Error(event.error ?? "Could not update documents.");
+      if (event.status === "running") { toast.info("Documents are being drafted."); return false; }
+      setArtifacts(event.result as Artifacts);
+      return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed");
+      return false;
     } finally {
       setGenerating(false);
     }
@@ -1272,8 +1292,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     const action = voiceAction(query);
     if (action === "draw") { await requestDraw(query); return; }
     if (action === "documents") {
-      await generateArtifacts();
-      playMediatorLine("The session documents are ready to review.");
+      if (await generateArtifacts(query)) playMediatorLine("I updated the session documents. They are ready to review.");
       return;
     }
     setPanelTab("recall");
@@ -1286,15 +1305,23 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     if (speech.finals.length !== voiceSeenRef.current) {
       voiceSeenRef.current = speech.finals.length;
       lastHumanAtRef.current = Date.now();
+      const utterance = speech.finals.at(-1);
+      if (utterance) void runAgentEvent(meetingEventStore(roomId, "scribe"), eventKey("scribe", roomId, `${voiceSeenRef.current}:${utterance}`), () => ({ text: utterance })).catch(cause => setDrawError(cause instanceof Error ? cause.message : "Could not save speech event."));
     }
     if (!pausePrompts || !speech.listening || mediatorMuted || thinking) return;
     const timer = window.setInterval(() => {
       if (nudgeAtRef.current === voiceSeenRef.current) return;
       const line = pauseNudge(speech.finals.at(-1) ?? "", Date.now() - lastHumanAtRef.current, pausePrompts);
-      if (line) { nudgeAtRef.current = voiceSeenRef.current; playMediatorLine(line); }
+      if (line) {
+        nudgeAtRef.current = voiceSeenRef.current;
+        void runAgentEvent(meetingEventStore(roomId, "facilitator"), eventKey("facilitator", roomId, `${voiceSeenRef.current}:${speech.finals.at(-1)}`), () => ({ line })).then(event => {
+          if (event.claimed && event.status === "completed") playMediatorLine(line);
+          if (event.status === "failed") setDrawError(event.error ?? "Could not save pause prompt.");
+        }).catch(cause => setDrawError(cause instanceof Error ? cause.message : "Could not save pause prompt."));
+      }
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [pausePrompts, speech.finals, speech.listening, mediatorMuted, thinking, playMediatorLine]);
+  }, [roomId, pausePrompts, speech.finals, speech.listening, mediatorMuted, thinking, playMediatorLine]);
 
   const pinRecall = useCallback((entry: RecallEntry) => {
     const occupied = bboxOf(shapesRef.current);
@@ -1631,10 +1658,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         </div>
       )}
 
-      {drawError && (
+      {(drawError || devil.error || liveArtifacts.error) && (
         <div className="border-b border-border bg-background px-5 py-1.5">
-          <span className="eyebrow text-primary">Draw error</span>{" "}
-          <span className="text-foreground/80" style={{ fontSize: "var(--step-0)" }}>{drawError}</span>
+          <span className="eyebrow text-primary">Room error</span>{" "}
+          <span className="text-foreground/80" style={{ fontSize: "var(--step-0)" }}>{drawError || devil.error || liveArtifacts.error}</span>
         </div>
       )}
 
@@ -1850,6 +1877,8 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                   setMediatorMuted((v) => {
                     const next = !v;
                     if (next && typeof window !== "undefined") {
+                      playbackEpochRef.current++;
+                      stopStreamingTTS();
                       if ("speechSynthesis" in window) window.speechSynthesis.cancel();
                       if (ttsAudioRef.current) { try { ttsAudioRef.current.pause(); } catch { /* noop */ } }
                     }
@@ -1939,7 +1968,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               icon: Search,
               node: (
                 <><label className="flex items-center gap-2 border-b border-border px-2.5 py-2 text-[13px]">
-                  <input type="checkbox" checked={pausePrompts} onChange={e => setPausePrompts(e.target.checked)} />
+                  <input type="checkbox" checked={pausePrompts} onChange={e => { setPausePrompts(e.target.checked); window.localStorage.setItem(`cartoonist_pause_prompts_${roomId}`, String(e.target.checked)); }} />
                   Spoken pause prompts
                 </label><RecallPanel
                   entries={historian.entries}

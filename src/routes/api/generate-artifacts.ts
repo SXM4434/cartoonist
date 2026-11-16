@@ -28,7 +28,7 @@ export const Route = createFileRoute("/api/generate-artifacts")({
           );
         }
 
-        let body: { transcript?: string; participantsBlock?: string; roomId?: string };
+        let body: { transcript?: string; participantsBlock?: string; roomId?: string; requestedUpdate?: string };
         try {
           body = await request.json();
         } catch {
@@ -69,7 +69,7 @@ export const Route = createFileRoute("/api/generate-artifacts")({
               model: "google/gemini-3-flash-preview",
               messages: [
                 { role: "system", content: SYSTEM_PROMPT },
-                { role: "user", content: `${body.participantsBlock ? `# Participants\n\n${body.participantsBlock.slice(0, 4000)}\n\n` : ""}Transcript:\n\n${transcript}` },
+                { role: "user", content: `${body.participantsBlock ? `# Participants\n\n${body.participantsBlock.slice(0, 4000)}\n\n` : ""}${body.requestedUpdate ? `Requested document update: ${body.requestedUpdate.slice(0, 1000)}\nApply this request to the relevant document, using only facts in the transcript.\n\n` : ""}Transcript:\n\n${transcript}` },
               ],
               response_format: { type: "json_object" },
             }),

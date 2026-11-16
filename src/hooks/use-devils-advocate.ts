@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { eventKey, runAgentEvent } from "@/lib/agent-events";
+import { listAgentEvents, meetingEventStore } from "@/lib/agent-event-store";
 
 /**
  * Phase 3.1 — Devil's Advocate agent (client side).
@@ -35,6 +37,22 @@ export function useDevilsAdvocate(opts: {
   const [risks, setRisks] = useState<Risk[]>([]);
   const [thinking, setThinking] = useState(false);
   const [checkedAt, setCheckedAt] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void listAgentEvents(roomId).then(rows => {
+      if (!active) return;
+      const saved = rows.filter(row => row.agent === "advocate");
+      const risks = saved.filter(row => row.status === "completed").flatMap(row => {
+        const result = row.result as { risks?: Risk[] } | null;
+        return Array.isArray(result?.risks) ? result.risks : [];
+      });
+      setRisks(risks.slice(-24));
+      setError(saved.find(row => row.status === "failed")?.error ?? null);
+    }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : "Could not load agent events."); });
+    return () => { active = false; };
+  }, [roomId]);
 
   const transcriptRef = useRef(transcript);
   transcriptRef.current = transcript;
@@ -54,7 +72,8 @@ export function useDevilsAdvocate(opts: {
     coveredRef.current = text.length;
     setThinking(true);
     try {
-      const res = await fetch("/api/devils-advocate", {
+      const event = await runAgentEvent(meetingEventStore(roomId, "advocate"), eventKey("advocate", roomId, text), async () => {
+        const res = await fetch("/api/devils-advocate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -64,20 +83,28 @@ export function useDevilsAdvocate(opts: {
           known: risksRef.current.slice(-12).map((r) => r.text),
         }),
       });
-      const data = await res.json().catch(() => ({}));
-      const incoming = Array.isArray(data?.risks) ? (data.risks as Omit<Risk, "id" | "at">[]) : [];
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error ?? "Could not check risks.");
+        const raw = Array.isArray(data?.risks) ? data.risks as Omit<Risk, "id" | "at">[] : [];
+        return { risks: raw.map(r => ({ ...r, id: crypto.randomUUID().slice(0, 8), at: Date.now() })) };
+      });
+      if (event.status === "failed") { setError(event.error ?? "Could not check risks."); return; }
+      if (event.status === "running") return;
+      setError(null);
+      const data = event.result;
+      const incoming = Array.isArray(data?.risks) ? data.risks : [];
       if (incoming.length) {
         setRisks((current) => {
           const seen = new Set(current.map((r) => normKey(r.text)));
           const fresh = incoming
             .filter((r) => r?.text && !seen.has(normKey(r.text)))
-            .map((r) => ({ ...r, id: crypto.randomUUID().slice(0, 8), at: Date.now() }) as Risk);
+            .map((r) => r as Risk);
           return fresh.length ? [...current, ...fresh].slice(-24) : current;
         });
       }
       setCheckedAt(Date.now());
-    } catch {
-      /* silent — this agent is advisory */
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not save agent event.");
     } finally {
       busyRef.current = false;
       setThinking(false);
@@ -103,5 +130,5 @@ export function useDevilsAdvocate(opts: {
     setRisks((current) => current.map((r) => (r.id === id ? { ...r, pinned: true } : r)));
   }, []);
 
-  return { risks, thinking, checkedAt, checkNow, dismiss, markPinned };
+  return { risks, thinking, checkedAt, error, checkNow, dismiss, markPinned };
 }

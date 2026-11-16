@@ -7,6 +7,16 @@
 const MP3_MIME = "audio/mpeg";
 
 let currentAudio: HTMLAudioElement | null = null;
+let pendingRequest: AbortController | null = null;
+let playbackVersion = 0;
+
+export function stopStreamingTTS(): void {
+  playbackVersion++;
+  pendingRequest?.abort();
+  pendingRequest = null;
+  currentAudio?.pause();
+  currentAudio = null;
+}
 
 export type StreamingTTSOptions = {
   /** Room the mediator is speaking in — required by the server-side abuse guard. */
@@ -21,23 +31,26 @@ export async function playStreamingTTS(opts: StreamingTTSOptions): Promise<HTMLA
   if (!text.trim() || typeof window === "undefined") return null;
 
   // Stop any in-flight playback so overlapping requests don't stack.
-  if (currentAudio) {
-    try { currentAudio.pause(); } catch { /* noop */ }
-    currentAudio = null;
-  }
+  stopStreamingTTS();
+  const version = playbackVersion;
+  const controller = new AbortController();
+  pendingRequest = controller;
 
   const res = await fetch("/api/mediator-tts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    signal: controller.signal,
     body: JSON.stringify({ text, roomId }),
   });
   if (!res.ok || !res.body) throw new Error("tts http " + res.status);
+  if (version !== playbackVersion) return null;
 
   const canStream = "MediaSource" in window && (window as unknown as { MediaSource: { isTypeSupported(t: string): boolean } }).MediaSource.isTypeSupported(MP3_MIME);
 
   if (!canStream) {
     // Fallback: buffer whole blob, then play.
     const blob = await res.blob();
+    if (version !== playbackVersion) return null;
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
     audio.volume = volume;
@@ -96,6 +109,7 @@ export async function playStreamingTTS(opts: StreamingTTSOptions): Promise<HTMLA
   })();
 
   // Start playing as soon as first chunk buffers.
+  if (version !== playbackVersion) { reader.cancel().catch(() => {}); URL.revokeObjectURL(url); return null; }
   try { await audio.play(); } catch { /* autoplay may block; caller handles */ }
   return audio;
 }

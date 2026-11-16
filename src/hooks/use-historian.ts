@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { rpc } from "@/lib/db-rpc";
+import { eventKey, runAgentEvent } from "@/lib/agent-events";
+import { meetingEventStore } from "@/lib/agent-event-store";
 
 /**
  * Phase 3.3 — Historian recall (client side).
@@ -50,7 +52,8 @@ export function useHistorian(opts: { roomId: string; transcript: string; memoryB
       setError(null);
       setAsking(true);
       try {
-        const res = await fetch("/api/historian", {
+        const event = await runAgentEvent(meetingEventStore(roomId, "historian"), eventKey("historian", roomId, `${transcriptRef.current}:${q}`), async () => {
+          const res = await fetch("/api/historian", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -60,8 +63,13 @@ export function useHistorian(opts: { roomId: string; transcript: string; memoryB
             memoryBlock: memoryRef.current,
           }),
         });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data?.error ?? "Could not search the session.");
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data?.error ?? "Could not search the session.");
+          return data;
+        });
+        if (event.status === "failed") throw new Error(event.error ?? "Could not search the session.");
+        if (event.status === "running") return null;
+        const data = event.result as { id?: string; answer?: string; error?: string; quotes?: RecallQuote[]; at?: number };
         const entry: RecallEntry = {
           id: data.id ?? crypto.randomUUID(),
           question: q,
