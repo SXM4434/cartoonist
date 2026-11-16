@@ -13,6 +13,23 @@ export type WebReference = {
 export type ReferenceOrigin = { x: number; y: number };
 
 const MAX_RESULTS = 5;
+export const PAGE_BYTE_CAP = 200 * 1024;
+export const PAGE_TEXT_BYTES = 20 * 1024;
+export const PAGE_CHECK_MS = 8_000;
+
+const STOP_WORDS = new Set([
+  "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "from",
+  "how", "if", "in", "into", "is", "it", "its", "of", "on", "or", "our",
+  "that", "the", "their", "these", "this", "those", "to", "was", "we",
+  "what", "when", "where", "which", "who", "why", "with", "you", "your",
+]);
+
+export type FetchedPage = {
+  status: number;
+  finalUrl: string;
+  title: string;
+  text: string;
+};
 
 export function isHttpUrl(value: string): boolean {
   try {
@@ -65,6 +82,215 @@ export function parseWebResults(raw: unknown, query: string): WebReference[] {
     if (out.length >= MAX_RESULTS) break;
   }
   return out;
+}
+
+export function meaningfulWords(value: string): string[] {
+  const found = value.toLowerCase().match(/[a-z0-9]{3,}/g) ?? [];
+  return found.filter((word) => !STOP_WORDS.has(word));
+}
+
+export function firstTextBytes(value: string, maxBytes: number): string {
+  const bytes = new TextEncoder().encode(value);
+  if (bytes.byteLength <= maxBytes) return value;
+  let end = maxBytes;
+  while (end > 0 && (bytes[end] & 0xc0) === 0x80) end -= 1;
+  return new TextDecoder("utf-8", { fatal: false }).decode(bytes.subarray(0, end));
+}
+
+function sharesMeaningfulWord(resultTitle: string, pageTitle: string, pageText: string): boolean {
+  const wanted = new Set(meaningfulWords(resultTitle));
+  if (wanted.size === 0) return false;
+  const haystack = meaningfulWords(`${pageTitle}\n${firstTextBytes(pageText, PAGE_TEXT_BYTES)}`);
+  return haystack.some((word) => wanted.has(word));
+}
+
+function hostOf(url: string): string {
+  return new URL(url).hostname.replace(/^www\./, "");
+}
+
+/** Keep a model row only when the fetched page agrees. The title becomes the page title. */
+export function verifyWebResults(results: WebReference[], pages: FetchedPage[]): WebReference[] {
+  const kept: WebReference[] = [];
+  const seen = new Set<string>();
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    const page = pages[i];
+    if (!result || !page) continue;
+    if (page.status < 200 || page.status >= 300) continue;
+    const finalUrl = page.finalUrl.trim();
+    if (!isHttpUrl(finalUrl) || seen.has(finalUrl)) continue;
+    const title = page.title.replace(/\s+/g, " ").trim().slice(0, 200);
+    if (!title) continue;
+    if (!sharesMeaningfulWord(result.title, title, page.text)) continue;
+    seen.add(finalUrl);
+    kept.push({
+      ...result,
+      id: referenceId(finalUrl),
+      title,
+      url: finalUrl,
+      source: hostOf(finalUrl) || result.source,
+    });
+    if (kept.length >= MAX_RESULTS) break;
+  }
+  return kept;
+}
+
+function decodeEntities(value: string): string {
+  return value
+    .replace(/&#(\d+);/g, (_, n) => {
+      const code = Number(n);
+      return code > 0 && code < 0x110000 ? String.fromCodePoint(code) : "";
+    })
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => {
+      const code = parseInt(n, 16);
+      return code > 0 && code < 0x110000 ? String.fromCodePoint(code) : "";
+    })
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&nbsp;/g, " ");
+}
+
+export function pageTitleFromHtml(html: string): string {
+  const match = /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(html);
+  if (!match) return "";
+  return decodeEntities(match[1].replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+}
+
+export function pageTextFromHtml(html: string): string {
+  const stripped = html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<[^>]+>/g, " ");
+  return decodeEntities(stripped).replace(/\s+/g, " ").trim();
+}
+
+export function pageFactsFromHtml(status: number, finalUrl: string, html: string): FetchedPage {
+  return {
+    status,
+    finalUrl,
+    title: pageTitleFromHtml(html),
+    text: firstTextBytes(pageTextFromHtml(html), PAGE_TEXT_BYTES),
+  };
+}
+
+function isPublicPageUrl(value: string): boolean {
+  if (!isHttpUrl(value)) return false;
+  const parsed = new URL(value);
+  if (parsed.username || parsed.password) return false;
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) return false;
+  if (host === "::1" || host === "0.0.0.0" || host === "::") return false;
+  if (host.includes(":")) {
+    const head = host.split(":").find((part) => part.length > 0) ?? "";
+    if (/^f[cd]/i.test(head) || /^fe[89ab]/i.test(head)) return false;
+  }
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (!v4) return true;
+  const parts = [1, 2, 3, 4].map((index) => Number(v4[index]));
+  if (parts.some((part) => part > 255)) return false;
+  const [a, b] = parts;
+  if (a === 0 || a === 10 || a === 127) return false;
+  if (a === 169 && b === 254) return false;
+  if (a === 172 && b >= 16 && b <= 31) return false;
+  if (a === 192 && b === 168) return false;
+  return true;
+}
+
+async function cancelBody(res: Response): Promise<void> {
+  try {
+    await res.body?.cancel();
+  } catch (err) {
+    console.error("page check stopped the extra bytes", err);
+  }
+}
+
+async function readCappedText(res: Response, cap: number): Promise<string> {
+  const reader = res.body?.getReader();
+  if (!reader) {
+    const buf = await res.arrayBuffer();
+    const view = buf.byteLength > cap ? buf.slice(0, cap) : buf;
+    return new TextDecoder("utf-8", { fatal: false }).decode(view);
+  }
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  try {
+    while (received < cap) {
+      const { done, value } = await reader.read();
+      if (done || !value) break;
+      const room = cap - received;
+      if (value.byteLength > room) {
+        chunks.push(value.subarray(0, room));
+        received += room;
+        break;
+      }
+      chunks.push(value);
+      received += value.byteLength;
+    }
+  } catch (err) {
+    console.error("page check read failed", err);
+    throw err;
+  } finally {
+    try {
+      await reader.cancel();
+    } catch (err) {
+      console.error("page check stopped the extra bytes", err);
+    }
+  }
+  const merged = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder("utf-8", { fatal: false }).decode(merged);
+}
+
+/**
+ * Open one suggested URL. One timer per call. The body stops at 200 kB.
+ * A private host is refused before the request, including after a redirect.
+ */
+export async function fetchPageFacts(url: string, timeoutMs = PAGE_CHECK_MS): Promise<FetchedPage> {
+  const signal = AbortSignal.timeout(timeoutMs);
+  let current = url;
+  try {
+    for (let hop = 0; hop < 5; hop++) {
+      if (!isPublicPageUrl(current)) {
+        console.error("page check refused a non-public URL", current);
+        return { status: 0, finalUrl: current, title: "", text: "" };
+      }
+      const res = await fetch(current, {
+        method: "GET",
+        redirect: "manual",
+        signal,
+        headers: {
+          Accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.1",
+          "User-Agent": "Mozilla/5.0 (compatible; CartoonistLibrarian/1.0)",
+        },
+      });
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get("location");
+        await cancelBody(res);
+        if (!location) return { status: res.status, finalUrl: current, title: "", text: "" };
+        current = new URL(location, current).href;
+        continue;
+      }
+      if (res.status < 200 || res.status >= 300) {
+        await cancelBody(res);
+        return { status: res.status, finalUrl: current, title: "", text: "" };
+      }
+      const html = await readCappedText(res, PAGE_BYTE_CAP);
+      return pageFactsFromHtml(res.status, current, html);
+    }
+    console.error("page check stopped after 5 redirects", current);
+    return { status: 0, finalUrl: current, title: "", text: "" };
+  } catch (err) {
+    console.error("page check failed", current, err);
+    return { status: 0, finalUrl: url, title: "", text: "" };
+  }
 }
 
 export function referenceToShape(ref: WebReference, origin: ReferenceOrigin): Extract<SketchPrimitive, { type: "note" }> {

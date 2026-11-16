@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { guardExpensiveRoute } from "@/lib/room-guard.server";
-import { parseWebResults } from "@/lib/web-reference";
+import { fetchPageFacts, parseWebResults, verifyWebResults } from "@/lib/web-reference";
 
 /**
- * Librarian lookup. The browser never talks to a search API. This route
- * asks the Lovable gateway for public sources, then drops anything without
- * a real http(s) URL so a fabricated citation cannot land in the panel.
+ * Librarian lookup. The browser posts the question here and never opens the
+ * result URLs. After the model answers, this route fetches each URL itself
+ * and returns a row only when the page answers 2xx and shares a real word
+ * with that result.
  */
 const SYSTEM_PROMPT = `You are the LIBRARIAN of a live working session. Look up public web sources for the question.
 
@@ -74,11 +75,14 @@ export const Route = createFileRoute("/api/web-references")({
         let parsed: unknown = {};
         try {
           parsed = JSON.parse(data.choices?.[0]?.message?.content ?? "{}");
-        } catch {
+        } catch (err) {
+          console.error("librarian returned non-json", err);
           return json({ results: [] });
         }
 
-        return json({ results: parseWebResults(parsed, query) });
+        const candidates = parseWebResults(parsed, query);
+        const pages = await Promise.all(candidates.map((item) => fetchPageFacts(item.url)));
+        return json({ results: verifyWebResults(candidates, pages) });
       },
     },
   },
