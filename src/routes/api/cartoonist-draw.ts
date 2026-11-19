@@ -435,9 +435,8 @@ ${latest || transcript}`;
         // geometry-aware detail layers once users already have a screen.
         const preferred = uiWireframeIntent
           ? enrichPass > 0 ? "google/gemini-3-flash-preview" : "google/gemini-2.5-flash"
-          : reviseIntent || hasUnresolved
-            ? "google/gemini-2.5-pro"
-            : "google/gemini-2.5-flash";
+          : "google/gemini-2.5-flash";
+        void reviseIntent; void hasUnresolved; // Flash everywhere: Pro added 15-30s per request.
         // v1 P1.9 — soft cost cap. When the session spend has already crossed
         // the user's cap, degrade every route to the cheapest model instead of
         // stopping the room. The client HUD shows "saving".

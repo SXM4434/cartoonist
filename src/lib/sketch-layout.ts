@@ -88,10 +88,7 @@ export function placeBatchClear(existing: SketchPrimitive[], incoming: SketchPri
   const a = bboxOf(existing);
   const b = bboxOf(incoming);
   if (!a || !b || !boxesOverlap(a, b, 16)) return incoming;
-  const canvasW = a.maxX - a.minX;
-  const canvasH = a.maxY - a.minY;
-  if (canvasW > canvasH * 2.2) {
-    return translatePrimitives(incoming, 0, a.maxY + gap - b.minY);
-  }
-  return translatePrimitives(incoming, a.maxX + gap - b.minX, 0);
+  // Stack below, keeping the left edge: sliding right pushed batches out of
+  // their storyboard frame and scattered drawings across the board.
+  return translatePrimitives(incoming, a.minX - b.minX, a.maxY + Math.min(gap, 120) - b.minY);
 }

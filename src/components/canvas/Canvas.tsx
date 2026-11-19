@@ -207,7 +207,7 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
         type: "text",
         x: num(shape.x, 0) + bw + 6,
         y: num(shape.y, 0) + Math.max(0, bh / 2 - 8),
-        props: { color, size: "s", font, textAlign: "start", w: 260, scale: isUi ? 0.72 : 0.5, richText: toRichText(label), autoSize: true },
+        props: { color: color === "white" ? "black" : color, size: "s", font, textAlign: "start", w: 260, scale: isUi ? 0.72 : 0.5, richText: toRichText(label), autoSize: true },
       } as TLShapePartial];
     }
     return [box];
@@ -327,7 +327,7 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
       type: "geo",
       x: shape.x,
       y: shape.y,
-      props: { geo: shape.kind === "cloud" || shape.kind === "heart" || shape.kind === "star" ? shape.kind : shape.kind === "user" || shape.kind === "users" ? "ellipse" : "rectangle", w: size, h: size, color, fill: "none", dash, size: "s", scale: isUi ? 1 : 0.7, font, align: "middle", verticalAlign: "middle", labelColor: color, richText: toRichText(showInside ? label : "") },
+      props: { geo: shape.kind === "cloud" || shape.kind === "heart" || shape.kind === "star" ? shape.kind : shape.kind === "user" || shape.kind === "users" ? "ellipse" : "rectangle", w: size, h: size, color, fill: "none", dash, size: "s", scale: isUi ? 1 : 0.7, font, align: "middle", verticalAlign: "middle", labelColor: color === "white" ? "black" : color, richText: toRichText(showInside ? label : "") },
     }];
     if (label && !showInside && size >= 26) {
       out.push({
@@ -335,7 +335,7 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
         type: "text",
         x: shape.x + size + 6,
         y: shape.y + size / 2 - 8,
-        props: { color, size: "s", font, textAlign: "start", w: 260, scale: isUi ? 0.72 : 0.5, richText: toRichText(label), autoSize: true },
+        props: { color: color === "white" ? "black" : color, size: "s", font, textAlign: "start", w: 260, scale: isUi ? 0.72 : 0.5, richText: toRichText(label), autoSize: true },
       } as TLShapePartial);
     }
     return out;
