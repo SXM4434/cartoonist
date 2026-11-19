@@ -174,6 +174,110 @@ export type Database = {
           },
         ]
       }
+      drawing_feedback: {
+        Row: {
+          action_id: string
+          created_at: string
+          id: string
+          original_op: Json
+          original_span: Json
+          original_thread_id: string
+          outcome: string
+          participant_id: string
+          result_record: Json | null
+          room_id: string
+          shape_id: string
+        }
+        Insert: {
+          action_id: string
+          created_at?: string
+          id?: string
+          original_op: Json
+          original_span: Json
+          original_thread_id: string
+          outcome: string
+          participant_id: string
+          result_record?: Json | null
+          room_id: string
+          shape_id: string
+        }
+        Update: {
+          action_id?: string
+          created_at?: string
+          id?: string
+          original_op?: Json
+          original_span?: Json
+          original_thread_id?: string
+          outcome?: string
+          participant_id?: string
+          result_record?: Json | null
+          room_id?: string
+          shape_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drawing_feedback_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "drawing_feedback_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_agent_events: {
+        Row: {
+          agent: string
+          claim_token: string
+          created_at: string
+          error: string | null
+          event_key: string
+          finished_at: string | null
+          id: string
+          result: Json | null
+          room_id: string
+          status: string
+        }
+        Insert: {
+          agent: string
+          claim_token?: string
+          created_at?: string
+          error?: string | null
+          event_key: string
+          finished_at?: string | null
+          id?: string
+          result?: Json | null
+          room_id: string
+          status?: string
+        }
+        Update: {
+          agent?: string
+          claim_token?: string
+          created_at?: string
+          error?: string | null
+          event_key?: string
+          finished_at?: string | null
+          id?: string
+          result?: Json | null
+          room_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_agent_events_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       participant_insights: {
         Row: {
           confidence: number
@@ -342,6 +446,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "room_recall_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      room_references: {
+        Row: {
+          created_at: string
+          id: string
+          query: string
+          room_id: string
+          shape_id: string | null
+          snippet: string
+          source: string
+          title: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          query: string
+          room_id: string
+          shape_id?: string | null
+          snippet?: string
+          source?: string
+          title: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          query?: string
+          room_id?: string
+          shape_id?: string | null
+          snippet?: string
+          source?: string
+          title?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_references_room_id_fkey"
             columns: ["room_id"]
             isOneToOne: false
             referencedRelation: "rooms"
@@ -628,10 +776,66 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      agent_event_claim: {
+        Args: { p_agent: string; p_key: string; p_room: string }
+        Returns: Json
+      }
+      agent_event_finish: {
+        Args: {
+          p_error?: string
+          p_key: string
+          p_result?: Json
+          p_room: string
+          p_status: string
+          p_token: string
+        }
+        Returns: boolean
+      }
+      agent_events_list: {
+        Args: { p_room: string }
+        Returns: {
+          agent: string
+          created_at: string
+          error: string
+          event_key: string
+          result: Json
+          status: string
+        }[]
+      }
+      canvas_events_append: {
+        Args: {
+          p_expected_clear: string
+          p_room: string
+          p_rows: Json
+          p_seed?: boolean
+        }
+        Returns: boolean
+      }
+      canvas_events_clear: {
+        Args: { p_room: string; p_row: Json }
+        Returns: Json
+      }
       canvas_events_for_room: {
         Args: { p_limit?: number; p_room: string }
         Returns: {
           created_at: string
+          op: Json
+          source: string
+          t_offset_ms: number
+          thread_id: string
+          transcript_span: Json
+        }[]
+      }
+      canvas_events_page: {
+        Args: {
+          p_after_at?: string
+          p_after_id?: string
+          p_limit?: number
+          p_room: string
+        }
+        Returns: {
+          created_at: string
+          id: string
           op: Json
           source: string
           t_offset_ms: number
@@ -687,6 +891,54 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      reference_list: {
+        Args: { p_room: string }
+        Returns: {
+          created_at: string
+          id: string
+          query: string
+          room_id: string
+          shape_id: string | null
+          snippet: string
+          source: string
+          title: string
+          url: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "room_references"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      reference_save: {
+        Args: {
+          p_query: string
+          p_room: string
+          p_shape_id: string
+          p_snippet: string
+          p_source: string
+          p_title: string
+          p_url: string
+        }
+        Returns: {
+          created_at: string
+          id: string
+          query: string
+          room_id: string
+          shape_id: string | null
+          snippet: string
+          source: string
+          title: string
+          url: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "room_references"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       relation_add: {
         Args: {
           p_confidence: number
@@ -711,6 +963,7 @@ export type Database = {
         }[]
       }
       room_by_code: { Args: { p_code: string }; Returns: string }
+      room_can_read: { Args: { p_room: string }; Returns: boolean }
       room_create: {
         Args: {
           p_facilitation: string
@@ -740,6 +993,7 @@ export type Database = {
           outputs: string[]
         }[]
       }
+      room_member_access: { Args: { p_room: string }; Returns: boolean }
       rooms_by_ids: {
         Args: { p_ids: string[] }
         Returns: {
@@ -774,6 +1028,23 @@ export type Database = {
       workspace_attach_room: {
         Args: { p_room: string; p_workspace: string }
         Returns: undefined
+      }
+      workspace_create_room: {
+        Args: {
+          p_facilitation: string
+          p_goal: string
+          p_host_role: string
+          p_mode: string
+          p_name: string
+          p_outputs: string[]
+          p_session_type: string
+          p_workspace: string
+        }
+        Returns: {
+          id: string
+          join_code: string
+          name: string
+        }[]
       }
       workspace_rooms: {
         Args: never

@@ -20,7 +20,6 @@ import { Route as ApiCartoonistDrawRouteImport } from './routes/api/cartoonist-d
 import { Route as ApiDevilsAdvocateRouteImport } from './routes/api/devils-advocate'
 import { Route as ApiGenerateArtifactsRouteImport } from './routes/api/generate-artifacts'
 import { Route as ApiHistorianRouteImport } from './routes/api/historian'
-import { Route as ApiWebReferencesRouteImport } from './routes/api/web-references'
 import { Route as ApiInferInsightsRouteImport } from './routes/api/infer-insights'
 import { Route as ApiLiveblocksAuthRouteImport } from './routes/api/liveblocks-auth'
 import { Route as ApiMediatorTtsRouteImport } from './routes/api/mediator-tts'
@@ -29,6 +28,7 @@ import { Route as ApiSessionRecapRouteImport } from './routes/api/session-recap'
 import { Route as ApiSessionSummaryRouteImport } from './routes/api/session-summary'
 import { Route as ApiTranscribeChunkRouteImport } from './routes/api/transcribe-chunk'
 import { Route as ApiTranscribeSampleRouteImport } from './routes/api/transcribe-sample'
+import { Route as ApiWebReferencesRouteImport } from './routes/api/web-references'
 import { Route as RRoomIdRouteImport } from './routes/r.$roomId'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions.$sessionId'
 import { Route as SessionsNewRouteImport } from './routes/sessions.new'
@@ -89,11 +89,6 @@ const ApiHistorianRoute = ApiHistorianRouteImport.update({
   path: '/api/historian',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiWebReferencesRoute = ApiWebReferencesRouteImport.update({
-  id: '/api/web-references',
-  path: '/api/web-references',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiInferInsightsRoute = ApiInferInsightsRouteImport.update({
   id: '/api/infer-insights',
   path: '/api/infer-insights',
@@ -134,6 +129,11 @@ const ApiTranscribeSampleRoute = ApiTranscribeSampleRouteImport.update({
   path: '/api/transcribe-sample',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWebReferencesRoute = ApiWebReferencesRouteImport.update({
+  id: '/api/web-references',
+  path: '/api/web-references',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RRoomIdRoute = RRoomIdRouteImport.update({
   id: '/r/$roomId',
   path: '/r/$roomId',
@@ -168,7 +168,6 @@ export interface FileRoutesByFullPath {
   '/api/devils-advocate': typeof ApiDevilsAdvocateRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
   '/api/historian': typeof ApiHistorianRoute
-  '/api/web-references': typeof ApiWebReferencesRoute
   '/api/infer-insights': typeof ApiInferInsightsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
   '/api/mediator-tts': typeof ApiMediatorTtsRoute
@@ -177,6 +176,7 @@ export interface FileRoutesByFullPath {
   '/api/session-summary': typeof ApiSessionSummaryRoute
   '/api/transcribe-chunk': typeof ApiTranscribeChunkRoute
   '/api/transcribe-sample': typeof ApiTranscribeSampleRoute
+  '/api/web-references': typeof ApiWebReferencesRoute
   '/r/$roomId': typeof RRoomIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/sessions/new': typeof SessionsNewRoute
@@ -194,7 +194,6 @@ export interface FileRoutesByTo {
   '/api/devils-advocate': typeof ApiDevilsAdvocateRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
   '/api/historian': typeof ApiHistorianRoute
-  '/api/web-references': typeof ApiWebReferencesRoute
   '/api/infer-insights': typeof ApiInferInsightsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
   '/api/mediator-tts': typeof ApiMediatorTtsRoute
@@ -203,6 +202,7 @@ export interface FileRoutesByTo {
   '/api/session-summary': typeof ApiSessionSummaryRoute
   '/api/transcribe-chunk': typeof ApiTranscribeChunkRoute
   '/api/transcribe-sample': typeof ApiTranscribeSampleRoute
+  '/api/web-references': typeof ApiWebReferencesRoute
   '/r/$roomId': typeof RRoomIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/sessions/new': typeof SessionsNewRoute
@@ -221,7 +221,6 @@ export interface FileRoutesById {
   '/api/devils-advocate': typeof ApiDevilsAdvocateRoute
   '/api/generate-artifacts': typeof ApiGenerateArtifactsRoute
   '/api/historian': typeof ApiHistorianRoute
-  '/api/web-references': typeof ApiWebReferencesRoute
   '/api/infer-insights': typeof ApiInferInsightsRoute
   '/api/liveblocks-auth': typeof ApiLiveblocksAuthRoute
   '/api/mediator-tts': typeof ApiMediatorTtsRoute
@@ -230,6 +229,7 @@ export interface FileRoutesById {
   '/api/session-summary': typeof ApiSessionSummaryRoute
   '/api/transcribe-chunk': typeof ApiTranscribeChunkRoute
   '/api/transcribe-sample': typeof ApiTranscribeSampleRoute
+  '/api/web-references': typeof ApiWebReferencesRoute
   '/r/$roomId': typeof RRoomIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/sessions/new': typeof SessionsNewRoute
@@ -249,7 +249,6 @@ export interface FileRouteTypes {
     | '/api/devils-advocate'
     | '/api/generate-artifacts'
     | '/api/historian'
-    | '/api/web-references'
     | '/api/infer-insights'
     | '/api/liveblocks-auth'
     | '/api/mediator-tts'
@@ -258,6 +257,7 @@ export interface FileRouteTypes {
     | '/api/session-summary'
     | '/api/transcribe-chunk'
     | '/api/transcribe-sample'
+    | '/api/web-references'
     | '/r/$roomId'
     | '/sessions/$sessionId'
     | '/sessions/new'
@@ -275,7 +275,6 @@ export interface FileRouteTypes {
     | '/api/devils-advocate'
     | '/api/generate-artifacts'
     | '/api/historian'
-    | '/api/web-references'
     | '/api/infer-insights'
     | '/api/liveblocks-auth'
     | '/api/mediator-tts'
@@ -284,6 +283,7 @@ export interface FileRouteTypes {
     | '/api/session-summary'
     | '/api/transcribe-chunk'
     | '/api/transcribe-sample'
+    | '/api/web-references'
     | '/r/$roomId'
     | '/sessions/$sessionId'
     | '/sessions/new'
@@ -301,7 +301,6 @@ export interface FileRouteTypes {
     | '/api/devils-advocate'
     | '/api/generate-artifacts'
     | '/api/historian'
-    | '/api/web-references'
     | '/api/infer-insights'
     | '/api/liveblocks-auth'
     | '/api/mediator-tts'
@@ -310,6 +309,7 @@ export interface FileRouteTypes {
     | '/api/session-summary'
     | '/api/transcribe-chunk'
     | '/api/transcribe-sample'
+    | '/api/web-references'
     | '/r/$roomId'
     | '/sessions/$sessionId'
     | '/sessions/new'
@@ -328,7 +328,6 @@ export interface RootRouteChildren {
   ApiDevilsAdvocateRoute: typeof ApiDevilsAdvocateRoute
   ApiGenerateArtifactsRoute: typeof ApiGenerateArtifactsRoute
   ApiHistorianRoute: typeof ApiHistorianRoute
-  ApiWebReferencesRoute: typeof ApiWebReferencesRoute
   ApiInferInsightsRoute: typeof ApiInferInsightsRoute
   ApiLiveblocksAuthRoute: typeof ApiLiveblocksAuthRoute
   ApiMediatorTtsRoute: typeof ApiMediatorTtsRoute
@@ -337,6 +336,7 @@ export interface RootRouteChildren {
   ApiSessionSummaryRoute: typeof ApiSessionSummaryRoute
   ApiTranscribeChunkRoute: typeof ApiTranscribeChunkRoute
   ApiTranscribeSampleRoute: typeof ApiTranscribeSampleRoute
+  ApiWebReferencesRoute: typeof ApiWebReferencesRoute
   RRoomIdRoute: typeof RRoomIdRoute
   SessionsSessionIdRoute: typeof SessionsSessionIdRoute
   SessionsNewRoute: typeof SessionsNewRoute
@@ -422,13 +422,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHistorianRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/web-references': {
-      id: '/api/web-references'
-      path: '/api/web-references'
-      fullPath: '/api/web-references'
-      preLoaderRoute: typeof ApiWebReferencesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/infer-insights': {
       id: '/api/infer-insights'
       path: '/api/infer-insights'
@@ -485,6 +478,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTranscribeSampleRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/web-references': {
+      id: '/api/web-references'
+      path: '/api/web-references'
+      fullPath: '/api/web-references'
+      preLoaderRoute: typeof ApiWebReferencesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/r/$roomId': {
       id: '/r/$roomId'
       path: '/r/$roomId'
@@ -528,7 +528,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDevilsAdvocateRoute: ApiDevilsAdvocateRoute,
   ApiGenerateArtifactsRoute: ApiGenerateArtifactsRoute,
   ApiHistorianRoute: ApiHistorianRoute,
-  ApiWebReferencesRoute: ApiWebReferencesRoute,
   ApiInferInsightsRoute: ApiInferInsightsRoute,
   ApiLiveblocksAuthRoute: ApiLiveblocksAuthRoute,
   ApiMediatorTtsRoute: ApiMediatorTtsRoute,
@@ -537,6 +536,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSessionSummaryRoute: ApiSessionSummaryRoute,
   ApiTranscribeChunkRoute: ApiTranscribeChunkRoute,
   ApiTranscribeSampleRoute: ApiTranscribeSampleRoute,
+  ApiWebReferencesRoute: ApiWebReferencesRoute,
   RRoomIdRoute: RRoomIdRoute,
   SessionsSessionIdRoute: SessionsSessionIdRoute,
   SessionsNewRoute: SessionsNewRoute,
