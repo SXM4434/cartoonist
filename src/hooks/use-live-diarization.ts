@@ -31,6 +31,7 @@ export function useLiveDiarization(opts: {
   const cycleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mapRef = useRef<Record<string, string>>({});
   const busyRef = useRef(false);
+  const queueRef = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => { mapRef.current = speakerMap; }, [speakerMap]);
 
@@ -68,7 +69,7 @@ export function useLiveDiarization(opts: {
   }, [roomId]);
 
   const processBlob = useCallback(async (blob: Blob) => {
-    if (blob.size < 4000 || busyRef.current) return; // too small, silent, or prior upload still running
+    if (blob.size < 4000) return; // too small or silent
     busyRef.current = true;
     setBusy(true);
     try {
@@ -128,7 +129,9 @@ export function useLiveDiarization(opts: {
           mr.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
           mr.onstop = () => {
             const blob = new Blob(chunks, { type: mr.mimeType || "audio/webm" });
-            void processBlob(blob);
+            // Uploads run one after another. A slow transcription used to drop
+            // the next chunk outright, leaving gaps in the conversation.
+            queueRef.current = queueRef.current.then(() => processBlob(blob)).catch(() => undefined);
           };
           recorderRef.current = mr;
           mr.start();

@@ -13,6 +13,9 @@ export const FRAME_X0 = 80;
 export const FRAME_TOP = 40;
 export const FRAME_PAD = 48;
 /** Content starts below the title strip. */
+const SMALL_W = 420;
+const SMALL_H = 320;
+const ROW_GAP = 32;
 export const FRAME_CONTENT_TOP = FRAME_TOP + 96;
 
 export type StoryFrame = {
@@ -74,7 +77,28 @@ export function placeInFrame(
   const b = bboxOf(incoming);
   if (!b) return incoming;
   const originX = frameOriginX(index) + FRAME_PAD;
-  const occupied = bboxOf(frameShapes.filter((s) => !s.id.startsWith("sb_")));
+  const content = frameShapes.filter((s) => !s.id.startsWith("sb_"));
+  const occupied = bboxOf(content);
+  // Small marks (a note, a quick sketch) sit side by side in a row instead of
+  // each starting a new row, so a run of notes reads as a group, not a ladder.
+  const w = b.maxX - b.minX;
+  const h = b.maxY - b.minY;
+  if (occupied && w <= SMALL_W && h <= SMALL_H) {
+    const marks = content.flatMap((s) => { const box = bboxOf([s]); return box ? [{ s, box }] : []; });
+    const boxes = marks.map((m) => m.box);
+    // The last row starts at the top of the bottom-most mark.
+    const bottom = boxes.reduce((lo, x) => (x.maxY > lo.maxY ? x : lo), boxes[0]!);
+    const rowTop = bottom.minY - 8;
+    const row = boxes.filter((x) => x.minY >= rowTop);
+    const crossesIn = boxes.some((x) => x.minY < rowTop && x.maxY > rowTop + 16);
+    const rowBox = bboxOf(marks.filter((m) => m.box.minY >= rowTop).map((m) => m.s));
+    if (!crossesIn && row.length && rowBox && rowBox.maxY - rowBox.minY <= SMALL_H) {
+      const x = rowBox.maxX + ROW_GAP;
+      if (x + w <= frameOriginX(index) + FRAME_W - FRAME_PAD) {
+        return translatePrimitives(incoming, x - b.minX, rowBox.minY - b.minY);
+      }
+    }
+  }
   const originY = occupied ? occupied.maxY + 120 : FRAME_CONTENT_TOP;
   return translatePrimitives(incoming, originX - b.minX, originY - b.minY);
 }

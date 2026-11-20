@@ -454,7 +454,9 @@ export function Canvas({
       }
       editor.setCurrentTool(drawingEnabled ? "draw" : "select");
       const off = editor.store.listen((entry) => {
-        onHasContentChange?.(editor.getCurrentPageShapeIds().size > 0);
+        // Store changes can fire while React renders tldraw; report to the
+        // parent after the current render instead of setting its state mid-render.
+        queueMicrotask(() => onHasContentChange?.(editor.getCurrentPageShapeIds().size > 0));
         if (!shouldPublishChange(entry.source, applyingRef.current)) return;
         for (const record of Object.values(entry.changes.added)) {
           if (!["shape", "asset", "binding"].includes(record.typeName)) continue;
@@ -531,7 +533,26 @@ export function Canvas({
       if (!present.length) return;
       editor.setCurrentTool("select");
       editor.select(...(present as unknown as Parameters<Editor["select"]>));
-      try { editor.zoomToSelection({ animation: { duration: 320 } }); } catch { /* noop */ }
+      try {
+        // Frame the drawing between the top toolbar and the bottom prompt bar,
+        // never zooming past 100% (that made small drawings look huge and
+        // pushed tall ones under the toolbar).
+        const b = editor.getSelectionPageBounds();
+        const vp = editor.getViewportScreenBounds();
+        if (b && b.w > 0 && b.h > 0) {
+          const TOP = 124, BOTTOM = 132, SIDE = 48;
+          const fit = Math.min((vp.w - SIDE * 2) / b.w, (vp.h - TOP - BOTTOM) / b.h);
+          const zoom = Math.max(0.35, Math.min(1, fit));
+          const x = -b.x + (vp.w - b.w * zoom) / 2 / zoom;
+          // Too tall to fit: pin its top under the toolbar instead of centring.
+          const y = b.h * zoom > vp.h - TOP - BOTTOM
+            ? -b.y + TOP / zoom
+            : -b.y + (TOP + (vp.h - TOP - BOTTOM - b.h * zoom) / 2) / zoom;
+          editor.setCamera({ x, y, z: zoom }, { animation: { duration: 320 } });
+        } else {
+          editor.zoomToSelection({ animation: { duration: 320 } });
+        }
+      } catch { /* noop */ }
       if (detail?.clearSelection) editor.selectNone();
     };
     window.addEventListener("cartoonist:focus", handler as EventListener);
@@ -611,7 +632,14 @@ export function Canvas({
     const handler = (ev: Event) => {
       const detail = (ev as CustomEvent<{ items?: Array<{ id: string; threadId: string; relation: string; peer: string }> }>).detail;
       const items = Array.isArray(detail?.items) ? detail!.items : [];
-      setRelationTargets(items.map((it) => ({ id: String(shapeId(it.id)), threadId: it.threadId, relation: it.relation, peer: it.peer })));
+      // One chip per shape: two threads can anchor on the same mark.
+      const seen = new Set<string>();
+      setRelationTargets(items.flatMap((it) => {
+        const id = String(shapeId(it.id));
+        if (seen.has(id)) return [];
+        seen.add(id);
+        return [{ id, threadId: it.threadId, relation: it.relation, peer: it.peer }];
+      }));
     };
     window.addEventListener("cartoonist:relations", handler as EventListener);
     return () => window.removeEventListener("cartoonist:relations", handler as EventListener);

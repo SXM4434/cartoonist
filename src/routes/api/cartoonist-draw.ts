@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { guardExpensiveRoute } from "@/lib/room-guard.server";
 import { buildChart, isChartSpec } from "@/lib/chart-shape";
 import { buildWireframeScreens, parseWireframePlan } from "@/lib/wireframe-layout";
+import { wantsUiWireframe } from "@/lib/draw-intent";
 import { buildDiagram, parseDiagramPlan, planFromShapes } from "@/lib/diagram-layout";
 import { authorizedDrawingExamples } from "@/lib/drawing-feedback.server";
 
@@ -18,7 +19,7 @@ You receive:
 
 # STEP 1 — CLASSIFY & PICK A MODALITY (planner, do this silently before drawing)
 Choose ONE modality for this turn:
-- ui_wireframe  → the speaker asks for a wireframe, mockup, UI screen, interface, app page, dashboard, editor, website, or high-fidelity product concept. Draw ACTUAL SCREENS, never a flowchart describing the screens.
+- ui_wireframe  → the speaker asks for a wireframe, mockup, UI screen, interface, app page, dashboard, editor, website, or high-fidelity product concept. Draw ACTUAL SCREENS, never a flowchart describing the screens. A flow, journey, process, timeline or comparison that merely names a screen as one step (e.g. "…pick a plan, dashboard") is a diagram (template_shape), not ui_wireframe.
 - fetch_card    → speaker named an external artifact AND stated a real URL verbatim in the transcript. Emit a text shape with the URL as caption.
 - chart         → the speaker compares options on measurable dimensions ("cost vs power", "effort vs impact", "which is fastest", a 2x2, a ranking, percentages). Do NOT hand-place axes; return a "chart" spec instead (see CHART MODE) and leave "shapes" empty.
 - template_shape → outline / plan / list of workstreams / process / journey / decision / system / architecture / tradeoff / comparison. Do NOT place boxes yourself: return a "diagram" spec (see DIAGRAM MODE) and leave "shapes" empty. We lay it out on a clean grid.
@@ -175,7 +176,6 @@ Never stall trying to emit all layers at once — emit this pass's layer densely
 
 const REVISE_INTENT = /\b(redo|again|do[-\s]?over|make it (better|simpler|cleaner|smaller|bigger|nicer)|that('?s| is) (wrong|bad|off|ugly|terrible|awful)|fix (the )?(flow|diagram|drawing|sketch|layout)|change .+ to .+|remove (the )?|scrap (that|it)|no,? (more like|not like|try)|not what i (meant|wanted)|wrong|broken|garbage)\b/i;
 
-const UI_WIREFRAME_INTENT = /\b(high[-\s]?fi(?:delity)?|wireframes?|mockups?|ui screens?|interface|dashboard|editor|app (?:screen|page)|website (?:screen|page)|product screen)\b/i;
 const MAX_FIDELITY_INTENT = /\b(max(?:imum)?\s*(?:fidelity|detail)|as detailed as possible|most detailed|hi[-\s]?fi|high[-\s]?fi(?:delity)?|pixel[-\s]?perfect|production[-\s]?ready|fully detailed|beautiful|polished|realistic)\b/i;
 const NON_SPEECH_TRANSCRIPT = /^\s*\[(?:silence|heartbeat|background noise|music|outro jingle|bell dings?|birds chirping|door squeaking)\]\s*$/i;
 
@@ -335,7 +335,7 @@ When ready, an 'annotation' anchored on the relevant shape (or a small 'typed_no
         // Progressive enrichment pass requested by the client (1..4).
         const enrichPass = Math.max(0, Math.min(4, Number((body as { enrichPass?: unknown }).enrichPass ?? 0) | 0));
         const clientMaxFidelity = (body as { maxFidelity?: unknown }).maxFidelity === true;
-        const uiWireframeIntent = enrichPass > 0 || clientMaxFidelity || UI_WIREFRAME_INTENT.test(`${latest}\n${transcript}`);
+        const uiWireframeIntent = enrichPass > 0 || clientMaxFidelity || wantsUiWireframe(latest);
         // "max fidelity" language unlocks the full 4-layer ladder; otherwise 2.
         const maxFidelity = clientMaxFidelity || MAX_FIDELITY_INTENT.test(`${latest}\n${transcript}`);
         const maxPasses = maxFidelity ? 4 : 2;

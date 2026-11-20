@@ -8,6 +8,7 @@ import type { TLRecord, TLShape } from "tldraw";
 import type { ParticipantWithHumanLayer } from "@/lib/canvas-types";
 import type { FreehandStroke, SketchPrimitive } from "@/lib/sketch-types";
 import { bboxOf, placeBatchClear } from "@/lib/sketch-layout";
+import { wantsUiWireframe } from "@/lib/draw-intent";
 import { frameTitlePrimitives, placeInFrame, frameIndexOfShape, topicKey, frameOriginX, FRAME_PAD, FRAME_CONTENT_TOP, type StoryFrame } from "@/lib/storyboard";
 
 import { EMPTY_HUMAN_LAYER, type HumanLayer } from "@/lib/human-layer";
@@ -186,6 +187,8 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const [generating, setGenerating] = useState(false);
   const [askText, setAskText] = useState("");
   const [thinking, setThinking] = useState(false);
+  const pendingAsksRef = useRef<string[]>([]);
+  const [queuedAsks, setQueuedAsks] = useState(0);
   const [drawError, setDrawError] = useState<string | null>(null);
   const [sessionCtx, setSessionCtx] = useState<SessionContext | null>(null);
   const [inputMode, setInputMode] = useState<"voice" | "chat">("voice");
@@ -274,6 +277,8 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const lastSpokenRef = useRef<string>("");
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const [threads, setThreads] = useState<CanvasThread[]>([]);
+  const threadsRef = useRef<CanvasThread[]>([]);
+  useEffect(() => { threadsRef.current = threads; }, [threads]);
   // v1 P2.3 — storyboard frames. Canvas grows left→right, one frame per topic.
   const [frames, setFrames] = useState<StoryFrame[]>([]);
   const framesRef = useRef<StoryFrame[]>([]);
@@ -902,7 +907,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     const cleanLatest = latest.trim();
     if (!cleanLatest || NON_SPEECH_TRANSCRIPT.test(cleanLatest)) return false;
     if (drawInFlightRef.current) return false;
-    const requestsUi = /\b(high[-\s]?fi(?:delity)?|wireframes?|mockups?|ui screens?|interface|dashboard|editor|app (?:screen|page)|website (?:screen|page)|production[-\s]?ready)\b/i.test(cleanLatest);
+    const requestsUi = wantsUiWireframe(cleanLatest);
     // Wait for a content-specific plan; never seed an unrelated demo dashboard.
     drawInFlightRef.current = true;
     setThinking(true);
@@ -1005,7 +1010,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         // v2.P6 — if the model set a thread_ref to an existing open thread,
         // reuse that id so new shapes attach to (and re-open) it.
         const stamp = Date.now() - startedAtRef.current;
-        const threadRef = typeof (data as { thread_ref?: unknown }).thread_ref === "string" ? (data as { thread_ref: string }).thread_ref : null;
+        // Only link to a real earlier drawing. The opening goal notes are
+        // scaffolding, so "extends the goal" would flag every first drawing.
+        const rawThreadRef = typeof (data as { thread_ref?: unknown }).thread_ref === "string" ? (data as { thread_ref: string }).thread_ref : null;
+        const threadRef = rawThreadRef && threadsRef.current.some((t) => t.id === rawThreadRef && t.source !== "seed") ? rawThreadRef : null;
         const rawRelation = typeof (data as { relation?: unknown }).relation === "string" ? (data as { relation: string }).relation : null;
         const relation = (["extends", "references", "contradicts", "resolves"] as const).find((r) => r === rawRelation) ?? null;
         // Enrichment passes belong to the thread the first pass opened.
@@ -1066,11 +1074,14 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                   };
                   // v2.P6 — fire the glow + peek so the reopen is felt, not just filed.
                   if (typeof window !== "undefined") {
+                    // Updaters run during render; notify other components afterwards.
+                    queueMicrotask(() => {
                     window.dispatchEvent(new CustomEvent("cartoonist:reopen", {
                       detail: { oldIds: existing.shapeIds, newIds, relation: relation ?? existing.relation ?? null },
                     }));
                     setReopenPeek({ relation: relation ?? existing.relation ?? null, latest: cleanLatest.slice(0, 160), oldLatest: existing.latest });
                     window.setTimeout(() => setReopenPeek(null), 4200);
+                  });
                   }
                   return [...remaining.slice(0, idx), ...remaining.slice(idx + 1), merged];
                 }
@@ -1112,7 +1123,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       // room staring at a blank canvas for minutes.
       const maxPasses = Number((data as { maxPasses?: unknown }).maxPasses ?? 2) || 2;
       const wantsMax = maxFidelity || (data as { maxFidelity?: boolean }).maxFidelity === true;
-      if ((data as { enrichable?: boolean }).enrichable && enrichPass < maxPasses) {
+      if ((data as { enrichable?: boolean }).enrichable && enrichPass < maxPasses && pendingAsksRef.current.length === 0) {
         window.setTimeout(() => { void requestDrawRef.current?.(cleanLatest, enrichPass + 1, wantsMax); }, 120);
       }
       return true;
@@ -1123,6 +1134,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     } finally {
       drawInFlightRef.current = false;
       setThinking(false);
+      // Typed requests that arrived mid-drawing run next, in order.
+      const next = pendingAsksRef.current.shift();
+      setQueuedAsks(pendingAsksRef.current.length);
+      if (next) window.setTimeout(() => { void requestDrawRef.current?.(next); }, 0);
     }
   }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, handQueue, threads, playMediatorLine, ensureFrame, publishCanvasRows, eventsReady]);
 
@@ -1214,16 +1229,28 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
 
   // Chat → AI handler (transcript persistence happens inside ChatPanel)
-  const handleChatMessage = useCallback((text: string) => {
-    void requestDraw(text);
+  // Never drop a typed request: if a drawing is in progress, queue it.
+  const submitTyped = useCallback((text: string) => {
+    const clean = text.trim();
+    if (!clean) return;
+    if (drawInFlightRef.current) {
+      pendingAsksRef.current.push(clean);
+      setQueuedAsks(pendingAsksRef.current.length);
+      return;
+    }
+    void requestDraw(clean);
   }, [requestDraw]);
+
+  const handleChatMessage = useCallback((text: string) => {
+    submitTyped(text);
+  }, [submitTyped]);
 
   const askDraw = useCallback(async () => {
     const text = askText.trim();
     if (!text) return;
     setAskText("");
-    await requestDraw(text);
-  }, [askText, requestDraw]);
+    submitTyped(text);
+  }, [askText, submitTyped]);
 
   const clearCanvas = useCallback(() => {
     void canvasWriter.clear({
@@ -1852,7 +1879,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
           {reopenPeek && (
             <div
-              className="pointer-events-none absolute left-1/2 top-6 z-20 -translate-x-1/2 border border-primary bg-background px-4 py-2"
+              className="pointer-events-none absolute bottom-[140px] left-1/2 z-20 max-w-[min(560px,calc(100%-2rem))] -translate-x-1/2 border border-primary bg-background px-4 py-2"
               style={{ animation: "cartoonistPeek 4.2s ease-out forwards" }}
             >
               <p className="eyebrow text-primary">↺ {reopenPeek.relation ? reopenPeek.relation : "returning"} — earlier thread</p>
@@ -1897,6 +1924,11 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
               <div role="status" className="mb-1.5 flex items-center gap-2 border border-border bg-background px-3 py-1.5 text-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
                 <span className="eyebrow">Drawing your request…</span>
+                {queuedAsks > 0 && (
+                  <span className="ml-auto text-muted-foreground tabular-nums" style={{ fontSize: "var(--step-0)" }}>
+                    {queuedAsks} more queued
+                  </span>
+                )}
               </div>
             )}
             {speech.listening && (
@@ -1943,7 +1975,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                   className="h-10 min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
                   style={{ fontSize: "var(--step-1)" }}
                 />
-                <Button type="submit" variant="ghost" size="icon" aria-label="Send drawing request" disabled={!askText.trim() || thinking} className="h-8 w-8 shrink-0 text-muted-foreground">
+                <Button type="submit" variant="ghost" size="icon" aria-label="Send drawing request" disabled={!askText.trim()} className="h-8 w-8 shrink-0 text-muted-foreground">
                   <Send className="h-4 w-4" />
                 </Button>
               </form>

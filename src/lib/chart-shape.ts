@@ -90,7 +90,8 @@ export function buildChart(spec: ChartSpec, originX = 80, originY = 80): SketchP
   let n = 0;
   const id = (p: string) => `${p}_${uid}_${n++}`;
   const text = (x: number, y: number, value: string, size = 13, tone: SketchPrimitive["tone"] = "ink") =>
-    s.push({ type: "text", id: id("t"), x, y, text: String(value).slice(0, 44), size, tone });
+    // Chart text is laid out at exact sizes; render it at those sizes.
+    s.push({ type: "text", id: id("t"), x, y, text: String(value).slice(0, 44), size, tone, style: "ui" });
   const line = (x1: number, y1: number, x2: number, y2: number, tone: SketchPrimitive["tone"] = "muted", dashed = false) =>
     s.push({ type: "line", id: id("l"), x1, y1, x2, y2, tone, dashed });
   const rect = (x: number, y: number, w: number, h: number, tone: SketchPrimitive["tone"] = "accent", fill: "solid" | "none" = "solid") =>
@@ -278,20 +279,29 @@ export function buildChart(spec: ChartSpec, originX = 80, originY = 80): SketchP
     }
 
     case "timeline": {
+      // Milestones need room to breathe: 220px per step, labels centred on
+      // their tick and wrapped to the slot so neighbours never collide.
       const list = items.slice(0, 8);
-      const y = plotY + plotH / 2;
-      line(plotX, y, plotX + plotW, y, "ink");
+      const step = 220;
+      const tW = Math.max(plotW, (Math.max(list.length, 2) - 1) * step + 80);
+      const tX = originX + 40;
+      const y = originY + 200;
+      const slotW = Math.min(200, tW / Math.max(1, list.length));
+      line(tX, y, tX + tW, y, "ink");
       list.forEach((item, i) => {
         const t = item.start != null ? clamp01(item.start) : list.length > 1 ? i / (list.length - 1) : 0.5;
-        const px = plotX + t * plotW;
-        rect(px - 6, y - 6, 12, 12, toneAt(i, item), "solid");
+        const px = tX + 40 + t * (tW - 80);
+        rect(px - 7, y - 7, 14, 14, toneAt(i, item), "solid");
         const up = i % 2 === 0;
-        line(px, y, px, up ? y - 48 : y + 48, "muted", true);
-        text(px - 40, up ? y - 74 : y + 56, item.label, 13);
-        if (item.note) text(px - 40, up ? y - 56 : y + 74, item.note, 11, "muted");
+        line(px, up ? y - 12 : y + 12, px, up ? y - 52 : y + 52, "muted", true);
+        const label = String(item.label).slice(0, 44);
+        const note = item.note ? String(item.note).slice(0, 44) : "";
+        const ly = up ? y - 104 : y + 62;
+        s.push({ type: "text", id: id("t"), x: px - slotW / 2, y: ly, w: slotW, text: label, size: 15, align: "center", tone: "ink", style: "ui" });
+        if (note) s.push({ type: "text", id: id("t"), x: px - slotW / 2, y: ly + 24, w: slotW, text: note, size: 13, align: "center", tone: "muted", style: "ui" });
       });
-      if (spec.xLow) text(plotX, y + 110, spec.xLow, 11, "muted");
-      if (spec.xHigh) text(plotX + plotW - 80, y + 110, spec.xHigh, 11, "muted");
+      if (spec.xLow) text(tX, y + 140, spec.xLow, 11, "muted");
+      if (spec.xHigh) text(tX + tW - 80, y + 140, spec.xHigh, 11, "muted");
       break;
     }
 

@@ -87,7 +87,14 @@ export function translatePrimitives(shapes: SketchPrimitive[], dx: number, dy: n
 export function placeBatchClear(existing: SketchPrimitive[], incoming: SketchPrimitive[], gap = 280): SketchPrimitive[] {
   const a = bboxOf(existing);
   const b = bboxOf(incoming);
-  if (!a || !b || !boxesOverlap(a, b, 16)) return incoming;
+  if (!a || !b) return incoming;
+  // Compare against each existing mark, not their combined box: a note placed
+  // in the open space beside earlier notes is not an overlap.
+  const hits = existing.some((s) => {
+    const box = bboxOf([s]);
+    return box ? boxesOverlap(box, b, 16) : false;
+  });
+  if (!hits) return incoming;
   // Stack below, keeping the left edge: sliding right pushed batches out of
   // their storyboard frame and scattered drawings across the board.
   return translatePrimitives(incoming, a.minX - b.minX, a.maxY + Math.min(gap, 120) - b.minY);

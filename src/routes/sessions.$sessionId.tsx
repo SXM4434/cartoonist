@@ -191,7 +191,7 @@ function Lobby() {
               </p>
             )}
             {room.outputs && room.outputs.length > 0 && (
-              <div className="mt-4 flex flex-wrap gap-px bg-border">
+              <div className="mt-4 inline-flex flex-wrap gap-px border border-border bg-border">
                 {room.outputs.map((o) => (
                   <span key={o} className="bg-card px-2.5 py-1 font-mono uppercase tracking-[0.14em] text-muted-foreground" style={{ fontSize: "var(--step-0)" }}>{o}</span>
                 ))}
@@ -230,7 +230,7 @@ function Lobby() {
             <h2 className="eyebrow font-mono text-muted-foreground">WHO'S HERE</h2>
             <ul className="mt-3 list-none divide-y divide-border">
               {participants.length === 0 && (
-                <li className="py-3 text-muted-foreground" style={{ fontSize: "var(--step-1)" }}>Joining…</li>
+                <li className="py-3 text-muted-foreground" style={{ fontSize: "var(--step-1)" }}>No one yet. You'll be first in.</li>
               )}
               {participants.map((p, i) => {
                 const modes = new Set<string>();
