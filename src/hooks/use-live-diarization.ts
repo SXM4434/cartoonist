@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { isNonSpeechTranscript } from "@/lib/speech-transcript";
 
 export type DiarizedSegment = { speaker: string; text: string; start: number; end: number };
 
@@ -74,7 +75,10 @@ export function useLiveDiarization(opts: {
       const fd = new FormData();
       fd.append("file", blob, "chunk.webm");
       fd.append("roomId", roomId);
-      const res = await fetch("/api/transcribe-chunk", { method: "POST", body: fd });
+      const { data: auth } = await supabase.auth.getSession();
+      const res = await fetch("/api/transcribe-chunk", { method: "POST", body: fd,
+        headers: auth.session?.access_token ? { Authorization: `Bearer ${auth.session.access_token}` } : {},
+      });
       const data = (await res.json().catch(() => ({}))) as { segments?: DiarizedSegment[]; error?: string };
       if (!res.ok || !data.segments) return;
 
@@ -82,7 +86,7 @@ export function useLiveDiarization(opts: {
       const tOffset = Date.now() - startedAtMs;
 
       for (const seg of data.segments) {
-        if (!seg.text.trim()) continue;
+        if (!seg.text.trim() || isNonSpeechTranscript(seg.text)) continue;
         seenClusters.add(seg.speaker);
         setLatestByCluster((prev) => ({ ...prev, [seg.speaker]: seg.text }));
 

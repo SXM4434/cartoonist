@@ -40,8 +40,8 @@ export function ChatPanel({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Build display name + color for a participant, following identity links to canonical row.
-  const resolveAuthor = useCallback((pid: string | null): { name: string; color: string; modes: Set<string> } => {
-    if (!pid) return { name: "Cartoonist", color: "#999", modes: new Set() };
+  const resolveAuthor = useCallback((pid: string | null, source: "voice" | "chat" = "voice"): { name: string; color: string; modes: Set<string> } => {
+    if (!pid) return { name: source === "voice" ? "Unassigned voice" : "Someone", color: "#999", modes: new Set([source]) };
     let cur = participants[pid];
     if (!cur) return { name: "Someone", color: "#999", modes: new Set() };
     // Follow link chain to canonical (max 3 hops)
@@ -157,7 +157,7 @@ export function ChatPanel({
   }, [text, roomId, selfParticipantId, selfName, selfColor, onChatMessage]);
 
   const rendered = useMemo(() => messages.map((m) => {
-    const a = resolveAuthor(m.participantId);
+    const a = resolveAuthor(m.participantId, m.source);
     return { ...m, authorName: a.name, authorColor: a.color, modes: a.modes };
   }), [messages, resolveAuthor]);
 

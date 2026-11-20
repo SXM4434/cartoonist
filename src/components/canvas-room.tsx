@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Brain, Check, Copy, Eraser, FileDown, Globe, Hand, History, Layers, Mic, MicOff, MessageSquare, MoreHorizontal, PanelRightClose, PanelRightOpen, Search, Send, ShieldAlert, Smile, Sparkles, UserPlus, Users, Volume2, VolumeX } from "lucide-react";
+import { Brain, Check, Copy, Eraser, FileDown, Globe, Hand, History, Layers, Loader2, Mic, MicOff, MessageSquare, MoreHorizontal, PanelRightClose, PanelRightOpen, Search, Send, ShieldAlert, Smile, Sparkles, UserPlus, Users, Volume2, VolumeX } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -904,7 +904,6 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
   const requestDraw = useCallback(async (latest: string, enrichPass = 0, maxFidelity = false): Promise<boolean> => {
     const cleanLatest = latest.trim();
     if (!cleanLatest || NON_SPEECH_TRANSCRIPT.test(cleanLatest)) return false;
-    await eventsReady.promise;
     if (drawInFlightRef.current) return false;
     const requestsUi = /\b(high[-\s]?fi(?:delity)?|wireframes?|mockups?|ui screens?|interface|dashboard|editor|app (?:screen|page)|website (?:screen|page)|production[-\s]?ready)\b/i.test(cleanLatest);
     // Wait for a content-specific plan; never seed an unrelated demo dashboard.
@@ -912,6 +911,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     setThinking(true);
     setDrawError(null);
     try {
+      await eventsReady.promise;
       // Send rolling context: last 12 final utterances + the latest delta.
       const recent = speech.finals.slice(-12).join(" ");
       const fullContext = recent ? `${recent}\n---LATEST---\n${cleanLatest}` : cleanLatest;
@@ -1098,7 +1098,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         if (enrichPass === 0 && typeof window !== "undefined") {
           const bounds = bboxOf(incoming);
           const focusIds = data?.modality === "ui_wireframe" && bounds
-            ? incoming.filter(s => "x" in s ? s.x < bounds.minX + 1000 : s.type === "line" ? s.x1 < bounds.minX + 1000 : false).map(s => s.id)
+            ? incoming.filter(s => "y" in s ? s.y < bounds.minY + 800 : s.type === "line" ? s.y1 < bounds.minY + 800 : false).map(s => s.id)
             : ids;
           window.setTimeout(() => window.dispatchEvent(new CustomEvent("cartoonist:focus", { detail: { ids: focusIds, clearSelection: true } })), 180);
         }
@@ -1121,7 +1121,7 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       return true;
     } catch (e) {
       const aborted = e instanceof Error && e.name === "AbortError";
-      setDrawError(aborted ? "Drawing timed out. Your voice request was kept and will retry." : e instanceof Error ? e.message : "Network error");
+      setDrawError(aborted ? "Drawing was interrupted. Your request is still in the conversation." : e instanceof Error ? e.message : "Network error");
       return false;
     } finally {
       drawInFlightRef.current = false;
@@ -1896,6 +1896,12 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
 
           {/* One control zone: Cartoonist prompt with the meeting controls attached. */}
           <div data-canvas-bottom-bar className="absolute bottom-4 left-1/2 z-20 w-[min(720px,calc(100%-2rem))] -translate-x-1/2">
+            {thinking && (
+              <div role="status" className="mb-1.5 flex items-center gap-2 border border-border bg-background px-3 py-1.5 text-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
+                <span className="eyebrow">Drawing your request…</span>
+              </div>
+            )}
             {speech.listening && (
               <div className="mb-1.5 flex items-center gap-2 border border-border bg-background px-3 py-1.5">
                 <div className="flex h-4 items-end gap-[2px]">
@@ -1940,9 +1946,9 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
                   className="h-10 min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
                   style={{ fontSize: "var(--step-1)" }}
                 />
-                <button type="submit" disabled={!askText.trim() || thinking} className="text-muted-foreground transition hover:text-foreground disabled:opacity-30">
+                <Button type="submit" variant="ghost" size="icon" aria-label="Send drawing request" disabled={!askText.trim() || thinking} className="h-8 w-8 shrink-0 text-muted-foreground">
                   <Send className="h-4 w-4" />
-                </button>
+                </Button>
               </form>
               <span className="h-6 w-px bg-border" aria-hidden />
               <button

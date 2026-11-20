@@ -9,3 +9,4 @@
 - [x] Capture kept, edited, and deleted drawing feedback for workspace learning.
 - [x] Secure voice recordings while retaining protected guest uploads; resolve only the two selected storage findings.
 - [ ] Verify complete meetings, reload persistence, permissions, and desktop/mobile layouts.
+- [x] Debug a simulated spoken meeting end-to-end: request latency, readable text, organized placement, and reload.

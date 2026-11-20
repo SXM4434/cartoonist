@@ -30,12 +30,14 @@ export function parseWireframePlan(value: unknown): WireframeScreen[] {
 export function buildWireframeScreens(screens: WireframeScreen[], prefix = 'wf'): SketchPrimitive[] {
   const shapes: SketchPrimitive[] = [];
   screens.forEach((screen, index) => {
-    const ox = index * 1080;
+    // One content column per topic; screens must not spill into another frame.
+    const ox = 0;
+    const oy = index * 820;
     let seq = 0;
     const id = () => `${prefix}_${index}_${seq++}`;
-    const rect = (x: number, y: number, w: number, h: number, tone: SketchPrimitive['tone'] = 'surface') => shapes.push({ type: 'rect', id: id(), x: ox + x, y, w, h, style: 'ui', tone, fill: 'solid' });
-    const text = (x: number, y: number, w: number, value: string, size = 13, tone: SketchPrimitive['tone'] = 'ink') => shapes.push({ type: 'text', id: id(), x: ox + x, y, w, text: value, size, style: 'ui', tone });
-    const line = (x: number, y: number, x2: number, y2: number) => shapes.push({ type: 'line', id: id(), x1: ox + x, y1: y, x2: ox + x2, y2, style: 'ui', tone: 'subtle' });
+    const rect = (x: number, y: number, w: number, h: number, tone: SketchPrimitive['tone'] = 'surface') => shapes.push({ type: 'rect', id: id(), x: ox + x, y: oy + y, w, h, style: 'ui', tone, fill: 'solid' });
+    const text = (x: number, y: number, w: number, value: string, size = 13, tone: SketchPrimitive['tone'] = 'ink') => shapes.push({ type: 'text', id: id(), x: ox + x, y: oy + y, w, text: value, size, style: 'ui', tone });
+    const line = (x: number, y: number, x2: number, y2: number) => shapes.push({ type: 'line', id: id(), x1: ox + x, y1: oy + y, x2: ox + x2, y2: oy + y2, style: 'ui', tone: 'subtle' });
     text(0, 0, 960, screen.title, 22);
     rect(0, 44, 960, 680);
     rect(0, 44, 960, 56, 'subtle');
@@ -58,8 +60,8 @@ export function buildWireframeScreens(screens: WireframeScreen[], prefix = 'wf')
       for (let row = 0; row < 6; row++) line(left, top + 32 + row * 74, 928, top + 32 + row * 74);
       const items = screen.sections.flatMap(s => s.items).slice(0, 8);
       items.forEach((item, i) => {
-        const x = left + (i % 5) * col + 8, y = top + 42 + Math.floor(i / 5) * 148;
-        rect(x, y, col - 16, 104, i === 0 ? 'accent' : 'subtle');
+        const x = left + (i % 5) * col + 8, y = top + 42 + Math.floor(i / 5) * 74;
+        rect(x, y, col - 16, 52, i === 0 ? 'accent' : 'subtle');
         text(x + 10, y + 12, col - 36, item, 13);
       });
     } else if (screen.layout === 'form') {

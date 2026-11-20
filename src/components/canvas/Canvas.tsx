@@ -6,6 +6,7 @@ import type { SketchPrimitive } from "@/lib/sketch-types";
 import { useRenderStyle, type Fidelity, type RenderStyle } from "@/lib/render-style";
 import { isOverridden, ParticipantBatch, phoneRoomCamera, shouldApplyParticipantRecord, shouldFitRoomOnPhone, shouldPublishChange, type ParticipantOp } from "@/lib/canvas-event-sync";
 import { toast } from "sonner";
+import { readableLabelColor } from "@/lib/canvas-ink";
 
 import "@/styles/tldraw.css";
 
@@ -197,7 +198,7 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
         // tldraw's "solid" fill is a pale tint of the ink color, so white
         // label text on an accent/danger fill disappears. Always keep labels
         // in the ink color so text stays legible on every fill.
-        labelColor: color === "white" ? "black" : color,
+        labelColor: readableLabelColor(color),
         richText: toRichText(fitsInside ? label : ""),
       },
     };
@@ -207,7 +208,7 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
         type: "text",
         x: num(shape.x, 0) + bw + 6,
         y: num(shape.y, 0) + Math.max(0, bh / 2 - 8),
-        props: { color: color === "white" ? "black" : color, size: "s", font, textAlign: "start", w: 260, scale: isUi ? 0.72 : 0.5, richText: toRichText(label), autoSize: true },
+        props: { color: readableLabelColor(color), size: "s", font, textAlign: "start", w: 260, scale: isUi ? 0.72 : 0.5, richText: toRichText(label), autoSize: true },
       } as TLShapePartial];
     }
     return [box];
@@ -274,7 +275,7 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
       y: shape.y,
       // Text tagged "surface" means "sits on a filled chip". Our fills are
       // pale tints, so render it as ink rather than invisible white.
-      props: { color: color === "white" ? "black" : color, size: textSize(shape.size), font, textAlign: shape.align === "center" ? "middle" : shape.align === "right" ? "end" : "start", w: shape.w === undefined ? 360 : shape.w / (shape.style === "ui" ? (shape.size ?? 13) / 18 : isUi ? 0.72 : 0.58), scale: shape.style === "ui" ? (shape.size ?? 13) / 18 : isUi ? 0.72 : 0.58, richText: toRichText(shape.text), autoSize: shape.w === undefined },
+      props: { color: readableLabelColor(color), size: textSize(shape.size), font, textAlign: shape.align === "center" ? "middle" : shape.align === "right" ? "end" : "start", w: shape.w === undefined ? 360 : shape.w / (shape.style === "ui" ? (shape.size ?? 13) / 18 : isUi ? 0.72 : 0.58), scale: shape.style === "ui" ? (shape.size ?? 13) / 18 : isUi ? 0.72 : 0.58, richText: toRichText(shape.text), autoSize: shape.w === undefined },
     }];
   }
   if (shape.type === "arrow") {
@@ -327,7 +328,7 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
       type: "geo",
       x: shape.x,
       y: shape.y,
-      props: { geo: shape.kind === "cloud" || shape.kind === "heart" || shape.kind === "star" ? shape.kind : shape.kind === "user" || shape.kind === "users" ? "ellipse" : "rectangle", w: size, h: size, color, fill: "none", dash, size: "s", scale: isUi ? 1 : 0.7, font, align: "middle", verticalAlign: "middle", labelColor: color === "white" ? "black" : color, richText: toRichText(showInside ? label : "") },
+      props: { geo: shape.kind === "cloud" || shape.kind === "heart" || shape.kind === "star" ? shape.kind : shape.kind === "user" || shape.kind === "users" ? "ellipse" : "rectangle", w: size, h: size, color, fill: "none", dash, size: "s", scale: isUi ? 1 : 0.7, font, align: "middle", verticalAlign: "middle", labelColor: readableLabelColor(color), richText: toRichText(showInside ? label : "") },
     }];
     if (label && !showInside && size >= 26) {
       out.push({
@@ -335,7 +336,7 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
         type: "text",
         x: shape.x + size + 6,
         y: shape.y + size / 2 - 8,
-        props: { color: color === "white" ? "black" : color, size: "s", font, textAlign: "start", w: 260, scale: isUi ? 0.72 : 0.5, richText: toRichText(label), autoSize: true },
+        props: { color: readableLabelColor(color), size: "s", font, textAlign: "start", w: 260, scale: isUi ? 0.72 : 0.5, richText: toRichText(label), autoSize: true },
       } as TLShapePartial);
     }
     return out;

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { guardExpensiveRoute } from "@/lib/room-guard.server";
+import { speechSegments } from "@/lib/speech-transcript";
 
 // Transcribes a rolling room audio chunk with speaker diarization.
 // Returns segments grouped by speaker cluster (speaker_0, speaker_1, ...).
@@ -46,25 +47,7 @@ export const Route = createFileRoute("/api/transcribe-chunk")({
           words?: Array<{ text: string; start?: number; end?: number; speaker_id?: string; type?: string }>;
         };
 
-        // Group consecutive words by speaker into segments
-        type Segment = { speaker: string; text: string; start: number; end: number };
-        const segments: Segment[] = [];
-        for (const w of data.words ?? []) {
-          if (!w.text || w.type === "spacing") continue;
-          const speaker = w.speaker_id ?? "speaker_0";
-          const last = segments[segments.length - 1];
-          if (last && last.speaker === speaker) {
-            last.text += (w.text.match(/^[.,!?;:']/) ? "" : " ") + w.text;
-            last.end = w.end ?? last.end;
-          } else {
-            segments.push({
-              speaker,
-              text: w.text,
-              start: w.start ?? 0,
-              end: w.end ?? 0,
-            });
-          }
-        }
+        const segments = speechSegments(data.words ?? []);
 
         return Response.json({ text: data.text ?? "", segments });
       },
