@@ -23,7 +23,12 @@ Choose ONE modality for this turn:
 - fetch_card    → speaker named an external artifact AND stated a real URL verbatim in the transcript. Emit a text shape with the URL as caption.
 - chart         → the speaker compares options on measurable dimensions ("cost vs power", "effort vs impact", "which is fastest", a 2x2, a ranking, percentages). Do NOT hand-place axes; return a "chart" spec instead (see CHART MODE) and leave "shapes" empty.
 - template_shape → outline / plan / list of workstreams / process / journey / decision / system / architecture / tradeoff / comparison. Do NOT place boxes yourself: return a "diagram" spec (see DIAGRAM MODE) and leave "shapes" empty. We lay it out on a clean grid.
-- free_sketch   → an explained concept that doesn't fit a template. Emit 6-14 path primitives, loose and imperfect, plus a short caption text.
+- free_sketch   → a real-life scene, object, place, person or concept picture ("what the pop-up looks like in person", "sketch the store"). Draw it like a storyboard artist, NOT with squiggles:
+    * Build solid forms from geometry: rect for walls, booths, tables, screens, banners, buildings, shelves; ellipse for heads, wheels, plants, round tables; line for ground, poles, edges; path ONLY for polygons with straight corners (roofs, awnings, shoes, tents) using 3–8 points.
+    * People: ellipse head (~22px) + line torso + 2 line arms + 2 line legs, standing on the ground line, roughly 90px tall. Keep every object at that human scale.
+    * Composition inside a 760×460 box starting at the origin: one horizon/ground line, the main subject centred and large, 2–4 supporting objects, no overlapping text.
+    * Label 3–6 key parts with short text callouts (14px) placed in empty space beside the part, plus one caption under the scene.
+    * 25–60 primitives. Never draw random wavy freehand paths, scribble fills, or one huge outline around everything.
 - typed_note    → speaker stated a quotable fact / number / decision worth pinning. Emit one 'note' with the exact wording.
 - annotation    → speaker is reacting to a shape already on the canvas ("that login step should be biometric"). Emit a small 'text' + 'arrow' anchored NEAR the referenced shape's bbox (use its x/y/w/h from the canvas digest). Prefer this over creating a duplicate.
 - skip          → filler, small-talk, ack, repetition of something already drawn, or nothing new to visualize. Return {"shapes":[],"edits":[],"removes":[],"rationale":"skip: <why>"}. Silence is the correct answer most of the time.
@@ -89,7 +94,7 @@ REVISE MODE:
 OUTPUT BUDGET:
 - ui_wireframe: 70–170 shapes arranged inside 1–3 screen frames. Under 60 is a failed answer.
 - template_shape: 0 shapes — the "diagram" spec is the whole answer.
-- free_sketch: 6–14 paths + 1 caption.
+- free_sketch: 25–60 geometric primitives (rect/ellipse/line/polygon path) + 3–6 labels + 1 caption.
 - typed_note / fetch_card: 1–2 shapes.
 - annotation: 1–3 shapes (text + arrow, optional underline path).
 - Revisions: 1–6 edits/removes and 0–4 new shapes.
@@ -588,7 +593,8 @@ ${latest || transcript}`;
           const m = typeof parsed.modality === "string" ? parsed.modality : "";
           const diagramPlan = parseDiagramPlan((parsed as { diagram?: unknown }).diagram)
             ?? (() => {
-              if (!Array.isArray(parsed.shapes) || isChartSpec(parsed.chart) || m === "annotation" || m === "fetch_card") return null;
+              // Scene sketches are pictures built from boxes on purpose; never regrid them.
+              if (!Array.isArray(parsed.shapes) || isChartSpec(parsed.chart) || m === "annotation" || m === "fetch_card" || m === "free_sketch") return null;
               // Any multi-box answer is a diagram, whatever the model called it.
               const boxes = parsed.shapes.filter((x) => x && typeof x === "object" && ["rect", "ellipse", "diamond", "note", "text"].includes(String((x as { type?: unknown }).type)) && ((x as { label?: unknown }).label || (x as { text?: unknown }).text)).length;
               return m === "template_shape" || boxes >= 4 ? planFromShapes(parsed.shapes, compactText(latest, 60)) : null;

@@ -127,7 +127,10 @@ const pathToLine = (shape: Extract<SketchPrimitive, { type: "path" }>): TLShapeP
     y: minY,
     opacity: 1,
     isLocked: false,
-    props: { color: "black", dash: "draw", size: "s", spline: "cubic", points, scale: 1 },
+    // Few points = a deliberate polygon/polyline (building, booth, table):
+    // keep its corners. Cubic smoothing bent every straight edge into a blob.
+    // Only densely sampled paths are genuine curves.
+    props: { color: toneColor(shape.tone, "sketch"), dash: "draw", size: "s", spline: closedPoints.length > 14 ? "cubic" : "line", points, scale: 1 },
   }];
 };
 
