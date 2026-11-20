@@ -20,8 +20,11 @@ export function interruptPlayback(speaking: boolean, audio: { pause(): void } | 
 }
 
 export function voiceAction(query: string): "draw" | "documents" | "recall" {
-  if (/\b(draw|wireframe|sketch|diagram|map|chart|mockup)\b/i.test(query)) return "draw";
-  if (/\b(draft|generate|write|create|update|edit|revise|change)\b.*\b(prd|document|action items|decisions|journey)\b/i.test(query)) return "documents";
+  if (/\b(draft|generate|write|create|update|edit|revise|change)\b.*\b(prd|documents?|action items|decisions|summary|notes)\b/i.test(query)) return "documents";
+  // Questions about the past go to Recall; anything visual goes to the board.
+  if (/^(what|when|who|why|did|was|were|how did|remind)\b/i.test(query) && !/\b(draw|sketch|show me)\b/i.test(query)) return "recall";
+  if (/\b(draw|wireframe|sketch|diagram|map|chart|graph|mockup|mock up|flow|flowchart|timeline|outline|visuali[sz]e|show|lay out|layout|screen|table|matrix|tree|journey|board|plot|add|put)\b/i.test(query)) return "draw";
+  if (/^(make|create|build|give me)\b/i.test(query)) return "draw";
   return "recall";
 }
 

@@ -136,7 +136,7 @@ Shape of the object:
   "unit": "<optional, e.g. %>",
   "items": [ ... per the kind above ... ]
 }
-Only place items actually named in the conversation. 3–8 items. Positions and magnitudes must reflect what people said, not guesses. If the numbers were never stated, prefer relative ordering people implied over invented precision.`;
+When people said real numbers (e.g. "Jan 120, Feb 340"), set value to the number divided by the largest one AND set "display" to the spoken number exactly ("120"); keep labels short ("Jan") without the number. Only place items actually named in the conversation. 3–8 items. Positions and magnitudes must reflect what people said, not guesses. If the numbers were never stated, prefer relative ordering people implied over invented precision.`;
 
 const WIREFRAME_SPEC = `# UI WIREFRAME MODE — NON-NEGOTIABLE, MAX FIDELITY
 When modality is ui_wireframe you are a product designer drawing REAL, PRODUCTION-READY SCREENS at high fidelity. Never a flowchart, never labelled boxes with arrows, never a process. Every primitive MUST include "style":"ui".
@@ -483,7 +483,7 @@ ${latest || transcript}`;
             body: JSON.stringify({
               model,
               response_format: { type: "json_object" },
-              ...(uiWireframeIntent ? { max_tokens: enrichPass > 0 ? 14000 : 8000 } : { max_tokens: 3000 }),
+              ...(uiWireframeIntent ? { max_tokens: enrichPass > 0 ? 14000 : 8000 } : { max_tokens: 6000 }),
               messages,
             }),
           });
@@ -522,7 +522,10 @@ ${latest || transcript}`;
         try {
           parsed = JSON.parse(content);
         } catch {
-          parsed = {};
+          // Long sketches can hit the output cap mid-shape. Keep every finished
+          // shape instead of silently drawing nothing.
+          parsed = salvageTruncatedJson(content);
+          console.warn("[cartoonist-draw] truncated model JSON; salvaged", Array.isArray(parsed.shapes) ? parsed.shapes.length : 0, "shapes");
         }
 
         const usageTotals: Usage = {
@@ -667,3 +670,23 @@ ${latest || transcript}`;
     },
   },
 });
+
+
+/** Recover the complete leading shapes from a JSON answer cut off mid-stream. */
+function salvageTruncatedJson(content: string): { shapes?: unknown; modality?: unknown; rationale?: unknown } {
+  const start = content.indexOf('"shapes"');
+  const arr = start >= 0 ? content.indexOf("[", start) : -1;
+  if (arr < 0) return {};
+  const shapes: unknown[] = [];
+  let depth = 0, objStart = -1, inStr = false, esc = false;
+  for (let i = arr + 1; i < content.length; i++) {
+    const c = content[i];
+    if (inStr) { if (esc) esc = false; else if (c === "\\") esc = true; else if (c === '"') inStr = false; continue; }
+    if (c === '"') { inStr = true; continue; }
+    if (c === "{") { if (depth === 0) objStart = i; depth++; }
+    else if (c === "}") { depth--; if (depth === 0 && objStart >= 0) { try { shapes.push(JSON.parse(content.slice(objStart, i + 1))); } catch { /* skip */ } objStart = -1; } }
+    else if (c === "]" && depth === 0) break;
+  }
+  const modality = /"modality"\s*:\s*"([a-z_]+)"/.exec(content)?.[1];
+  return { shapes, modality };
+}

@@ -27,3 +27,14 @@ test('participant speech interrupts both playback paths', () => {
   expect([paused, cancelled]).toEqual([1, 1]);
   expect(interruptPlayback(false, { pause: () => paused++ }, () => cancelled++)).toBe(false);
 });
+
+import { voiceAction as va2 } from './voice-intent.ts';
+import { test as t2, expect as e2 } from 'bun:test';
+t2('visual voice requests go to the board', () => {
+  for (const q of ['make a timeline of the launch', 'show the race day flow', 'lay out the options in a table', 'create a mind map of sponsors', 'draw the decision']) e2(va2(q)).toBe('draw');
+});
+t2('past questions go to recall, document asks to documents', () => {
+  e2(va2('what did we decide about engraving')).toBe('recall');
+  e2(va2('who owns the expo booth')).toBe('recall');
+  e2(va2('update the action items')).toBe('documents');
+});

@@ -45,6 +45,8 @@ export type ChartItem = {
   /** venn / matrix / annotation text */
   note?: string;
   tone?: SketchPrimitive["tone"];
+  /** the real number people said ("120", "$4k"); shown instead of a percentage */
+  display?: string;
 };
 
 export type ChartSpec = {
@@ -105,9 +107,14 @@ export function buildChart(spec: ChartSpec, originX = 80, originY = 80): SketchP
   const plotY = originY + 56;
   const plotW = W - pad - 24;
   const plotH = H - 56 - pad;
-  const items = (spec.items ?? []).filter(Boolean);
+  let items = (spec.items ?? []).filter(Boolean);
+  // Raw numbers (120, 900) would all clamp to full height: scale by the max and keep the spoken value.
+  const maxRaw = Math.max(0, ...items.map((it) => (typeof it.value === "number" ? Math.abs(it.value) : 0)));
+  if (maxRaw > 1 && spec.kind !== "waterfall") {
+    items = items.map((it) => typeof it.value === "number" ? { ...it, value: it.value / maxRaw, display: it.display ?? String(it.value) } : it);
+  }
   const toneAt = (i: number, item?: ChartItem) => item?.tone ?? TONES[i % TONES.length];
-  const pct = (v: number) => `${Math.round(v * 100)}${spec.unit ? ` ${spec.unit}` : ""}`;
+  const pct = (v: number, item?: ChartItem) => item?.display ? String(item.display).slice(0, 12) : `${Math.round(v * 100)}${spec.unit ? ` ${spec.unit}` : ""}`;
 
   if (spec.title) text(originX, originY + 8, spec.title, 22);
   const legend = (names: string[], x: number, y: number) => {
@@ -135,7 +142,7 @@ export function buildChart(spec: ChartSpec, originX = 80, originY = 80): SketchP
         const h = Math.max(6, v * (plotH - 16));
         const x = plotX + i * slot + (slot - barW) / 2;
         rect(x, plotY + plotH - h, barW, h, toneAt(i, item), "solid");
-        text(x, plotY + plotH - h - 20, pct(v), 11, "muted");
+        text(x, plotY + plotH - h - 20, pct(v, item), 11, "muted");
         text(x, plotY + plotH + 12, item.label, 11);
       });
       break;
@@ -154,7 +161,7 @@ export function buildChart(spec: ChartSpec, originX = 80, originY = 80): SketchP
         text(plotX, y + barH / 2 - 7, item.label, 11);
         rect(trackX, y, trackW, barH, "subtle", "none");
         rect(trackX, y, Math.max(4, v * trackW), barH, toneAt(i, item), "solid");
-        text(trackX + trackW + 8, y + barH / 2 - 7, pct(v), 11, "muted");
+        text(trackX + trackW + 8, y + barH / 2 - 7, pct(v, item), 11, "muted");
       });
       break;
     }
@@ -265,7 +272,7 @@ export function buildChart(spec: ChartSpec, originX = 80, originY = 80): SketchP
         const y = plotY + i * (rowH + 12);
         rect(x, y, w, rowH, toneAt(i, item), "solid");
         text(plotX + plotW + 12, y + rowH / 2 - 7, item.label, 11);
-        if (item.value != null) text(x + 8, y + rowH / 2 - 7, pct(clamp01(item.value)), 11, "surface");
+        if (item.value != null) text(x + 8, y + rowH / 2 - 7, pct(clamp01(item.value), item), 11, "surface");
       });
       break;
     }
