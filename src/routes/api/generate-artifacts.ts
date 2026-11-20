@@ -57,7 +57,8 @@ export const Route = createFileRoute("/api/generate-artifacts")({
           );
         }
 
-        const aiRes = await fetch(
+        const userContent = `${body.participantsBlock ? `# Participants\n\n${body.participantsBlock.slice(0, 4000)}\n\n` : ""}${body.requestedUpdate ? `Requested document update: ${body.requestedUpdate.slice(0, 1000)}\nApply this request to the relevant document, using only facts in the transcript.\n\n` : ""}Transcript:\n\n${transcript}`;
+        const callModel = () => fetch(
           "https://ai.gateway.lovable.dev/v1/chat/completions",
           {
             method: "POST",
@@ -69,49 +70,73 @@ export const Route = createFileRoute("/api/generate-artifacts")({
               model: "google/gemini-3-flash-preview",
               messages: [
                 { role: "system", content: SYSTEM_PROMPT },
-                { role: "user", content: `${body.participantsBlock ? `# Participants\n\n${body.participantsBlock.slice(0, 4000)}\n\n` : ""}${body.requestedUpdate ? `Requested document update: ${body.requestedUpdate.slice(0, 1000)}\nApply this request to the relevant document, using only facts in the transcript.\n\n` : ""}Transcript:\n\n${transcript}` },
+                { role: "user", content: userContent },
               ],
               response_format: { type: "json_object" },
             }),
           },
         );
 
-        if (!aiRes.ok) {
-          const text = await aiRes.text();
-          console.error("AI gateway error", aiRes.status, text);
-          const status = aiRes.status === 429 || aiRes.status === 402 ? aiRes.status : 500;
-          const msg =
-            aiRes.status === 429
-              ? "Rate limit hit — wait a moment and try again."
-              : aiRes.status === 402
-                ? "Out of AI credits — add credits in workspace settings."
-                : "AI gateway error";
-          return new Response(JSON.stringify({ error: msg }), {
-            status,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-
-        const aiJson = (await aiRes.json()) as {
-          choices?: Array<{ message?: { content?: string } }>;
-        };
-        const content = aiJson.choices?.[0]?.message?.content ?? "";
-
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(content);
-        } catch {
-          // Some models wrap in ```json fences; strip and retry.
-          const stripped = content.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
-          try {
-            parsed = JSON.parse(stripped);
-          } catch {
-            return new Response(
-              JSON.stringify({ error: "AI returned invalid JSON", raw: content.slice(0, 500) }),
-              { status: 502, headers: { "Content-Type": "application/json" } },
-            );
+        // Models occasionally wrap JSON in fences, add prose, or leave a
+        // trailing comma. Recover what we can before giving up.
+        const parseLoose = (raw: string): Record<string, unknown> | null => {
+          const stripped = raw.replace(/^\s*```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
+          const sliced = stripped.slice(stripped.indexOf("{"), stripped.lastIndexOf("}") + 1);
+          for (const c of [stripped, sliced, sliced.replace(/,\s*([}\]])/g, "$1")]) {
+            try {
+              const v = JSON.parse(c);
+              if (v && typeof v === "object" && !Array.isArray(v)) return v as Record<string, unknown>;
+            } catch { /* try next */ }
           }
+          return null;
+        };
+
+        let parsed: Record<string, unknown> | null = null;
+        // One retry when the reply is unusable; no timers (see AGENTS.md).
+        for (let attempt = 0; attempt < 2 && !parsed; attempt++) {
+          const aiRes = await callModel();
+          if (!aiRes.ok) {
+            const text = await aiRes.text();
+            console.error("AI gateway error", aiRes.status, text);
+            const status = aiRes.status === 429 || aiRes.status === 402 ? aiRes.status : 503;
+            const msg =
+              aiRes.status === 429
+                ? "Rate limit hit — wait a moment and try again."
+                : aiRes.status === 402
+                  ? "Out of AI credits — add credits in workspace settings."
+                  : "Documents couldn't be drafted right now. Try again in a moment.";
+            return new Response(JSON.stringify({ error: msg }), {
+              status,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          const aiJson = (await aiRes.json().catch(() => ({}))) as {
+            choices?: Array<{ message?: { content?: string } }>;
+          };
+          const content = aiJson.choices?.[0]?.message?.content ?? "";
+          parsed = parseLoose(content);
+          if (!parsed) console.warn("[generate-artifacts] unusable reply", attempt, content.slice(0, 300));
         }
+        if (!parsed) {
+          // The model's fault, not a server crash: report it as unprocessable
+          // so the room shows a calm message and keeps the previous documents.
+          return new Response(
+            JSON.stringify({ error: "Documents couldn't be drafted this time. Try again in a moment." }),
+            { status: 422, headers: { "Content-Type": "application/json" } },
+          );
+        }
+
+        // Normalise so the documents panel always gets every field.
+        const str = (v: unknown) => (typeof v === "string" ? v : "");
+        parsed = {
+          ...parsed,
+          summary: str(parsed.summary),
+          decisions: Array.isArray(parsed.decisions) ? parsed.decisions.filter((d) => typeof d === "string") : [],
+          actionItems: Array.isArray(parsed.actionItems) ? parsed.actionItems.filter((a) => a && typeof a === "object") : [],
+          prd: str(parsed.prd),
+          userJourney: str(parsed.userJourney),
+          flowMermaid: str(parsed.flowMermaid),
+        };
 
         return Response.json(parsed);
       },
