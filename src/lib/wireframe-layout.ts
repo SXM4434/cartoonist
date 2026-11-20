@@ -13,11 +13,14 @@ export function parseWireframePlan(value: unknown): WireframeScreen[] {
   if (!value || typeof value !== 'object') return [];
   // Accept {screens:[…]}, a bare screen object, or a bare array of screens.
   const v = value as Record<string, unknown>;
-  const list: unknown[] = Array.isArray(value) ? value : Array.isArray(v.screens) ? v.screens : typeof v.title === 'string' ? [v] : [];
+  const nested = Object.values(v).find(x => x && typeof x === 'object' && !Array.isArray(x) && Array.isArray((x as Record<string, unknown>).screens)) as Record<string, unknown> | undefined;
+  const titleOf = (o: Record<string, unknown>) => [o.title, o.name, o.screen, o.heading, o.label].find(x => typeof x === 'string' && x.trim()) as string | undefined;
+  const list: unknown[] = Array.isArray(value) ? value : Array.isArray(v.screens) ? v.screens : Array.isArray(v.pages) ? v.pages : nested ? nested.screens as unknown[] : titleOf(v) ? [v] : [];
   return list.slice(0, 3).flatMap((raw: unknown) => {
     if (!raw || typeof raw !== 'object') return [];
     const s = raw as Record<string, unknown>;
-    if (typeof s.title !== 'string' || !s.title.trim()) return [];
+    const title = titleOf(s);
+    if (!title) return [];
     // Items may arrive as strings or as {label|title|name} objects.
     const asLabel = (x: unknown): string => typeof x === 'string' ? x : x && typeof x === 'object' ? String((x as Record<string, unknown>).label ?? (x as Record<string, unknown>).title ?? (x as Record<string, unknown>).name ?? '') : '';
     const strings = (v: unknown, max: number) => Array.isArray(v) ? v.map(asLabel).filter(x => !!x.trim()).slice(0, max).map(x => x.slice(0, 45)) : [];
@@ -29,7 +32,7 @@ export function parseWireframePlan(value: unknown): WireframeScreen[] {
       const title = asLabel(section.title ?? section.name ?? section.label);
       return title ? [{ title: title.slice(0, 40), items: strings(section.items ?? section.fields ?? section.rows, 4) }] : [];
     }) : [];
-    return [{ title: s.title.slice(0, 40), layout, navigation: strings(s.navigation, 5), primaryAction: typeof s.primaryAction === 'string' ? s.primaryAction.slice(0, 26) : '', sections }];
+    return [{ title: title.slice(0, 40), layout, navigation: strings(s.navigation, 5), primaryAction: typeof s.primaryAction === 'string' ? s.primaryAction.slice(0, 26) : '', sections }];
   });
 }
 

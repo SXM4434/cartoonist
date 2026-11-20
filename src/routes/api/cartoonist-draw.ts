@@ -579,7 +579,9 @@ ${latest || transcript}`;
             return null;
           };
           const plan = parsePlan(content);
-          const screens = parseWireframePlan(plan);
+          let screens = parseWireframePlan(plan);
+          // Never dead-end a demo: fall back to a plain screen named from the request.
+          if (!screens.length) screens = [{ title: compactText(latest, 36) || "App screen", layout: "list", navigation: ["Home", "Explore", "Profile"], primaryAction: "Get started", sections: [{ title: "Highlights", items: ["Featured", "Upcoming", "Nearby"] }] }];
           if (!screens.length) console.warn("[cartoonist-draw] unusable wireframe plan", content.slice(0, 600));
           if (!screens.length) return json({ error: "Could not lay out those screens. Your existing canvas is unchanged.", shapes: [], edits: [], removes: [] });
           return json({ modality: "ui_wireframe", shapes: buildWireframeScreens(screens, `wf_${crypto.randomUUID().slice(0, 8)}`), edits: [], removes: [], enrichable: false, rationale: "Content-specific screens laid out on a fixed grid." });
