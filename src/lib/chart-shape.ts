@@ -105,9 +105,10 @@ export function buildChart(spec: ChartSpec, originX = 80, originY = 80): SketchP
   const H = 440;
   const pad = 56;
   const plotX = originX + pad;
-  const plotY = originY + 56;
+  // Room under the title for the y-axis label so the two never touch.
+  const plotY = originY + 76;
   const plotW = W - pad - 24;
-  const plotH = H - 56 - pad;
+  const plotH = H - 76 - pad;
   let items = (spec.items ?? []).filter(Boolean);
   // Raw numbers (120, 900) would all clamp to full height: scale by the max and keep the spoken value.
   const maxRaw = Math.max(0, ...items.map((it) => (typeof it.value === "number" ? Math.abs(it.value) : 0)));
@@ -115,6 +116,12 @@ export function buildChart(spec: ChartSpec, originX = 80, originY = 80): SketchP
     items = items.map((it) => typeof it.value === "number" ? { ...it, value: it.value / maxRaw, display: it.display ?? String(it.value) } : it);
   }
   const toneAt = (i: number, item?: ChartItem) => item?.tone ?? TONES[i % TONES.length];
+  // Single-series marks (bars, milestones) are one quantity, not categories:
+  // neutral ink by default, Bic Blue only for an emphasised item. Red is
+  // reserved for destructive meaning, so a model's "danger" never paints a
+  // healthy number red.
+  const markTone = (item?: ChartItem): SketchPrimitive["tone"] =>
+    item?.tone === "accent" || item?.tone === "danger" || item?.tone === "success" ? "accent" : "ink";
   const pct = (v: number, item?: ChartItem) => item?.display ? String(item.display).slice(0, 12) : `${Math.round(v * 100)}${spec.unit ? ` ${spec.unit}` : ""}`;
 
   if (spec.title) text(originX, originY + 8, spec.title, 22);
@@ -142,9 +149,10 @@ export function buildChart(spec: ChartSpec, originX = 80, originY = 80): SketchP
         const v = clamp01(item.value ?? item.y ?? 0.5);
         const h = Math.max(6, v * (plotH - 16));
         const x = plotX + i * slot + (slot - barW) / 2;
-        rect(x, plotY + plotH - h, barW, h, toneAt(i, item), "solid");
-        text(x, plotY + plotH - h - 20, pct(v, item), 11, "muted");
-        text(x, plotY + plotH + 12, item.label, 11);
+        rect(x, plotY + plotH - h, barW, h, markTone(item), "solid");
+        // Value and label are centred on their bar, clamped to the slot.
+        s.push({ type: "text", id: id("t"), x: x + barW / 2 - slot / 2 + 4, y: plotY + plotH - h - 22, w: slot - 8, text: pct(v, item), size: 13, align: "center", tone: "ink", style: "ui" });
+        s.push({ type: "text", id: id("t"), x: x + barW / 2 - slot / 2 + 4, y: plotY + plotH + 10, w: slot - 8, text: String(item.label).slice(0, 24), size: 13, align: "center", tone: "ink", style: "ui" });
       });
       break;
     }
@@ -161,7 +169,7 @@ export function buildChart(spec: ChartSpec, originX = 80, originY = 80): SketchP
         const y = plotY + i * slot + (slot - barH) / 2;
         text(plotX, y + barH / 2 - 7, item.label, 11);
         rect(trackX, y, trackW, barH, "subtle", "none");
-        rect(trackX, y, Math.max(4, v * trackW), barH, toneAt(i, item), "solid");
+        rect(trackX, y, Math.max(4, v * trackW), barH, markTone(item), "solid");
         text(trackX + trackW + 8, y + barH / 2 - 7, pct(v, item), 11, "muted");
       });
       break;
@@ -291,7 +299,7 @@ export function buildChart(spec: ChartSpec, originX = 80, originY = 80): SketchP
       list.forEach((item, i) => {
         const t = item.start != null ? clamp01(item.start) : list.length > 1 ? i / (list.length - 1) : 0.5;
         const px = tX + 40 + t * (tW - 80);
-        rect(px - 7, y - 7, 14, 14, toneAt(i, item), "solid");
+        rect(px - 7, y - 7, 14, 14, markTone(item), "solid");
         const up = i % 2 === 0;
         line(px, up ? y - 12 : y + 12, px, up ? y - 52 : y + 52, "muted", true);
         const label = String(item.label).slice(0, 44);

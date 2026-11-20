@@ -70,4 +70,18 @@ describe('diagram layout', () => {
   test('rejects empty plans', () => {
     expect(parseDiagramPlan({ kind: 'flow', nodes: [] })).toBe(null);
   });
+  test('org chart draws reports as a third level under their lead, without overlaps', () => {
+    const plan = parseDiagramPlan({ kind: 'hierarchy', title: 'Team', nodes: [
+      { id: 'ceo', label: 'Sebastian', detail: ['CEO'] }, { id: 'cto', label: 'Ana', detail: ['CTO'] }, { id: 'des', label: 'Leo', detail: ['Design'] },
+      { id: 'e1', label: 'Engineer 1', detail: [] }, { id: 'e2', label: 'Engineer 2', detail: [] } ],
+      edges: [{ from: 'ceo', to: 'cto' }, { from: 'ceo', to: 'des' }, { from: 'cto', to: 'e1' }, { from: 'cto', to: 'e2' }] });
+    const shapes = buildDiagram(plan);
+    const rs = rects(shapes);
+    expect(rs).toHaveLength(5);
+    for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) expect(overlap(rs[i], rs[j])).toBe(false);
+    const ana = shapes.find((s) => s.type === 'text' && s.text === 'Ana');
+    const eng = shapes.find((s) => s.type === 'text' && s.text === 'Engineer 1');
+    expect(eng.y).toBeGreaterThan(ana.y + 40);
+  });
 });
+

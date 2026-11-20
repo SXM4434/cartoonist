@@ -169,9 +169,13 @@ export function buildDiagram(plan: DiagramPlan, prefix = "dg"): SketchPrimitive[
     const root = plan.nodes.find((x) => !incoming.has(x.id) && plan.edges.some((e) => e.from === x.id)) ?? plan.nodes[0];
     const childIds = plan.edges.filter((e) => e.from === root.id).map((e) => e.to);
     const children = childIds.length ? plan.nodes.filter((x) => childIds.includes(x.id)) : plan.nodes.filter((x) => x !== root);
-    // Grandchildren fold into their parent's bullets so the tree stays two levels and legible.
-    const folded = children.map((c) => {
-      const kids = plan.edges.filter((e) => e.from === c.id).map((e) => plan.nodes.find((x) => x.id === e.to)?.label).filter((x): x is string => !!x);
+    const kidsOf = (c: DiagramNode) => plan.edges.filter((e) => e.from === c.id).map((e) => plan.nodes.find((x) => x.id === e.to)).filter((x): x is DiagramNode => !!x && x.id !== root.id);
+    // Org charts with up to four branches draw a real third level: each
+    // branch's reports hang beneath it on an indented spine. Otherwise
+    // grandchildren fold into their parent's bullets so the tree stays legible.
+    const thirdLevel = plan.kind === "hierarchy" && children.length <= 4 && children.some((c) => kidsOf(c).length > 0);
+    const folded = thirdLevel ? children : children.map((c) => {
+      const kids = kidsOf(c).map((k) => k.label);
       return { ...c, detail: [...c.detail, ...kids].slice(0, 4) };
     });
     const rootW = 360;
@@ -193,6 +197,25 @@ export function buildDiagram(plan: DiagramPlan, prefix = "dg"): SketchPrimitive[
       if (label) text(cx + 8, busY + 6, c.w / 2 - 12, fitText(label, c.w / 2 - 12, 11, 1), 11, "muted");
     });
     cards.forEach((c) => drawCard(c));
+    if (thirdLevel) {
+      cards.forEach((c) => {
+        const kids = kidsOf(c.node).slice(0, 4);
+        if (!kids.length) return;
+        const spineX = c.x + 24;
+        const kx = c.x + 48, kw = c.w - 48;
+        let y = c.y + c.h + 24;
+        let lastMid = y;
+        kids.forEach((k) => {
+          const node = { ...k, detail: k.detail.slice(0, 1), emphasis: false };
+          const kc: Card = { node, x: kx, y, w: kw, h: cardHeight(node, kw, 1) };
+          drawCard(kc, 1);
+          lastMid = y + kc.h / 2;
+          out.push({ type: "line", id: id("l"), x1: spineX, y1: lastMid, x2: kx, y2: lastMid, style: "ui", tone: "ink" });
+          y += kc.h + 16;
+        });
+        out.push({ type: "line", id: id("l"), x1: spineX, y1: c.y + c.h, x2: spineX, y2: lastMid, style: "ui", tone: "ink" });
+      });
+    }
     return out;
   }
 

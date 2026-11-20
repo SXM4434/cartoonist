@@ -8,7 +8,7 @@ import { authorizedDrawingExamples } from "@/lib/drawing-feedback.server";
 
 const SCREEN_PLAN_PROMPT = `You design product wireframes from a meeting transcript. Return ONLY JSON:
 {"screens":[{"title":"Screen title","layout":"calendar|list|detail|form","navigation":["label"],"primaryAction":"verb","sections":[{"title":"section","items":["short relevant label"]}]}]}
-Choose 1–3 screens that represent the actual product discussed. A travel-agent itinerary with conflict resolution needs a calendar, itinerary details, and a conflict-resolution view—not a generic project dashboard. Use calendar for schedules, list for collections, detail for an inspector or conversation, form for entry. Each screen has up to 4 sections with up to 4 short items each. Use meaningful labels from the transcript. Do not invent brands, people, prices, metrics, dates or activity. Never return coordinates, primitives, charts, placeholder dashboards, or unrelated tasks. Prioritize the user's latest request with the conversation as context.`;
+Choose 1–3 screens that represent the actual product discussed. A travel-agent itinerary with conflict resolution needs a calendar, itinerary details, and a conflict-resolution view—not a generic project dashboard. Use calendar for schedules, list for collections, detail for dashboards, overviews, inspectors or conversations (each section becomes a card), form for entry (items are field labels). Each screen has 2–4 sections with 3–4 short items each. Items are the concrete things a user sees on that screen — rows, fields, cards, buttons (e.g. a category list shows the category names "Groceries", "Rent", "Transport"; a total shows "Spent this month"). Never use an item that just names a component ("Category list", "Monthly total"). Use meaningful labels from the transcript. Do not invent brands, people, prices, metrics, dates or activity. Never return coordinates, primitives, charts, placeholder dashboards, or unrelated tasks. Prioritize the user's latest request with the conversation as context.`;
 
 const SYSTEM_PROMPT = `You are CARTOONIST — a senior visual thinker and sketch artist embedded in a live meeting. You CONTEXTUALIZE the conversation and then DRAW on a shared whiteboard the way a designer would. Whatever best expresses what people are saying — pick the medium that fits, don't default to one shape.
 
@@ -100,7 +100,7 @@ OUTPUT BUDGET:
 # DIAGRAM MODE (template_shape)
 Return "diagram": {"kind":"outline|flow|hierarchy|cycle|compare|decision","title":"short title from the conversation","subtitle":"optional one-line framing","nodes":[{"id":"a","label":"short heading","detail":["short point","short point"],"emphasis":false}],"edges":[{"from":"a","to":"b","label":"optional"}]}
 - outline: parallel workstreams / sections / pillars (3–8 nodes, each with 2–4 detail points). Use for "outline", "plan", "breakdown", "how we go through X".
-- flow: ordered steps; edges chain the steps in order. compare: options side by side, details are the attributes. hierarchy: one root with children (edges root→child). decision: root question, edges labelled with the answer ("Yes", "Budget > $50k"). cycle: 3–6 repeating stages.
+- flow: ordered steps; edges chain the steps in order. compare: options side by side, details are the attributes. hierarchy: one root with children (edges root→child); a child's own reports are separate nodes with edges child→report (e.g. CTO → each engineer), never bullets. Put a person's name in label and their role in detail. decision: root question, edges labelled with the answer ("Yes", "Budget > $50k"). cycle: 3–6 repeating stages.
 - Labels <= 6 words, details <= 12 words. Use the speakers' own terms. Mark at most one node "emphasis": true (the decision or focus). Never return coordinates.
 
 # CHART MODE (v1 P2.5 — full library)
@@ -565,9 +565,17 @@ ${latest || transcript}`;
         }
 
         if (uiWireframeIntent) {
-          let plan: unknown;
-          try { plan = JSON.parse(content); } catch { plan = null; }
+          // Tolerate code fences or stray prose around the JSON plan.
+          const parsePlan = (raw: string): unknown => {
+            const stripped = raw.replace(/^\s*```(?:json)?/i, "").replace(/```\s*$/, "").trim();
+            for (const candidate of [stripped, stripped.slice(stripped.indexOf("{"), stripped.lastIndexOf("}") + 1)]) {
+              try { return JSON.parse(candidate); } catch { /* try next */ }
+            }
+            return null;
+          };
+          const plan = parsePlan(content);
           const screens = parseWireframePlan(plan);
+          if (!screens.length) console.warn("[cartoonist-draw] unusable wireframe plan", content.slice(0, 600));
           if (!screens.length) return json({ error: "Could not lay out those screens. Your existing canvas is unchanged.", shapes: [], edits: [], removes: [] });
           return json({ modality: "ui_wireframe", shapes: buildWireframeScreens(screens, `wf_${crypto.randomUUID().slice(0, 8)}`), edits: [], removes: [], enrichable: false, rationale: "Content-specific screens laid out on a fixed grid." });
         }

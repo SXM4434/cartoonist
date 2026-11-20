@@ -878,7 +878,7 @@ export function Canvas({
               }}
               title={`${r.relation} — click to see linked thread`}
               className="cartoonist-relation-chip"
-              style={{ left: r.x - 10, top: r.y - 12, pointerEvents: "auto" }}
+              style={{ left: r.x + 10, top: r.y - 26, pointerEvents: "auto" }}
             >
               ↗
             </button>
