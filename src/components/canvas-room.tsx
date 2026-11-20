@@ -53,7 +53,7 @@ import { useWebReferences } from "@/hooks/use-web-references";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ReferencesPanel } from "./room/references-panel";
 import { referenceCanvasEvent, referenceToShape, type WebReference } from "@/lib/web-reference";
-import { wakeFromStream, voiceAction, pauseNudge, interruptPlayback } from "@/lib/voice-intent";
+import { wakeFromStream, voiceAction, pauseNudge, interruptPlayback, splitDrawRequests } from "@/lib/voice-intent";
 
 import { canvasEventsAppend, canvasEventsClear, canvasEventsForRoom, roomGet, rpc, type CanvasEventRow } from "@/lib/db-rpc";
 import { applyCanvasEvent, CanvasEventWriter, mergeHydrated, mergeReplayRows, ParticipantBatch, shouldSeedCanvas, type ParticipantOp } from "@/lib/canvas-event-sync";
@@ -1137,7 +1137,15 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       // Typed requests that arrived mid-drawing run next, in order.
       const next = pendingAsksRef.current.shift();
       setQueuedAsks(pendingAsksRef.current.length);
-      if (next) window.setTimeout(() => { void requestDrawRef.current?.(next); }, 0);
+      if (next) window.setTimeout(() => {
+        void requestDrawRef.current?.(next).then((ok) => {
+          // Another request grabbed the lane first: keep this one at the front.
+          if (!ok && drawInFlightRef.current) {
+            pendingAsksRef.current.unshift(next);
+            setQueuedAsks(pendingAsksRef.current.length);
+          }
+        });
+      }, 0);
     }
   }, [roomId, speech.finals, summarizeCanvas, sessionCtx, participants, handQueue, threads, playMediatorLine, ensureFrame, publishCanvasRows, eventsReady]);
 
@@ -1167,7 +1175,15 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
         lastSentLenRef.current = endLength;
         return;
       }
-      void requestDraw(newText).then((handled) => {
+      // Several asks spoken in one stretch each get their own drawing, in order.
+      const asks = splitDrawRequests(newText);
+      if (asks.length > 1) {
+        pendingAsksRef.current.push(...asks.slice(1));
+        setQueuedAsks(pendingAsksRef.current.length);
+      }
+      const run = requestDrawRef.current;
+      if (!run) return;
+      void run(asks[0] ?? newText).then((handled) => {
         if (handled) {
           lastSentLenRef.current = Math.max(lastSentLenRef.current, endLength);
         } else if (drawInFlightRef.current) {
@@ -1181,7 +1197,10 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
       clearTimeout(timer);
       if (retryTimerRef.current) { window.clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
     };
-  }, [requestDraw, speech.finals, speech.listening, inputMode, thinking, retryTick]);
+    // requestDraw is read through a ref: its identity changes whenever people,
+    // threads or presence update, which kept resetting this 600ms timer and
+    // starved spoken requests for many seconds (or dropped them entirely).
+  }, [speech.finals, speech.listening, inputMode, thinking, retryTick]);
 
   // v2.P6 — publish a per-shape relations map to Canvas so it can render
   // persistent ↗ chips glued to any shape belonging to a reopened / related

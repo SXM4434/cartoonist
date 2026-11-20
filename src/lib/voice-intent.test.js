@@ -38,3 +38,25 @@ t2('past questions go to recall, document asks to documents', () => {
   e2(va2('who owns the expo booth')).toBe('recall');
   e2(va2('update the action items')).toBe('documents');
 });
+
+import { splitDrawRequests } from './voice-intent.ts';
+import { test as t3, expect as e3 } from 'bun:test';
+t3('several spoken asks in one pause become separate drawing requests', () => {
+  const parts = splitDrawRequests('Can I say again? Yeah. Um, so can you make a outline for a New Balance marathon activation? Give us a few steps and And also, can you draw a physical drawing of the activation, please?');
+  e3(parts.length).toBe(2);
+  e3(parts[0]).toContain('outline');
+  e3(parts[1]).toContain('physical drawing');
+});
+t3('one verb with a list of different drawings splits per drawing', () => {
+  const parts = splitDrawRequests('Build me an outline, a drawing of the booth and a mobile app screen for the activation');
+  e3(parts.length).toBe(3);
+  e3(parts[2]).toMatch(/^build a mobile app screen/i);
+});
+t3('a single request or plain talk stays whole', () => {
+  e3(splitDrawRequests('Draw the race day flow from check-in to finish')).toEqual(['Draw the race day flow from check-in to finish']);
+  e3(splitDrawRequests('We are going to build an activation for the marathon.')).toEqual(['We are going to build an activation for the marathon.']);
+});
+t3('"and then a mobile app screen" becomes its own drawing', () => {
+  const parts = splitDrawRequests('Can you draw a physical drawing of the activation, please, and then a mobile app screen for runners');
+  e3(parts).toEqual(['Can you draw a physical drawing of the activation, please', 'make a mobile app screen for runners']);
+});

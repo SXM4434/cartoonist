@@ -11,3 +11,4 @@
 - Canvas labels resolve pale surface/outline colors to dark ink through a shared helper, so text remains readable without changing shape fills.- Screen-mockup intent is decided from the latest request only (`draw-intent`), never the whole transcript, so one earlier "wireframe" cannot turn later flows, timelines or comparisons into screens.
 - Typed drawing requests made while a drawing is in progress are queued and run in order (enrichment passes yield to them), so no request is silently dropped.
 - Small marks join the frame's last row when it has room; larger drawings start a new row, so notes group side by side instead of laddering down the board.
+- Spoken requests are split into ordered drawing asks (`splitDrawRequests`) and the speech debounce reads the draw function through a ref, so busy-lane speech is neither starved by re-renders nor merged into one drawing.
