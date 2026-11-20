@@ -8,7 +8,7 @@ import type { TLRecord, TLShape } from "tldraw";
 import type { ParticipantWithHumanLayer } from "@/lib/canvas-types";
 import type { FreehandStroke, SketchPrimitive } from "@/lib/sketch-types";
 import { bboxOf, placeBatchClear } from "@/lib/sketch-layout";
-import { frameTitlePrimitives, placeInFrame, frameIndexOfShape, topicKey, type StoryFrame } from "@/lib/storyboard";
+import { frameTitlePrimitives, placeInFrame, frameIndexOfShape, topicKey, frameOriginX, FRAME_PAD, FRAME_CONTENT_TOP, type StoryFrame } from "@/lib/storyboard";
 
 import { EMPTY_HUMAN_LAYER, type HumanLayer } from "@/lib/human-layer";
 import { useSpeech } from "@/lib/use-speech";
@@ -825,20 +825,17 @@ function CanvasRoomInner({ roomId }: { roomId: string }) {
     if (shapes.length > 0) { seededRef.current = true; return; }
     seededRef.current = true;
     const seeded: SketchPrimitive[] = [];
-    seeded.push({ type: "text", id: "seed_title", x: 60, y: 60, text: sessionCtx.name || "Session", size: 18, weight: "bold" });
-    seeded.push({ type: "line", id: "seed_underline_1", x1: 60, y1: 104, x2: 215, y2: 108 });
-    seeded.push({ type: "line", id: "seed_underline_2", x1: 214, y1: 108, x2: 385, y2: 104 });
-    seeded.push({ type: "line", id: "seed_underline_3", x1: 382, y1: 104, x2: 515, y2: 107 });
+    // The seed sits in frame 1's content column: the frame title already
+    // names the session, so a second hand-drawn title only collided with it.
+    const seedX = frameOriginX(0) + FRAME_PAD;
     seeded.push({
-      type: "note", id: "seed_goal", x: 60, y: 132, w: 315, h: 118,
+      type: "note", id: "seed_goal", x: seedX, y: FRAME_CONTENT_TOP, w: 178, h: 116,
       text: `GOAL\n${sessionCtx.goal}`, color: "yellow",
     });
-    sessionCtx.outputs.slice(0, 6).forEach((o, i) => {
-      const col = i % 3;
-      const row = Math.floor(i / 3);
+    sessionCtx.outputs.slice(0, 5).forEach((o, i) => {
       seeded.push({
         type: "note", id: `seed_out_${i}`,
-        x: 410 + col * 176, y: 132 + row * 140, w: 156, h: 118,
+        x: seedX + (i + 1) * 202, y: FRAME_CONTENT_TOP, w: 178, h: 116,
         text: o, color: i % 2 === 0 ? "blue" : "green",
       });
     });

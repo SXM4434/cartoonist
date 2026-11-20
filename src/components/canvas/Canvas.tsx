@@ -7,14 +7,17 @@ import { useRenderStyle, type Fidelity, type RenderStyle } from "@/lib/render-st
 import { isOverridden, ParticipantBatch, phoneRoomCamera, shouldApplyParticipantRecord, shouldFitRoomOnPhone, shouldPublishChange, type ParticipantOp } from "@/lib/canvas-event-sync";
 import { toast } from "sonner";
 import { readableLabelColor } from "@/lib/canvas-ink";
+import { wrapLines } from "@/lib/text-fit";
 
 import "@/styles/tldraw.css";
 
 type RichText = { type: "doc"; content: Array<{ type: "paragraph"; content?: Array<{ type: "text"; text: string }> }> };
 
+// Blank text must be a truly empty doc. A single space counts as a label to
+// tldraw: boxes grew to label height and arrows broke around an empty label.
 const toRichText = (text: string): RichText => ({
   type: "doc",
-  content: (text || " ").split("\n").map((line) => ({
+  content: (text?.trim() ? text : "").split("\n").map((line) => ({
     type: "paragraph",
     content: line ? [{ type: "text", text: line }] : undefined,
   })),
@@ -48,28 +51,28 @@ type CanvasTone = NonNullable<SketchPrimitive["tone"]>;
 // Color depends on fidelity: lo-fi is a pure graphite sketch, mid keeps one
 // accent plus state colors, hi-fi uses the full semantic palette.
 const toneColor = (tone: CanvasTone | undefined, fidelity: Fidelity) => {
-  if (fidelity === "lofi") return tone === "surface" ? "white" : tone === "muted" || tone === "subtle" ? "grey" : "black";
+  // "surface" is a paper card: ink outline + opaque paper fill. Never the
+  // "white" palette entry — its stroke vanishes on the copy-paper canvas.
+  if (fidelity === "lofi") return tone === "muted" || tone === "subtle" ? "grey" : "black";
   if (tone === "accent") return "blue";
   if (tone === "muted") return "grey";
   if (tone === "success") return fidelity === "hifi" ? "green" : "black";
   if (tone === "danger") return "red";
   if (tone === "subtle") return "grey";
-  if (tone === "surface") return "white";
   return "black";
 };
 
-// Never "semi" — tldraw's semi fill is the translucent wash that made shapes
-// look like ghosts. Fills are either fully opaque or absent.
-const toneFill = (shape: SketchPrimitive, fidelity: Fidelity): "none" | "solid" => {
+// "semi" in tldraw paints the opaque page colour, which is exactly a paper card.
+const toneFill = (shape: SketchPrimitive, fidelity: Fidelity): "none" | "solid" | "semi" => {
   if (fidelity === "lofi") return "none";
   const tone = shape.tone;
   const explicit = "fill" in shape && Boolean(shape.fill);
   if (fidelity === "mid") {
-    return explicit || tone === "accent" || tone === "danger" || tone === "success" ? "solid" : "none";
+    if (!(explicit || tone === "accent" || tone === "danger" || tone === "success")) return "none";
+    return tone === "surface" ? "semi" : "solid";
   }
-  return explicit || tone === "surface" || tone === "subtle" || tone === "accent" || tone === "success" || tone === "danger"
-    ? "solid"
-    : "none";
+  if (!(explicit || tone === "surface" || tone === "subtle" || tone === "accent" || tone === "success" || tone === "danger")) return "none";
+  return tone === "surface" || tone === undefined || tone === "ink" ? "semi" : "solid";
 };
 
 
@@ -177,7 +180,11 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
       typeof v === "number" && Number.isFinite(v) ? v : fallback;
     const bw = Math.max(2, num(shape.w, 160));
     const bh = Math.max(2, num(shape.h, 60));
-    const fitsInside = label.length > 0 && bw >= label.length * 6.2 + 14 && bh >= 22;
+    // Labels wrap by word inside the box when every line fits; tldraw's label
+    // font is 18px * scale.
+    const labelPx = 18 * (shape.style === "ui" || isUi ? 1 : 0.72);
+    const labelLines = label ? wrapLines(label, bw - 20, labelPx) : [];
+    const fitsInside = label.length > 0 && bh >= 22 && labelLines.length * labelPx * 1.35 + 12 <= bh;
     const box: TLShapePartial = {
       ...common,
       type: "geo",
@@ -206,9 +213,10 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
       return [box, {
         id: shapeId(`${shape.id}-lbl`),
         type: "text",
-        x: num(shape.x, 0) + bw + 6,
-        y: num(shape.y, 0) + Math.max(0, bh / 2 - 8),
-        props: { color: readableLabelColor(color), size: "s", font, textAlign: "start", w: 260, scale: isUi ? 0.72 : 0.5, richText: toRichText(label), autoSize: true },
+        // Under the box, same width: a label beside the box ran into neighbours.
+        x: num(shape.x, 0),
+        y: num(shape.y, 0) + bh + 6,
+        props: { color: readableLabelColor(color), size: "s", font, textAlign: "start", w: Math.max(120, bw) / 0.72, scale: 0.72, richText: toRichText(label), autoSize: false },
       } as TLShapePartial];
     }
     return [box];
@@ -275,7 +283,7 @@ function toTldrawShapes(shape: SketchPrimitive, rs: RenderStyle): TLShapePartial
       y: shape.y,
       // Text tagged "surface" means "sits on a filled chip". Our fills are
       // pale tints, so render it as ink rather than invisible white.
-      props: { color: readableLabelColor(color), size: textSize(shape.size), font, textAlign: shape.align === "center" ? "middle" : shape.align === "right" ? "end" : "start", w: shape.w === undefined ? 360 : shape.w / (shape.style === "ui" ? (shape.size ?? 13) / 18 : isUi ? 0.72 : 0.58), scale: shape.style === "ui" ? (shape.size ?? 13) / 18 : isUi ? 0.72 : 0.58, richText: toRichText(shape.text), autoSize: shape.w === undefined },
+      props: { color: readableLabelColor(color), size: textSize(shape.size), font, textAlign: shape.align === "center" ? "middle" : shape.align === "right" ? "end" : "start", w: shape.w === undefined ? 360 : shape.w / (shape.style === "ui" ? (shape.size ?? 13) / 18 : 0.72), scale: shape.style === "ui" ? (shape.size ?? 13) / 18 : 0.72, richText: toRichText(shape.text), autoSize: shape.w === undefined },
     }];
   }
   if (shape.type === "arrow") {

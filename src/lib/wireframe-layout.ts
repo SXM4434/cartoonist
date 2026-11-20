@@ -1,4 +1,5 @@
 import type { SketchPrimitive } from './sketch-types';
+import { fitText } from './text-fit';
 
 export type WireframeScreen = {
   title: string;
@@ -36,7 +37,8 @@ export function buildWireframeScreens(screens: WireframeScreen[], prefix = 'wf')
     let seq = 0;
     const id = () => `${prefix}_${index}_${seq++}`;
     const rect = (x: number, y: number, w: number, h: number, tone: SketchPrimitive['tone'] = 'surface') => shapes.push({ type: 'rect', id: id(), x: ox + x, y: oy + y, w, h, style: 'ui', tone, fill: 'solid' });
-    const text = (x: number, y: number, w: number, value: string, size = 13, tone: SketchPrimitive['tone'] = 'ink') => shapes.push({ type: 'text', id: id(), x: ox + x, y: oy + y, w, text: value, size, style: 'ui', tone });
+    // Every label is clamped to its slot so nothing wraps out of a row or button.
+    const text = (x: number, y: number, w: number, value: string, size = 13, tone: SketchPrimitive['tone'] = 'ink', lines = 1) => shapes.push({ type: 'text', id: id(), x: ox + x, y: oy + y, w, text: fitText(value, w, size, lines), size, style: 'ui', tone });
     const line = (x: number, y: number, x2: number, y2: number) => shapes.push({ type: 'line', id: id(), x1: ox + x, y1: oy + y, x2: ox + x2, y2: oy + y2, style: 'ui', tone: 'subtle' });
     text(0, 0, 960, screen.title, 22);
     rect(0, 44, 960, 680);
@@ -62,7 +64,7 @@ export function buildWireframeScreens(screens: WireframeScreen[], prefix = 'wf')
       items.forEach((item, i) => {
         const x = left + (i % 5) * col + 8, y = top + 42 + Math.floor(i / 5) * 74;
         rect(x, y, col - 16, 52, i === 0 ? 'accent' : 'subtle');
-        text(x + 10, y + 12, col - 36, item, 13);
+        text(x + 10, y + 8, col - 36, item, 13, 'ink', 2);
       });
     } else if (screen.layout === 'form') {
       screen.sections.flatMap(s => s.items).slice(0, 6).forEach((label, i) => {

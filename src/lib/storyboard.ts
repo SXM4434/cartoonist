@@ -48,6 +48,7 @@ export function frameTitlePrimitives(index: number, topic: string, elapsedMs: nu
       size: 22,
       weight: "bold",
       align: "left",
+      style: "ui",
     } as SketchPrimitive,
     {
       type: "line",
@@ -56,6 +57,7 @@ export function frameTitlePrimitives(index: number, topic: string, elapsedMs: nu
       y1: FRAME_TOP + 52,
       x2: frameOriginX(index) + FRAME_W - FRAME_PAD,
       y2: FRAME_TOP + 52,
+      style: "ui",
     } as SketchPrimitive,
   ];
 }

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { guardExpensiveRoute } from "@/lib/room-guard.server";
 import { buildChart, isChartSpec } from "@/lib/chart-shape";
 import { buildWireframeScreens, parseWireframePlan } from "@/lib/wireframe-layout";
+import { buildDiagram, parseDiagramPlan, planFromShapes } from "@/lib/diagram-layout";
 import { authorizedDrawingExamples } from "@/lib/drawing-feedback.server";
 
 const SCREEN_PLAN_PROMPT = `You design product wireframes from a meeting transcript. Return ONLY JSON:
@@ -20,7 +21,7 @@ Choose ONE modality for this turn:
 - ui_wireframe  → the speaker asks for a wireframe, mockup, UI screen, interface, app page, dashboard, editor, website, or high-fidelity product concept. Draw ACTUAL SCREENS, never a flowchart describing the screens.
 - fetch_card    → speaker named an external artifact AND stated a real URL verbatim in the transcript. Emit a text shape with the URL as caption.
 - chart         → the speaker compares options on measurable dimensions ("cost vs power", "effort vs impact", "which is fastest", a 2x2, a ranking, percentages). Do NOT hand-place axes; return a "chart" spec instead (see CHART MODE) and leave "shapes" empty.
-- template_shape → process / journey / decision / system / architecture / tradeoff. Emit boxes/arrows/diamonds/notes/icons.
+- template_shape → outline / plan / list of workstreams / process / journey / decision / system / architecture / tradeoff / comparison. Do NOT place boxes yourself: return a "diagram" spec (see DIAGRAM MODE) and leave "shapes" empty. We lay it out on a clean grid.
 - free_sketch   → an explained concept that doesn't fit a template. Emit 6-14 path primitives, loose and imperfect, plus a short caption text.
 - typed_note    → speaker stated a quotable fact / number / decision worth pinning. Emit one 'note' with the exact wording.
 - annotation    → speaker is reacting to a shape already on the canvas ("that login step should be biometric"). Emit a small 'text' + 'arrow' anchored NEAR the referenced shape's bbox (use its x/y/w/h from the canvas digest). Prefer this over creating a duplicate.
@@ -86,7 +87,7 @@ REVISE MODE:
 
 OUTPUT BUDGET:
 - ui_wireframe: 70–170 shapes arranged inside 1–3 screen frames. Under 60 is a failed answer.
-- template_shape: 5–12 shapes.
+- template_shape: 0 shapes — the "diagram" spec is the whole answer.
 - free_sketch: 6–14 paths + 1 caption.
 - typed_note / fetch_card: 1–2 shapes.
 - annotation: 1–3 shapes (text + arrow, optional underline path).
@@ -94,6 +95,12 @@ OUTPUT BUDGET:
 - Every text/note must have meaningful text drawn from the conversation. Never invent facts, numbers, or names not in the transcript.
 - chart: 0 shapes — the "chart" spec is the whole answer.
 - Return ONLY valid JSON, no commentary.
+
+# DIAGRAM MODE (template_shape)
+Return "diagram": {"kind":"outline|flow|hierarchy|cycle|compare|decision","title":"short title from the conversation","subtitle":"optional one-line framing","nodes":[{"id":"a","label":"short heading","detail":["short point","short point"],"emphasis":false}],"edges":[{"from":"a","to":"b","label":"optional"}]}
+- outline: parallel workstreams / sections / pillars (3–8 nodes, each with 2–4 detail points). Use for "outline", "plan", "breakdown", "how we go through X".
+- flow: ordered steps; edges chain the steps in order. compare: options side by side, details are the attributes. hierarchy: one root with children (edges root→child). decision: root question, edges labelled with the answer ("Yes", "Budget > $50k"). cycle: 3–6 repeating stages.
+- Labels <= 6 words, details <= 12 words. Use the speakers' own terms. Mark at most one node "emphasis": true (the decision or focus). Never return coordinates.
 
 # CHART MODE (v1 P2.5 — full library)
 When modality is "chart", set "shapes": [] and return a "chart" object. We lay out axes, gridlines, wedges, bars, and labels for you. Pick the kind that actually matches what people said — do NOT default to bar or quadrant.
@@ -563,6 +570,21 @@ ${latest || transcript}`;
         }
 
 
+        let laidOutDiagram: ReturnType<typeof buildDiagram> | null = null;
+        // Diagrams: the model plans content, the layout engine owns geometry.
+        // If the model hand-placed boxes anyway, keep its words and re-lay them out.
+        {
+          const m = typeof parsed.modality === "string" ? parsed.modality : "";
+          const diagramPlan = parseDiagramPlan((parsed as { diagram?: unknown }).diagram)
+            ?? (() => {
+              if (!Array.isArray(parsed.shapes) || isChartSpec(parsed.chart) || m === "annotation" || m === "fetch_card") return null;
+              // Any multi-box answer is a diagram, whatever the model called it.
+              const boxes = parsed.shapes.filter((x) => x && typeof x === "object" && ["rect", "ellipse", "diamond", "note", "text"].includes(String((x as { type?: unknown }).type)) && ((x as { label?: unknown }).label || (x as { text?: unknown }).text)).length;
+              return m === "template_shape" || boxes >= 4 ? planFromShapes(parsed.shapes, compactText(latest, 60)) : null;
+            })();
+          laidOutDiagram = diagramPlan ? buildDiagram(diagramPlan, `dg_${crypto.randomUUID().slice(0, 8)}`) : null;
+        }
+
         // v2.P1.5 anti-fabrication guard: strip fetch_card shapes whose
         // caption URL never appeared verbatim in the transcript. Model is
         // told never to invent URLs, but a belt on the suspenders.
@@ -625,8 +647,8 @@ ${latest || transcript}`;
         const relation = threadRef && allowedRel.has(rawRel) ? rawRel : null;
 
         return json({
-          modality,
-          shapes: cleanShapes,
+          modality: laidOutDiagram ? "template_shape" : modality,
+          shapes: laidOutDiagram ?? cleanShapes,
           edits: enrichPass > 0 ? [] : Array.isArray(parsed.edits) ? parsed.edits : [],
           removes: enrichPass > 0 ? [] : Array.isArray(parsed.removes) ? parsed.removes : [],
           speak: enrichPass > 0 ? "" : safeSpeak,
@@ -637,7 +659,7 @@ ${latest || transcript}`;
           enrichPass,
           maxPasses,
           maxFidelity,
-          enrichable: uiWireframeIntent && enrichPass < maxPasses && cleanShapes.length > 0,
+          enrichable: !laidOutDiagram && uiWireframeIntent && enrichPass < maxPasses && cleanShapes.length > 0,
 
           rationale: typeof parsed.rationale === "string" ? parsed.rationale : "",
         });
